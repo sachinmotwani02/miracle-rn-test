@@ -129,11 +129,13 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
   letterforms are close but glyph widths differ by a few points, which shows most in the tab row.
 - **Glass effects.** The Figma uses Glass + inner-shadow effects on the carousel cards, the Deposit
   button and the nav bar. On iOS 26 these render as native **Liquid Glass** through
-  `expo-glass-effect` (`src/components/Glass.tsx`; the Deposit pill is `isInteractive`, the nav bar
-  uses the dark scheme with a `#22242A` tint). Older iOS, Android and web fall back to the flat
-  approximations (92% white fill + hairline, white gradient, 80% dark bar with iOS blur). Liquid Glass
-  views stop rendering at opacity 0, which is why the tab switch remounts the list and replays the
-  card entrance instead of cross-fading it.
+  `expo-glass-effect` (`src/components/Glass.tsx`). Apple's `regular` material is far brighter and
+  more frosted than the design, so the Deposit pill and the nav bar use `clear` glass with the
+  Figma's own colour laid on top (the white gradient, and `#22242A` at 72% as a dim layer), and the
+  active lens is clear glass in the dark scheme tinted with the design's 12% white. Only the
+  carousel cards use `regular` glass, matching their 92% white body. Older iOS, Android and web fall
+  back to the flat approximations. Liquid Glass views stop rendering at opacity 0, which is why the
+  tab switch remounts the list and replays the card entrance instead of cross-fading it.
 - **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
 

@@ -49,20 +49,20 @@ interface ButtonProps {
 const SLOT_W = 56;
 
 /**
- * Tint laid over the bar's dark Liquid Glass. Keep it light: the dark scheme already
- * supplies the darkness, and anything above ~30% alpha hides the refraction.
+ * Dim layer over the bar's clear Liquid Glass. The Figma bar is #22242A at 80%;
+ * the glass itself adds a little darkness, so 72% lands on the same tone.
  */
-const NAV_GLASS_TINT = 'rgba(34,36,42,0.18)';
+const NAV_GLASS_DIM = 'rgba(34,36,42,0.72)';
 
 /**
  * The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection.
- * Apple's `clear` material in the *dark* scheme (a light-scheme lens over a dark
- * bar samples the bar and turns milky) with a trace of white so the capsule is
- * just visible: mostly a refractive rim and a slightly lifted interior.
+ * Apple's `clear` material in the dark scheme (a light-scheme lens over a dark bar
+ * samples the bar and turns milky) tinted with the Figma's 12% white, so it reads
+ * as the design's capsule plus a refractive rim rather than a frosted blob.
  */
 const PILL_GLASS_STYLE = 'clear' as const;
 const PILL_GLASS_SCHEME = 'dark' as const;
-const PILL_GLASS_TINT = 'rgba(255,255,255,0.08)';
+const PILL_GLASS_TINT = 'rgba(255,255,255,0.12)';
 const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
@@ -197,7 +197,13 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
         <View style={styles.bar}>
           {/* Bar material and the active lens are siblings: Liquid Glass must not be nested. */}
           {liquidGlassAvailable ? (
-            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" colorScheme="dark" tintColor={NAV_GLASS_TINT} />
+            <>
+              {/* Clear glass for the refraction, then the Figma's #22242A 80% as a dim layer on top
+                  (Apple's recommended pairing for clear glass). `regular` glass alone renders a
+                  mid-grey bar, far lighter than the design. */}
+              <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="clear" colorScheme="dark" />
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: NAV_GLASS_DIM }]} />
+            </>
           ) : (
             <>
               {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}

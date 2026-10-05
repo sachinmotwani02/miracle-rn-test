@@ -4,19 +4,21 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, layout, text } from '../theme';
-import { Glass, liquidGlassAvailable } from './Glass';
+import { Glass } from './Glass';
 
 /**
- * Glass pill. iOS 26 renders Apple's Liquid Glass (interactive, so it answers the
- * touch itself); elsewhere the Figma fill is approximated with a white gradient
- * (32% -> 64% at 32% layer opacity) and a faint border.
+ * Glass pill. The Figma fill is a white gradient (32% -> 64%) at 32% layer opacity,
+ * which is barely there over the sky. On iOS 26 that gradient sits on Apple's
+ * `clear` Liquid Glass (interactive, so the material answers the touch itself);
+ * `regular` glass renders far too bright and frosted for this design. Elsewhere the
+ * gradient alone, with a faint border, stands in.
  */
 export function DepositButton({ onPress }: { onPress?: () => void }) {
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <Animated.View style={style}>
-      <Glass style={styles.button} tint="rgba(255,255,255,0.18)" interactive fallback={styles.fallback}>
+      <Glass style={styles.button} effect="clear" interactive fallback={styles.fallback}>
         <Pressable
           accessibilityRole="button"
           onPressIn={() => {
@@ -31,9 +33,7 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
           }}
           style={styles.press}
         >
-          {!liquidGlassAvailable && (
-            <LinearGradient colors={[colors.depositTop, colors.depositBottom]} style={StyleSheet.absoluteFill} />
-          )}
+          <LinearGradient colors={[colors.depositTop, colors.depositBottom]} style={StyleSheet.absoluteFill} />
           <Text style={[text.button, styles.label]} maxFontSizeMultiplier={1.2}>
             Deposit
           </Text>
