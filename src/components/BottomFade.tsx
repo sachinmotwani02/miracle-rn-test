@@ -15,7 +15,7 @@ if (Platform.OS === 'ios') {
 export function BottomFade({ height }: { height: number }) {
   if (Platform.OS === 'ios' && MaskedView) {
     return (
-      <View pointerEvents="none" style={[styles.wrap, { height }]}>
+      <View style={[styles.wrap, { height }]}>
         <MaskedView
           style={StyleSheet.absoluteFill}
           maskElement={
@@ -34,7 +34,6 @@ export function BottomFade({ height }: { height: number }) {
   }
   return (
     <LinearGradient
-      pointerEvents="none"
       colors={['rgba(245,245,245,0)', 'rgba(245,245,245,0.85)', colors.bottomFade]}
       locations={[0, 0.55, 1]}
       style={[styles.wrap, { height }]}
@@ -42,4 +41,4 @@ export function BottomFade({ height }: { height: number }) {
   );
 }
 
-const styles = StyleSheet.create({ wrap: { position: 'absolute', left: 0, right: 0, bottom: 0 } });
+const styles = StyleSheet.create({ wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, pointerEvents: 'none' } });

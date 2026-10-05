@@ -32,10 +32,10 @@ const styles = StyleSheet.create({
     paddingLeft: layout.headerPadding,
     paddingRight: layout.screenPadding,
   },
-  left: { gap: 3 },
-  label: { color: colors.white },
+  left: { flex: 1, paddingRight: 12 },
+  label: { color: colors.white, marginBottom: 6 },
   value: { color: colors.white, height: 28 },
-  delta: { marginTop: 1 },
+  delta: { marginTop: 2 },
   deltaStrong: { color: colors.white },
   deltaMuted: { color: colors.white70 },
 });

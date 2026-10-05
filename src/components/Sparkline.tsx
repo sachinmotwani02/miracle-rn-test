@@ -41,7 +41,7 @@ function Marker({ x, y, progress, at }: { x: number; y: number; progress: Shared
     };
   });
   return (
-    <Animated.View pointerEvents="none" style={[styles.marker, { left: x - MARKER_R, top: y - 2 * MARKER_R - 3 }, style]}>
+    <Animated.View style={[styles.marker, { left: x - MARKER_R, top: y - 2 * MARKER_R - 3 }, style]}>
       <Svg width={MARKER_R * 2} height={MARKER_R * 2}>
         <Circle cx={MARKER_R} cy={MARKER_R} r={MARKER_R} fill={colors.sparkline} />
         <Path
@@ -101,12 +101,19 @@ export const Sparkline = React.memo(function Sparkline({
       {markers.map(i => (
         <Marker key={i} x={geo.points[i].x} y={geo.points[i].y} progress={progress} at={(i / (geo.points.length - 1)) * 0.9} />
       ))}
-      {last && <Animated.View pointerEvents="none" style={[styles.end, { left: last.x - END_R, top: last.y - END_R }, endStyle]} />}
+      {last && <Animated.View style={[styles.end, { left: last.x - END_R, top: last.y - END_R }, endStyle]} />}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  marker: { position: 'absolute', width: MARKER_R * 2, height: MARKER_R * 2 },
-  end: { position: 'absolute', width: END_R * 2, height: END_R * 2, borderRadius: END_R, backgroundColor: colors.sparkline },
+  marker: { position: 'absolute', width: MARKER_R * 2, height: MARKER_R * 2, pointerEvents: 'none' },
+  end: {
+    position: 'absolute',
+    width: END_R * 2,
+    height: END_R * 2,
+    borderRadius: END_R,
+    backgroundColor: colors.sparkline,
+    pointerEvents: 'none',
+  },
 });

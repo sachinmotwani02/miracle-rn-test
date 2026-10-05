@@ -73,7 +73,7 @@ function NavButton({ index, active, onPress, children, bloom, label }: ButtonPro
       onPress={() => onPress(index)}
       hitSlop={6}
     >
-      {bloom && <Animated.View pointerEvents="none" style={[styles.bloom, bloomStyle]} />}
+      {bloom && <Animated.View style={[styles.bloom, bloomStyle]} />}
       <Animated.View style={iconStyle}>{children}</Animated.View>
     </Pressable>
   );
@@ -170,7 +170,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
   const bottom = Math.max(insets.bottom, 16) + layout.nav.bottomGap;
 
   return (
-    <Animated.View pointerEvents="box-none" style={[styles.wrap, { bottom }, barStyle]}>
+    <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
       <View style={styles.shadow}>
         <View style={styles.bar}>
           {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
@@ -180,7 +180,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
               { backgroundColor: Platform.OS === 'ios' ? colors.navBar : colors.navBarAndroid },
             ]}
           />
-          <Animated.View pointerEvents="none" style={[styles.pill, pillStyle]} />
+          <Animated.View style={[styles.pill, pillStyle]} />
           <View style={styles.slots}>
             <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
               <HomeIcon />
@@ -207,14 +207,10 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', pointerEvents: 'box-none' },
   shadow: {
     borderRadius: layout.nav.height / 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.18)',
   },
   bar: {
     width: layout.nav.width,
@@ -230,8 +226,9 @@ const styles = StyleSheet.create({
     height: layout.nav.pill,
     borderRadius: layout.nav.pill / 2,
     backgroundColor: colors.navPill,
+    pointerEvents: 'none',
   },
   slots: { flex: 1, flexDirection: 'row', paddingHorizontal: layout.nav.padding },
   slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  bloom: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white },
+  bloom: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, pointerEvents: 'none' },
 });

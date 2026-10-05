@@ -16,12 +16,12 @@ export function SkyBackground({ scrollY }: { scrollY: SharedValue<number> }) {
     transform: [{ translateY: -Math.max(scrollY.value, 0) * 0.3 }],
   }));
   return (
-    <Animated.View pointerEvents="none" style={[styles.wrap, { width, height }, style]}>
+    <Animated.View style={[styles.wrap, { width, height }, style]}>
       <Image source={SKY} style={{ width, height }} contentFit="fill" transition={0} />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', top: 0, left: 0, backgroundColor: colors.feedBg },
+  wrap: { position: 'absolute', top: 0, left: 0, backgroundColor: colors.feedBg, pointerEvents: 'none' },
 });

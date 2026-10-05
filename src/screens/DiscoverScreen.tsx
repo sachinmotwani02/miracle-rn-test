@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { FlashList, ListRenderItem } from '@shopify/flash-list';
+import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import Animated, { FadeIn, FadeOut, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -16,6 +16,12 @@ import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
 
 const ENTRANCE_COUNT = 5;
+
+// Reanimated's wrapper intercepts the worklet scroll handler and attaches it to
+// the underlying scroll view, so scroll-linked animations never touch the JS thread.
+const AnimatedFlashList = Animated.createAnimatedComponent(
+  FlashList as unknown as React.ComponentClass<FlashListProps<FeedItem>>,
+) as unknown as React.ComponentType<FlashListProps<FeedItem> & { onScroll?: unknown }>;
 
 export function DiscoverScreen() {
   const insets = useSafeAreaInsets();
@@ -76,7 +82,7 @@ export function DiscoverScreen() {
         <TopTradesCarousel trades={topTrades} />
         <View style={{ height: 24 }} />
         <FeedTabs active={tab} onChange={onTab} />
-        <View style={{ height: 17 }} />
+        <View style={{ height: 16 }} />
       </View>
     ),
     [insets.top, tab, onTab],
@@ -89,7 +95,7 @@ export function DiscoverScreen() {
       <StatusBar style="light" />
       <SkyBackground scrollY={scrollY} />
       <Animated.View key={tab} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)} style={styles.list}>
-        <FlashList
+        <AnimatedFlashList
           data={items}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -98,7 +104,6 @@ export function DiscoverScreen() {
           ItemSeparatorComponent={Separator}
           contentContainerStyle={{ paddingBottom: navClearance }}
           showsVerticalScrollIndicator={false}
-          renderScrollComponent={Animated.ScrollView as never}
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           drawDistance={height}

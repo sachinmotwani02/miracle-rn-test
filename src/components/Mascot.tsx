@@ -36,7 +36,6 @@ export function Mascot({ look, blink, scale = 1 }: Props) {
       {EYES.map((e, i) => (
         <Animated.View
           key={i}
-          pointerEvents="none"
           style={[
             styles.eye,
             {
@@ -54,4 +53,4 @@ export function Mascot({ look, blink, scale = 1 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({ eye: { position: 'absolute', backgroundColor: colors.eye } });
+const styles = StyleSheet.create({ eye: { position: 'absolute', backgroundColor: colors.eye, pointerEvents: 'none' } });
