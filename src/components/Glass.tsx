@@ -16,16 +16,18 @@ interface Props {
   scheme?: 'light' | 'dark';
   /** Native touch highlight on the glass itself. */
   interactive?: boolean;
+  /** Apple's `clear` material is far more transparent than `regular`. */
+  effect?: 'regular' | 'clear';
   /** Extra style applied only when native glass is unavailable (solid fill, border). */
   fallback?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 }
 
 /** Figma "Glass" effect: native Liquid Glass on iOS 26, approximated fill elsewhere. */
-export function Glass({ style, tint, scheme = 'light', interactive = false, fallback, children }: Props) {
+export function Glass({ style, tint, scheme = 'light', interactive = false, effect = 'regular', fallback, children }: Props) {
   if (liquidGlassAvailable) {
     return (
-      <GlassView style={style} glassEffectStyle="regular" tintColor={tint} colorScheme={scheme} isInteractive={interactive}>
+      <GlassView style={style} glassEffectStyle={effect} tintColor={tint} colorScheme={scheme} isInteractive={interactive}>
         {children}
       </GlassView>
     );
