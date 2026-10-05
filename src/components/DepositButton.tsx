@@ -16,7 +16,7 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <Animated.View style={style}>
-      <Glass style={styles.button} effect="clear" tint="rgba(255,255,255,0.08)" interactive fallback={styles.fallback}>
+      <Glass style={styles.button} tint="rgba(255,255,255,0.18)" interactive fallback={styles.fallback}>
         <Pressable
           accessibilityRole="button"
           onPressIn={() => {

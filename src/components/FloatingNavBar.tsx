@@ -49,15 +49,16 @@ interface ButtonProps {
 const SLOT_W = 56;
 
 /**
- * Both the bar and the lens use Apple's `clear` glass, the most transparent
- * material, with only a whisper of tint. Raise these alphas if the white icons
- * lose contrast over bright content on a device (Apple suggests a dim layer
- * behind clear glass for exactly that reason).
+ * Tint laid over the bar's dark Liquid Glass. Keep it light: the dark scheme already
+ * supplies the darkness, and anything above ~30% alpha hides the refraction.
  */
-const NAV_GLASS_STYLE = 'clear' as const;
-const NAV_GLASS_TINT = 'rgba(34,36,42,0.10)';
+const NAV_GLASS_TINT = 'rgba(34,36,42,0.18)';
 
-/** The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection. */
+/**
+ * The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection.
+ * It uses Apple's `clear` material (almost transparent) with a whisper of white.
+ */
+const PILL_GLASS_STYLE = 'clear' as const;
 const PILL_GLASS_TINT = 'rgba(255,255,255,0.06)';
 const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
@@ -193,7 +194,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
         <View style={styles.bar}>
           {/* Bar material and the active lens are siblings: Liquid Glass must not be nested. */}
           {liquidGlassAvailable ? (
-            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle={NAV_GLASS_STYLE} colorScheme="dark" tintColor={NAV_GLASS_TINT} />
+            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" colorScheme="dark" tintColor={NAV_GLASS_TINT} />
           ) : (
             <>
               {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
@@ -203,7 +204,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
           {liquidGlassAvailable ? (
             <AnimatedGlassView
               style={[styles.pill, pillStyle]}
-              glassEffectStyle={NAV_GLASS_STYLE}
+              glassEffectStyle={PILL_GLASS_STYLE}
               colorScheme="light"
               tintColor={PILL_GLASS_TINT}
               isInteractive
