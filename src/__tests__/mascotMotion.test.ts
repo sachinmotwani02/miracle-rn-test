@@ -1,4 +1,42 @@
-import { BREATH, breathCurve, clamp, dizzyOffset, randomBetween, wrap01 } from '../utils/mascotMotion';
+import { BREATH, TURN, breathCurve, clamp, dizzyOffset, randomBetween, turnPose, wrap01 } from '../utils/mascotMotion';
+
+describe('turnPose', () => {
+  // The ghost's face sits a little right of the cloud's centre.
+  const face = 0.1;
+
+  it('faces the viewer at rest and after a full turn', () => {
+    for (const deg of [0, 360, 720]) {
+      const pose = turnPose(deg, face);
+      expect(pose.width).toBeCloseTo(1, 6);
+      expect(pose.faceX).toBeCloseTo(face, 6);
+      expect(pose.faceScale).toBeGreaterThan(0.99);
+    }
+  });
+
+  it('narrows to its depth side-on instead of collapsing like a flat card', () => {
+    expect(turnPose(90, face).width).toBeCloseTo(TURN.depth, 6);
+    for (let deg = 0; deg <= 360; deg += 5) {
+      expect(turnPose(deg, face).width).toBeGreaterThanOrEqual(TURN.depth - 1e-9);
+    }
+  });
+
+  it('slides the face around the side and hides it while facing away', () => {
+    expect(turnPose(45, face).faceX).toBeGreaterThan(turnPose(0, face).faceX);
+    expect(turnPose(45, face).faceScale).toBeLessThan(turnPose(0, face).faceScale);
+    for (let deg = 95; deg <= 265; deg += 5) {
+      expect(turnPose(deg, face).faceScale).toBe(0);
+    }
+    expect(turnPose(315, face).faceX).toBeLessThan(face);
+    expect(turnPose(315, face).faceScale).toBeGreaterThan(0.5);
+  });
+
+  it('keeps the face inside the silhouette', () => {
+    for (let deg = 0; deg <= 360; deg += 1) {
+      const pose = turnPose(deg, face);
+      if (pose.faceScale > 0) expect(Math.abs(pose.faceX)).toBeLessThanOrEqual(pose.width + 1e-9);
+    }
+  });
+});
 
 describe('breathCurve', () => {
   const exhaleEnd = BREATH.inhale + BREATH.exhale;

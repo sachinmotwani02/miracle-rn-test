@@ -16,7 +16,7 @@ import Animated, {
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { haptic } from '../utils/haptics';
-import { BREATH, breathCurve, clamp, dizzyOffset, randomBetween } from '../utils/mascotMotion';
+import { BREATH, breathCurve, clamp, dizzyOffset, randomBetween, turnPose } from '../utils/mascotMotion';
 
 const ART = require('../../assets/mascot_body.png');
 
@@ -25,10 +25,10 @@ const W = 34;
 const H = 40;
 /** The halo ends at y 8.5 and the cloud starts at 9.2, so one raster splits into two layers here. */
 const SPLIT = 8.8;
-/** Centre of the cloud: the pivot for the turn, the squash and the halo's lag. */
+/** Centre of the cloud (it spans x 2.4 to 31.6): the pivot for the squash and the turn. */
 const PIVOT_Y = 23.5;
 const RIG_PIVOT = PIVOT_Y - H / 2;
-const HALO_PIVOT = PIVOT_Y - SPLIT / 2;
+const BODY_HALF_W = 14.6;
 
 // Eyes: 4.2 x 6.6 ovals tilted -8deg, drawn as 6.6 circles squeezed on X so they stay true ellipses.
 const EYE = 6.6;
@@ -37,6 +37,21 @@ const EYES = [
   { cx: 15.7, cy: 20.8 },
   { cx: 21.4, cy: 19.9 },
 ];
+/**
+ * The eyes ride on a face patch centred between them, which slides around the cloud and
+ * foreshortens as the ghost turns about its vertical axis.
+ */
+const FACE_X = 18.55;
+const FACE_Y = 20.35;
+const FACE_W = 16;
+const FACE_H = 12;
+const FACE_LEFT = FACE_X - FACE_W / 2;
+const FACE_TOP = FACE_Y - SPLIT - FACE_H / 2;
+const FACE_OFFSET = (FACE_X - W / 2) / BODY_HALF_W;
+const FRONT = turnPose(0, FACE_OFFSET);
+/** The head follows the eyes a little: degrees of turn at full tab glance and full idle gaze. */
+const HEAD_FOLLOW_LOOK = 12;
+const HEAD_FOLLOW_GAZE = 6;
 /** Gaze travel at full deflection, pt. */
 const GAZE_X = 2.2;
 const GAZE_Y = 1.4;
@@ -55,11 +70,12 @@ const DRIFT_BACK = { stiffness: 220, damping: 20, mass: 1 };
 const BOB = { stiffness: 260, damping: 12, mass: 1 };
 const PRESS = { stiffness: 500, damping: 26, mass: 1 };
 const RELAX = { stiffness: 300, damping: 18, mass: 1 };
-const SPIN = { stiffness: 70, damping: 11, mass: 1 };
-/** Softer than SPIN: the halo trails the turn and overshoots a little more. */
-const HALO_SPIN = { stiffness: 55, damping: 8.5, mass: 1 };
+const SPIN = { stiffness: 55, damping: 10, mass: 1 };
 const LAND = { stiffness: 170, damping: 11, mass: 1 };
 const SETTLE = { stiffness: 300, damping: 12, mass: 1 };
+/** Loose springs: the halo floats a beat behind the cloud and jiggles back into place. */
+const HALO_SETTLE = { stiffness: 120, damping: 7, mass: 1 };
+const HALO_WOBBLE = { stiffness: 140, damping: 5, mass: 1 };
 
 /** How long one turn's choreography runs; idle blinks and glances wait for it. */
 const TURN_MS = 1400;
@@ -168,8 +184,9 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const bob = useSharedValue(0);
   const lift = useSharedValue(0);
   const squash = useSharedValue(1);
-  const spin = useSharedValue(0); // degrees; every turn adds 360
-  const haloSpin = useSharedValue(0);
+  const spin = useSharedValue(0); // turn about the vertical axis, degrees; every tap adds 360
+  const haloLift = useSharedValue(0); // pt, relative to the cloud
+  const haloTilt = useSharedValue(0); // degrees
 
   const busy = useRef(false);
   useIdleFace(!reduceMotion, busy, blink, gazeX, gazeY);
@@ -223,12 +240,12 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     if (reduceMotion) return;
     busy.current = true;
     haptic('light');
-    // Wind-up: squash, eyes wide, and lean back against the turn unless one is playing.
+    // Wind-up: squash, eyes wide, and turn a little the other way unless a turn is playing.
     squash.value = withSpring(0.88, PRESS);
     wide.value = withTiming(1, { duration: 120 });
     gazeX.value = withSpring(0, DART);
     gazeY.value = withSpring(0, DART);
-    if (queued.current === 0) spin.value = withSpring(target.current - 12, PRESS);
+    if (queued.current === 0) spin.value = withSpring(target.current - 15, PRESS);
   };
 
   // On a quick tap Pressability fires onPress first and holds onPressOut back to 130 ms.
@@ -254,11 +271,18 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     queued.current += 1;
     target.current += 360;
     const to = target.current;
-    // The turn: a spring that overshoots and wobbles back; the halo's softer spring trails it.
+    // The turn, about the vertical axis: a spring that overshoots and swings back to face us.
     spin.value = withSpring(to, SPIN);
-    haloSpin.value = withSpring(to, HALO_SPIN);
     // Float up during the fast part, then land on a soft bounce.
     lift.value = withSequence(withTiming(-7, { duration: 240, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
+    // The halo is a ring around that axis, so it does not turn: it lags the take-off, floats
+    // on past the top, and jiggles back into place after the landing.
+    haloLift.value = withSequence(
+      withTiming(1, { duration: 100 }),
+      withTiming(-3, { duration: 320, easing: Easing.inOut(Easing.quad) }),
+      withSpring(0, HALO_SETTLE),
+    );
+    haloTilt.value = withSequence(withDelay(400, withTiming(-5, { duration: 90 })), withSpring(0, HALO_WOBBLE));
     // Stretch on take-off, squash on landing.
     squash.value = withSequence(
       withTiming(1.08, { duration: 110, easing: Easing.out(Easing.quad) }),
@@ -278,7 +302,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
     clearTurnTimers();
-    schedule(430, () => haptic('soft'));
+    schedule(450, () => haptic('soft'));
     schedule(TURN_MS, () => {
       queued.current = 0;
       busy.current = false;
@@ -288,7 +312,6 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const rigStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: lift.value + bob.value + RIG_PIVOT },
-      { rotate: `${spin.value}deg` },
       { scaleX: 1 + (1 - squash.value) * 0.7 },
       { scaleY: squash.value },
       { translateY: -RIG_PIVOT },
@@ -298,11 +321,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const haloStyle = useAnimatedStyle(() => {
     const b = breathCurve(phase.value - BREATH.haloLag) * depth.value * (1 + BREATH.exertedDepth * exertion.value);
     return {
-      transform: [
-        { translateY: HALO_PIVOT },
-        { rotate: `${haloSpin.value - spin.value}deg` },
-        { translateY: -HALO_PIVOT - BREATH.haloRise * b },
-      ],
+      transform: [{ translateY: haloLift.value - BREATH.haloRise * b }, { rotate: `${haloTilt.value}deg` }],
     };
   });
 
@@ -319,6 +338,23 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     const x = look.value + gazeX.value * (1 - Math.min(1, Math.abs(look.value))) + swirl.x;
     return { x: clamp(x, -1, 1), y: clamp(gazeY.value + swirl.y, -1, 1) };
   });
+
+  // How far the ghost has turned about its vertical axis; the head also follows the eyes a little.
+  const pose = useDerivedValue(() =>
+    turnPose(spin.value + HEAD_FOLLOW_LOOK * look.value + HEAD_FOLLOW_GAZE * gazeX.value, FACE_OFFSET),
+  );
+
+  // Side-on the cloud is narrower (it has depth), it never collapses to a flat card's edge.
+  const cloudStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: pose.value.width }] }));
+
+  // The face slides around the side, foreshortens, and is hidden while the ghost faces away.
+  const faceStyle = useAnimatedStyle(() => ({
+    opacity: clamp(pose.value.faceScale * 6, 0, 1),
+    transform: [
+      { translateX: (pose.value.faceX - FRONT.faceX) * BODY_HALF_W },
+      { scaleX: pose.value.faceScale / FRONT.faceScale },
+    ],
+  }));
 
   const socketStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: gaze.value.x * GAZE_X }, { translateY: gaze.value.y * GAZE_Y }, { rotate: '-8deg' }],
@@ -356,15 +392,22 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
           <Image source={ART} style={styles.art} contentFit="contain" transition={0} />
         </Animated.View>
         <Animated.View style={[styles.body, bodyStyle]}>
-          <Image source={ART} style={[styles.art, styles.artBody]} contentFit="contain" transition={0} />
-          {EYES.map((e, i) => (
-            <Animated.View key={i} style={[styles.socket, { left: e.cx - EYE / 2, top: e.cy - SPLIT - EYE / 2 }, socketStyle]}>
-              <Animated.View style={[styles.ball, ballStyle]}>
-                <Animated.View style={[styles.cheek, cheekStyle]} />
-                <Animated.View style={[styles.light, lightStyle]} />
+          <Animated.View style={[styles.cloud, cloudStyle]}>
+            <Image source={ART} style={[styles.art, styles.artBody]} contentFit="contain" transition={0} />
+          </Animated.View>
+          <Animated.View style={[styles.face, faceStyle]}>
+            {EYES.map((e, i) => (
+              <Animated.View
+                key={i}
+                style={[styles.socket, { left: e.cx - EYE / 2 - FACE_LEFT, top: e.cy - SPLIT - EYE / 2 - FACE_TOP }, socketStyle]}
+              >
+                <Animated.View style={[styles.ball, ballStyle]}>
+                  <Animated.View style={[styles.cheek, cheekStyle]} />
+                  <Animated.View style={[styles.light, lightStyle]} />
+                </Animated.View>
               </Animated.View>
-            </Animated.View>
-          ))}
+            ))}
+          </Animated.View>
         </Animated.View>
       </Animated.View>
     </Pressable>
@@ -376,8 +419,10 @@ const styles = StyleSheet.create({
   rig: { width: W, height: H },
   halo: { position: 'absolute', left: 0, top: 0, width: W, height: SPLIT, overflow: 'hidden' },
   body: { position: 'absolute', left: 0, top: SPLIT, width: W, height: H - SPLIT, overflow: 'hidden' },
+  cloud: { position: 'absolute', left: 0, top: 0, width: W, height: H - SPLIT },
   art: { position: 'absolute', left: 0, top: 0, width: W, height: H },
   artBody: { top: -SPLIT },
+  face: { position: 'absolute', left: FACE_LEFT, top: FACE_TOP, width: FACE_W, height: FACE_H, pointerEvents: 'none' },
   socket: { position: 'absolute', width: EYE, height: EYE, pointerEvents: 'none' },
   ball: { width: EYE, height: EYE, borderRadius: EYE / 2, overflow: 'hidden', backgroundColor: colors.eye },
   cheek: {
