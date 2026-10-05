@@ -47,6 +47,13 @@ interface ButtonProps {
 /** Each slot is absolutely positioned on the icon centres measured from the Figma. */
 const SLOT_W = 56;
 
+/**
+ * Tint laid over the dark Liquid Glass. Keep it light: the dark scheme already
+ * supplies the darkness, and anything above ~30% alpha hides the refraction and
+ * makes the bar read as a flat fill. Raise/lower this to taste on a device.
+ */
+const NAV_GLASS_TINT = 'rgba(34,36,42,0.18)';
+
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
   const pressed = useSharedValue(0);
   const bloomT = useSharedValue(1);
@@ -176,7 +183,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
   return (
     <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
       <View style={styles.shadow}>
-        <Glass style={styles.bar} scheme="dark" tint="rgba(34,36,42,0.55)" fallback={styles.barFallback}>
+        <Glass style={styles.bar} scheme="dark" tint={NAV_GLASS_TINT} fallback={styles.barFallback}>
           {!liquidGlassAvailable && Platform.OS === 'ios' ? (
             <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
           ) : null}
