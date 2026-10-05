@@ -4,7 +4,7 @@ import Animated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 
-const SKY = require('../../assets/sky@2x.png');
+const SKY = require('../../assets/sky.png');
 const SKY_W = 393;
 const SKY_H = 504;
 
