@@ -17,8 +17,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
 import { Mascot } from './Mascot';
-import { GlassView } from 'expo-glass-effect';
-import { liquidGlassAvailable } from './Glass';
 
 export const NAV_ITEMS = ['home', 'explore', 'mascot', 'stats', 'profile'] as const;
 const MASCOT_INDEX = 2;
@@ -48,22 +46,6 @@ interface ButtonProps {
 /** Each slot is absolutely positioned on the icon centres measured from the Figma. */
 const SLOT_W = 56;
 
-/**
- * Dim layer over the bar's clear Liquid Glass. The Figma bar is #22242A at 80%;
- * the glass itself adds a little darkness, so 72% lands on the same tone.
- */
-const NAV_GLASS_DIM = 'rgba(34,36,42,0.72)';
-
-/**
- * The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection.
- * Apple's `clear` material in the dark scheme (a light-scheme lens over a dark bar
- * samples the bar and turns milky) tinted with the Figma's 12% white, so it reads
- * as the design's capsule plus a refractive rim rather than a frosted blob.
- */
-const PILL_GLASS_STYLE = 'clear' as const;
-const PILL_GLASS_SCHEME = 'dark' as const;
-const PILL_GLASS_TINT = 'rgba(255,255,255,0.12)';
-const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
   const pressed = useSharedValue(0);
@@ -195,32 +177,13 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
     <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
       <View style={styles.shadow}>
         <View style={styles.bar}>
-          {/* Bar material and the active lens are siblings: Liquid Glass must not be nested. */}
-          {liquidGlassAvailable ? (
-            <>
-              {/* Clear glass for the refraction, then the Figma's #22242A 80% as a dim layer on top
-                  (Apple's recommended pairing for clear glass). `regular` glass alone renders a
-                  mid-grey bar, far lighter than the design. */}
-              <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="clear" colorScheme="dark" />
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: NAV_GLASS_DIM }]} />
-            </>
-          ) : (
-            <>
-              {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />
-            </>
-          )}
-          {liquidGlassAvailable ? (
-            <AnimatedGlassView
-              style={[styles.pill, pillStyle]}
-              glassEffectStyle={PILL_GLASS_STYLE}
-              colorScheme={PILL_GLASS_SCHEME}
-              tintColor={PILL_GLASS_TINT}
-              isInteractive
-            />
-          ) : (
-            <Animated.View style={[styles.pill, styles.pillFallback, pillStyle]} />
-          )}
+          {/* Faked glass from the Figma values, identical on both platforms: the feed blurred
+              behind (iOS; Android has no cheap live blur, so its fill is a little denser),
+              the design's #22242A 80% fill, and a hairline rim highlight. */}
+          {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: Platform.OS === 'ios' ? colors.navBar : colors.navBarAndroid }]} />
+          <View style={styles.rim} />
+          <Animated.View style={[styles.pill, pillStyle]} />
           <View style={styles.slots}>
             <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
               <HomeIcon />
@@ -258,6 +221,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.nav.height / 2,
     overflow: 'hidden',
   },
+  // Figma: 12% white capsule. A hairline rim highlight sells it as a lifted glass lens.
   pill: {
     position: 'absolute',
     top: layout.nav.padding,
@@ -265,9 +229,22 @@ const styles = StyleSheet.create({
     width: layout.nav.pillWidth,
     height: layout.nav.pillHeight,
     borderRadius: layout.nav.pillRadius,
+    backgroundColor: colors.navPill,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.18)',
     pointerEvents: 'none',
   },
-  pillFallback: { backgroundColor: colors.navPill },
+  rim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: layout.nav.height / 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
+    pointerEvents: 'none',
+  },
   slots: { flex: 1 },
   slot: { position: 'absolute', top: 0, bottom: 0, width: SLOT_W, alignItems: 'center', justifyContent: 'center' },
   bloom: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, pointerEvents: 'none' },

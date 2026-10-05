@@ -18,6 +18,8 @@ export const colors = {
   carouselCard: 'rgba(255,255,255,0.92)',
   feedBg: '#E9EEF6',
   navBar: 'rgba(34,36,42,0.8)',
+  /** No live blur behind it on Android, so the fill is a little denser to keep icon contrast. */
+  navBarAndroid: 'rgba(34,36,42,0.92)',
   navPill: 'rgba(255,255,255,0.12)',
   navIcon: '#FFFFFF',
   white: '#FFFFFF',

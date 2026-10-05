@@ -19,15 +19,14 @@ npm run typecheck         # tsc --noEmit
 ```
 
 Every dependency is in Expo Go's module list (Reanimated 4, Gesture Handler, SVG, Blur, Linear
-Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2, Glass Effect), so no dev
-build is needed. Liquid Glass shows on an iPhone running iOS 26; everything else gets the fallbacks.
+Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no dev build is needed.
 
 ## What is on the screen
 
 | Area | Implementation |
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
-| Portfolio header | Label, value (counts up on mount), delta line, glass Deposit pill (Liquid Glass on iOS 26, white gradient elsewhere). |
+| Portfolio header | Label, value (counts up on mount), delta line, glass Deposit pill (the Figma's white gradient, rim and top highlight). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
 | Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
@@ -56,9 +55,8 @@ The idea: **the mascot is paying attention.**
 
 1. The active pill is a spring-driven 56×48 lens that slides to the tapped slot. While it is far from
    its target it stretches along the direction of travel (scaleX up to 1.28, scaleY compensates) and
-   settles with a small overshoot. On iOS 26 the lens is its own interactive Liquid Glass view laid
-   over the bar's glass (siblings, never nested, as Apple requires), so it refracts the icons and
-   bar beneath it like the system tab bar's selection; elsewhere it is a 12% white rounded rect.
+   settles with a small overshoot. It is the Figma's 12% white capsule with a hairline rim so it
+   reads as a lifted lens.
 2. Every tab change makes the mascot glance toward the tapped tab (its eyes are separate animated
    views over the raster body) and do a short bob. Tapping the mascot itself makes it jump with
    squash-and-stretch, blink, and fire a medium haptic. It also blinks idly every few seconds.
@@ -120,22 +118,23 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
 - **Verification.** No iOS or Android device was attached to the machine this was built on, so the
   app was verified with the unit tests, `tsc`, and the Expo web build, where DOM measurements were
   compared against the exact Figma geometry (every measured box lands within 1 pt). The native-only paths
-  (`BlurView`, `MaskedView`, haptics, Liquid Glass) follow the documented APIs. A later pass on an
-  iPhone running iOS 26 confirmed the layout, the glass surfaces and the nav lens, and caught the
-  count-up not applying on the new architecture (now JS-driven). A real-device recording is still to do.
+  (`BlurView`, `MaskedView`, haptics) follow the documented APIs. A later pass on an iPhone
+  confirmed the layout and caught two things: the count-up not applying on the new architecture
+  (now JS-driven) and native Liquid Glass drifting from the design (replaced by the faked glass
+  above). A real-device recording is still to do.
 - **Assets.** The verified seal, swap badge, coin logos and nav icons are hand-drawn SVGs matched to
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
 - **Fonts.** The design's SF Pro Rounded is replaced by Nunito on every platform (see above);
   letterforms are close but glyph widths differ by a few points, which shows most in the tab row.
 - **Glass effects.** The Figma uses Glass + inner-shadow effects on the carousel cards, the Deposit
-  button and the nav bar. On iOS 26 these render as native **Liquid Glass** through
-  `expo-glass-effect` (`src/components/Glass.tsx`). Apple's `regular` material is far brighter and
-  more frosted than the design, so the Deposit pill and the nav bar use `clear` glass with the
-  Figma's own colour laid on top (the white gradient, and `#22242A` at 72% as a dim layer), and the
-  active lens is clear glass in the dark scheme tinted with the design's 12% white. Only the
-  carousel cards use `regular` glass, matching their 92% white body. Older iOS, Android and web fall
-  back to the flat approximations. Liquid Glass views stop rendering at opacity 0, which is why the
-  tab switch remounts the list and replays the card entrance instead of cross-fading it.
+  button and the nav bar. I tried native Liquid Glass (`expo-glass-effect`, iOS 26) first: it looks
+  great but cannot be tuned to the design (Apple's material is brighter and more frosted, the dark
+  bar came out mid-grey, the active state a milky blob), it is iOS 26 only, and Android gets nothing.
+  Since the brief grades fidelity and parity on both platforms, the glass is faked from the Figma's
+  own values and renders identically everywhere: the 92% white card body with a white hairline, the
+  Deposit gradient (white 32→64% at 32%) with a rim and a 1 pt top highlight, and the `#22242A` 80%
+  bar over an iOS blur (a denser fill on Android) with a hairline rim and a 12% white lens. The
+  native-glass version is in git history (`88badf4`) if a future iOS-only build wants it.
 - **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
 
