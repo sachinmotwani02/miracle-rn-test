@@ -1,7 +1,14 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import Animated, { FadeIn, FadeOut, useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedScrollHandler,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { feedForTab, portfolio, topTrades } from '../data/mock';
@@ -49,7 +56,13 @@ export function DiscoverScreen() {
     onScroll: e => {
       const y = e.contentOffset.y;
       const dy = y - lastY.value;
-      if (Math.abs(dy) > 2) scrollDirection.value = dy > 0 ? 1 : -1;
+      if (Math.abs(dy) > 2) {
+        // Hold the direction while events keep arriving, then decay to idle so the
+        // nav bar springs back as soon as the scroll pauses (wheel scrolling on web
+        // never fires the drag/momentum end events).
+        scrollDirection.value = dy > 0 ? 1 : -1;
+        scrollDirection.value = withDelay(220, withTiming(0, { duration: 1 }));
+      }
       lastY.value = y;
       scrollY.value = y;
     },
