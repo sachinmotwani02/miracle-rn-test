@@ -56,10 +56,13 @@ const NAV_GLASS_TINT = 'rgba(34,36,42,0.18)';
 
 /**
  * The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection.
- * It uses Apple's `clear` material (almost transparent) with a whisper of white.
+ * Apple's `clear` material in the *dark* scheme (a light-scheme lens over a dark
+ * bar samples the bar and turns milky) with a trace of white so the capsule is
+ * just visible: mostly a refractive rim and a slightly lifted interior.
  */
 const PILL_GLASS_STYLE = 'clear' as const;
-const PILL_GLASS_TINT = 'rgba(255,255,255,0.06)';
+const PILL_GLASS_SCHEME = 'dark' as const;
+const PILL_GLASS_TINT = 'rgba(255,255,255,0.08)';
 const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
@@ -205,7 +208,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
             <AnimatedGlassView
               style={[styles.pill, pillStyle]}
               glassEffectStyle={PILL_GLASS_STYLE}
-              colorScheme="light"
+              colorScheme={PILL_GLASS_SCHEME}
               tintColor={PILL_GLASS_TINT}
               isInteractive
             />
