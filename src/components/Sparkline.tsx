@@ -37,11 +37,10 @@ interface Props {
 
 function Marker({ x, y, progress, at }: { x: number; y: number; progress: SharedValue<number>; at: number }) {
   const style = useAnimatedStyle(() => {
-    const reached = progress.value >= at;
-    return {
-      opacity: reached ? 1 : 0,
-      transform: [{ scale: withSpring(reached ? 1 : 0.3, { damping: 10, stiffness: 260 }) }],
-    };
+    // Pops over the 8% of the draw-in after the line reaches it (continuous, frame-safe).
+    const t = Math.min(Math.max((progress.value - at) / 0.08, 0), 1);
+    const overshoot = 1 + 0.3 * Math.sin(t * Math.PI);
+    return { opacity: t, transform: [{ scale: 0.3 + 0.7 * t * overshoot }] };
   });
   return (
     <Animated.View style={[styles.marker, { left: x - MARKER_R, top: y - MARKER_LIFT - MARKER_R }, style]}>
@@ -81,9 +80,12 @@ export const Sparkline = React.memo(function Sparkline({
   }, [first, id, progress]);
 
   const pathProps = useAnimatedProps(() => ({ strokeDashoffset: geo.length * (1 - progress.value) }));
+  // Continuous ramp over the last 12% of the draw-in rather than a one-frame threshold,
+  // so the dot cannot be lost if a frame is skipped while the card is still entering.
   const endStyle = useAnimatedStyle(() => {
-    const done = progress.value > 0.98;
-    return { opacity: done ? 1 : 0, transform: [{ scale: withSpring(done ? 1 : 0.2, { damping: 10, stiffness: 240 }) }] };
+    const t = Math.min(Math.max((progress.value - 0.88) / 0.12, 0), 1);
+    const overshoot = 1 + 0.25 * Math.sin(t * Math.PI);
+    return { opacity: t, transform: [{ scale: 0.3 + 0.7 * t * overshoot }] };
   });
   const last = geo.points[geo.points.length - 1];
   const markers = entryIndices.filter(i => geo.points[i] !== undefined);

@@ -33,17 +33,19 @@ function Sol({ size }: { size: number }) {
 }
 
 function Eth({ size }: { size: number }) {
+  // Figma: diamond 17 x 27 inside the 36 disc (x 10.1 to 27, y 4.5 to 31.5).
   const s = size / 36;
-  const cx = 18 * s;
+  const cx = 18.5 * s;
+  const hw = 8.4 * s;
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="#627EEA" />
-      <Polygon points={`${cx},${7 * s} ${cx + 7 * s},${18.5 * s} ${cx},${22.8 * s}`} fill="#C0CBF7" />
-      <Polygon points={`${cx},${7 * s} ${cx - 7 * s},${18.5 * s} ${cx},${22.8 * s}`} fill="#FFFFFF" />
-      <Polygon points={`${cx},${24.4 * s} ${cx + 7 * s},${20 * s} ${cx},${29.5 * s}`} fill="#C0CBF7" />
-      <Polygon points={`${cx},${24.4 * s} ${cx - 7 * s},${20 * s} ${cx},${29.5 * s}`} fill="#FFFFFF" />
-      <Polygon points={`${cx},${14.5 * s} ${cx + 7 * s},${18.5 * s} ${cx},${22.8 * s}`} fill="#9CAEF2" />
-      <Polygon points={`${cx},${14.5 * s} ${cx - 7 * s},${18.5 * s} ${cx},${22.8 * s}`} fill="#C0CBF7" />
+      <Polygon points={`${cx},${4.5 * s} ${cx + hw},${18.3 * s} ${cx},${23.2 * s}`} fill="#FFFFFF" fillOpacity={0.6} />
+      <Polygon points={`${cx},${4.5 * s} ${cx - hw},${18.3 * s} ${cx},${23.2 * s}`} fill="#FFFFFF" />
+      <Polygon points={`${cx},${24.7 * s} ${cx + hw},${19.8 * s} ${cx},${31.5 * s}`} fill="#FFFFFF" fillOpacity={0.6} />
+      <Polygon points={`${cx},${24.7 * s} ${cx - hw},${19.8 * s} ${cx},${31.5 * s}`} fill="#FFFFFF" />
+      <Polygon points={`${cx},${14.5 * s} ${cx + hw},${18.3 * s} ${cx},${23.2 * s}`} fill="#FFFFFF" fillOpacity={0.2} />
+      <Polygon points={`${cx},${14.5 * s} ${cx - hw},${18.3 * s} ${cx},${23.2 * s}`} fill="#FFFFFF" fillOpacity={0.6} />
     </Svg>
   );
 }
