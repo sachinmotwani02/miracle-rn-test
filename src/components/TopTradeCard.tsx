@@ -5,10 +5,11 @@ import { colors, layout, text } from '../theme';
 import { formatMoney, formatSignedMoney } from '../utils/format';
 import { Avatar } from './Avatar';
 import { CoinLogo } from './CoinLogo';
+import { Glass } from './Glass';
 
 export const TopTradeCard = React.memo(function TopTradeCard({ trade }: { trade: TopTrade }) {
   return (
-    <View style={styles.card}>
+    <Glass style={styles.card} tint="rgba(255,255,255,0.72)" fallback={styles.fallback}>
       <View style={styles.header}>
         <Avatar
           avatar={trade.trader.avatar}
@@ -33,22 +34,22 @@ export const TopTradeCard = React.memo(function TopTradeCard({ trade }: { trade:
           </Text>
         </View>
       </View>
-    </View>
+    </Glass>
   );
 });
 
 const styles = StyleSheet.create({
+  // Figma: white 92% with the Glass + inner-shadow effects. Native Liquid Glass on
+  // iOS 26; a flat fill with a white hairline elsewhere.
   card: {
     width: layout.carouselCardWidth,
     height: layout.carouselCardHeight,
     borderRadius: layout.cardRadius,
-    backgroundColor: colors.carouselCard,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 11,
     paddingTop: 11,
     overflow: 'hidden',
   },
+  fallback: { backgroundColor: colors.carouselCard, borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)' },
   // Figma: photo at (12,12) with a 1pt ring outside it; name box starts at x 40.
   header: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 22 },
   name: { color: colors.textPrimary },

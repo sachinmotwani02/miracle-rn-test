@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
 import { Mascot } from './Mascot';
+import { Glass, liquidGlassAvailable } from './Glass';
 
 export const NAV_ITEMS = ['home', 'explore', 'mascot', 'stats', 'profile'] as const;
 const MASCOT_INDEX = 2;
@@ -175,9 +176,11 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
   return (
     <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
       <View style={styles.shadow}>
-        <View style={styles.bar}>
-          {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />
+        <Glass style={styles.bar} scheme="dark" tint="rgba(34,36,42,0.55)" fallback={styles.barFallback}>
+          {!liquidGlassAvailable && Platform.OS === 'ios' ? (
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : null}
+          {!liquidGlassAvailable && <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />}
           <Animated.View style={[styles.pill, pillStyle]} />
           <View style={styles.slots}>
             <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
@@ -198,7 +201,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
               <PersonIcon />
             </NavButton>
           </View>
-        </View>
+        </Glass>
       </View>
     </Animated.View>
   );
@@ -216,6 +219,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.nav.height / 2,
     overflow: 'hidden',
   },
+  barFallback: {},
   pill: {
     position: 'absolute',
     top: layout.nav.padding,

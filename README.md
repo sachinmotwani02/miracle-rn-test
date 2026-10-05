@@ -19,7 +19,8 @@ npm run typecheck         # tsc --noEmit
 ```
 
 Every dependency is in Expo Go's module list (Reanimated 4, Gesture Handler, SVG, Blur, Linear
-Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no dev build is needed.
+Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2, Glass Effect), so no dev
+build is needed. Liquid Glass shows on an iPhone running iOS 26; everything else gets the fallbacks.
 
 ## What is on the screen
 
@@ -75,7 +76,7 @@ scrolls.
   sure recycled FlashList rows never replay it.
 - Portfolio value counts up over 900 ms.
 - The first five cards enter with a staggered fade and 12 pt rise on the first mount only.
-- Tab switch crossfades the list; active label opacity animates.
+- Tab switch remounts the list so the first cards replay their entrance; active label opacity animates.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
   text provides the target so the spring has a real end value).
 - Deposit button and nav icons scale on press; sky parallax at 0.3×.
@@ -120,8 +121,13 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
 - **Fonts.** The design's SF Pro Rounded is replaced by Nunito on every platform (see above);
   letterforms are close but glyph widths differ by a few points, which shows most in the tab row.
-- **Glass effects.** The carousel cards and Deposit button use Figma's Glass + inner-shadow
-  effects; they are approximated with a 92% white fill, a 1 pt white border and a white gradient.
+- **Glass effects.** The Figma uses Glass + inner-shadow effects on the carousel cards, the Deposit
+  button and the nav bar. On iOS 26 these render as native **Liquid Glass** through
+  `expo-glass-effect` (`src/components/Glass.tsx`; the Deposit pill is `isInteractive`, the nav bar
+  uses the dark scheme with a `#22242A` tint). Older iOS, Android and web fall back to the flat
+  approximations (92% white fill + hairline, white gradient, 80% dark bar with iOS blur). Liquid Glass
+  views stop rendering at opacity 0, which is why the tab switch remounts the list and replays the
+  card entrance instead of cross-fading it.
 - **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
 

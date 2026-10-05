@@ -1,14 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import Animated, {
-  FadeIn,
-  FadeOut,
-  useAnimatedScrollHandler,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedScrollHandler, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { feedForTab, portfolio, topTrades } from '../data/mock';
@@ -48,7 +41,8 @@ export function DiscoverScreen() {
   }, []);
 
   const onTab = useCallback((next: TabKey) => {
-    firstMount.current = false;
+    // The list remounts on a tab change, so let the first cards play their entrance again.
+    firstMount.current = true;
     setTab(next);
   }, []);
 
@@ -108,7 +102,9 @@ export function DiscoverScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
       <SkyBackground scrollY={scrollY} />
-      <Animated.View key={tab} entering={FadeIn.duration(220)} exiting={FadeOut.duration(120)} style={styles.list}>
+      {/* Keyed by tab so a switch remounts the list; cards re-run their staggered entrance.
+          No opacity fade here: Liquid Glass views inside it stop rendering at opacity 0. */}
+      <View key={tab} style={styles.list}>
         <AnimatedFlashList
           data={items}
           renderItem={renderItem}
@@ -122,7 +118,7 @@ export function DiscoverScreen() {
           scrollEventThrottle={16}
           drawDistance={height}
         />
-      </Animated.View>
+      </View>
       <BottomFade height={navClearance + 20} />
       <FloatingNavBar active={nav} onChange={setNav} scrollY={scrollY} scrollDirection={scrollDirection} />
     </View>
