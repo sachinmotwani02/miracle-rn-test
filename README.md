@@ -45,7 +45,9 @@ Typeface: the Figma is set in **SF Pro Rounded** (Semibold almost everywhere; Bo
 portfolio value, Bold 15 for Deposit, Bold 11 for the Buy pill, Medium 13 for the note). Apple does
 not expose the rounded design through React Native's `fontFamily` and its licence is Apple-only, so
 the app ships **Nunito** (OFL), the closest rounded match, on every platform via
-`@expo-google-fonts/nunito`. To use the real thing on iOS: put Apple's `SF-Pro-Rounded-*.otf` files
+`@expo-google-fonts/nunito`. Nunito is one step lighter and ~3% wider than SF Pro Rounded at the
+same nominal weight (checked against the Figma at 6× zoom), so each Figma weight maps one step up
+(Medium→SemiBold, SemiBold→Bold, Bold→ExtraBold) and tracking is pulled in by 1%. To use the real thing on iOS: put Apple's `SF-Pro-Rounded-*.otf` files
 in `assets/fonts`, load them in `App.tsx`, and point the `family` map in `src/theme/typography.ts`
 at them.
 

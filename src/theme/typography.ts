@@ -1,26 +1,34 @@
 import { TextStyle } from 'react-native';
 
+/** Figma weights. */
 export type Weight = '500' | '600' | '700';
 
 /**
  * The Figma is set in SF Pro Rounded. Apple does not expose that design through
  * React Native's `fontFamily`, and its licence only allows it on Apple platforms,
  * so the app ships Nunito (OFL), the closest rounded match, on every platform.
- * To use SF Pro Rounded on iOS, drop Apple's .otf files into assets/fonts and
- * point this map at them (see README).
+ *
+ * Nunito is one step lighter and ~3% wider than SF Pro Rounded at the same
+ * nominal weight (checked against the Figma at 6x), so each Figma weight maps one
+ * step up and tracking is pulled in by 1%. To use SF Pro Rounded on iOS, drop
+ * Apple's .otf files into assets/fonts, load them in App.tsx and point this map
+ * at them with the original weights.
  */
-const family: Record<Weight, string> = {
-  '500': 'Nunito_500Medium',
-  '600': 'Nunito_600SemiBold',
-  '700': 'Nunito_700Bold',
+const family: Record<Weight, { fontFamily: string; fontWeight: TextStyle['fontWeight'] }> = {
+  '500': { fontFamily: 'Nunito_600SemiBold', fontWeight: '600' },
+  '600': { fontFamily: 'Nunito_700Bold', fontWeight: '700' },
+  '700': { fontFamily: 'Nunito_800ExtraBold', fontWeight: '800' },
 };
 
 export function font(weight: Weight): TextStyle {
-  return { fontFamily: family[weight], fontWeight: weight };
+  return { ...family[weight] };
 }
 
+const WIDTH_COMPENSATION = -0.01;
+
 function t(size: number, weight: Weight, lineHeight: number, tracking = 0.01): TextStyle {
-  return { fontSize: size, lineHeight, letterSpacing: Math.round(size * tracking * 100) / 100, ...font(weight) };
+  const spacing = (tracking + WIDTH_COMPENSATION) * size;
+  return { fontSize: size, lineHeight, letterSpacing: Math.round(spacing * 100) / 100, ...font(weight) };
 }
 
 /** Type scale read from the Figma Typography panel (size / line height / weight). */

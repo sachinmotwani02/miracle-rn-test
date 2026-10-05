@@ -5,12 +5,13 @@ import { AssetSymbol } from '../data/types';
 import { BuyBadge } from './BuyBadge';
 
 function Sol({ size }: { size: number }) {
+  // Figma: the three bars span x 7.9-28.1 and y 10.1-25.9 of the 36pt disc.
   const s = size / 36;
   const bar = (y: number, flip: boolean) => {
-    const x0 = 9 * s;
-    const x1 = 27 * s;
-    const h = 3.6 * s;
-    const skew = 3.2 * s;
+    const x0 = 7.9 * s;
+    const x1 = 28.1 * s;
+    const h = 4.0 * s;
+    const skew = 3.6 * s;
     return flip
       ? `M${x0 + skew} ${y} H${x1} L${x1 - skew} ${y + h} H${x0} Z`
       : `M${x0} ${y} H${x1 - skew} L${x1} ${y + h} H${x0 + skew} Z`;
@@ -25,9 +26,9 @@ function Sol({ size }: { size: number }) {
       </Defs>
       <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="#1C1C1C" />
       <Circle cx={size / 2} cy={size / 2} r={size / 2 - 0.5} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
-      <Path d={bar(11 * s, true)} fill="url(#solGradient)" />
-      <Path d={bar(16.2 * s, false)} fill="url(#solGradient)" />
-      <Path d={bar(21.4 * s, true)} fill="url(#solGradient)" />
+      <Path d={bar(10.1 * s, true)} fill="url(#solGradient)" />
+      <Path d={bar(16 * s, false)} fill="url(#solGradient)" />
+      <Path d={bar(21.9 * s, true)} fill="url(#solGradient)" />
     </Svg>
   );
 }

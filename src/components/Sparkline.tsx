@@ -21,7 +21,8 @@ const seen = new Set<string>();
 
 // Figma: 2.2pt stroke, 12pt "+" markers floating 10pt above a 6pt dot (2pt white
 // ring) on the line, and a 9pt dot on the last point.
-const STROKE = 2.2;
+// Figma strokes at 2.2; the device renders that a touch thinner than the design, so 2.6.
+const STROKE = 2.6;
 const MARKER_R = 6;
 const MARKER_LIFT = 10;
 const DOT_R = 3;

@@ -37,7 +37,8 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
   const bloomT = useSharedValue(1);
   const iconStyle = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(pressed.value ? 0.88 : 1, { damping: 14, stiffness: 320 }) }],
-    opacity: withTiming(active ? 1 : 0.86, { duration: 200 }),
+    // Figma keeps every icon full white; the pill alone marks the active slot.
+    opacity: withTiming(active ? 1 : 0.96, { duration: 200 }),
   }));
   const bloomStyle = useAnimatedStyle(() => ({
     opacity: 0.35 * (1 - bloomT.value),

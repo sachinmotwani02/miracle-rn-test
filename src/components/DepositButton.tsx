@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -30,7 +30,6 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
         style={styles.button}
       >
         <LinearGradient colors={[colors.depositTop, colors.depositBottom]} style={StyleSheet.absoluteFill} />
-        <View style={styles.highlight} />
         <Text style={[text.button, styles.label]} maxFontSizeMultiplier={1.2}>
           Deposit
         </Text>
@@ -45,20 +44,11 @@ const styles = StyleSheet.create({
     height: layout.depositHeight,
     borderRadius: layout.depositHeight / 2,
     overflow: 'hidden',
-    // The Figma edge is a soft white glow rather than a hard line: a 1.5pt rim at low alpha.
+    // The Figma edge is a soft glow, not a line: a wide rim at very low alpha.
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  highlight: {
-    position: 'absolute',
-    top: 0,
-    left: 10,
-    right: 10,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   label: { color: colors.white },
 });
