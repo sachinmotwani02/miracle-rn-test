@@ -1,8 +1,10 @@
 import React, { useEffect, useImperativeHandle, useRef } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import Animated, {
   Easing,
   SharedValue,
+  useAnimatedProps,
   useAnimatedStyle,
   useDerivedValue,
   useFrameCallback,
@@ -16,9 +18,19 @@ import Animated, {
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { haptic } from '../utils/haptics';
-import { BREATH, breathCurve, clamp, dizzyOffset, randomBetween, turnPose } from '../utils/mascotMotion';
+import {
+  BREATH,
+  TrailRing,
+  breathCurve,
+  clamp,
+  dizzyOffset,
+  randomBetween,
+  trailPath,
+  turnPose,
+} from '../utils/mascotMotion';
 
 const ART = require('../../assets/mascot_body.png');
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 // Geometry in pt inside the 34 x 40 Figma box (the PNG is drawn at 10x).
 const W = 34;
@@ -52,6 +64,29 @@ const FRONT = turnPose(0, FACE_OFFSET);
 /** The head follows the eyes a little: degrees of turn at full tab glance and full idle gaze. */
 const HEAD_FOLLOW_LOOK = 12;
 const HEAD_FOLLOW_GAZE = 6;
+
+/**
+ * White comet trails orbiting the ghost while it turns, on two rings round its middle. They sit
+ * behind the cloud, so they only show where they swing out past its sides (white on the white
+ * cloud would vanish anyway, and this keeps them off the eyes).
+ */
+const TRAIL_W = 64;
+const TRAIL_CX = TRAIL_W / 2;
+const TRAIL_RINGS: (TrailRing & { offset: number })[] = [
+  { cy: 19, rx: 20, ry: 3, offset: 25 },
+  { cy: 28.5, rx: 22, ry: 3.6, offset: 205 },
+];
+/** The trails' tail chases the turn on a slower clock, so a fast turn leaves a long streak. */
+const TRAIL_CHASE = { duration: 700, easing: Easing.inOut(Easing.cubic) };
+
+function trailProps(head: number, tail: number, ring: TrailRing & { offset: number }) {
+  'worklet';
+  return {
+    d: trailPath(head + ring.offset, tail + ring.offset, ring, TRAIL_CX),
+    // Fades as the tail catches up with the settling turn.
+    fillOpacity: clamp((head - tail) / 25, 0, 1) * 0.9,
+  };
+}
 /** Gaze travel at full deflection, pt. */
 const GAZE_X = 2.2;
 const GAZE_Y = 1.4;
@@ -185,6 +220,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const lift = useSharedValue(0);
   const squash = useSharedValue(1);
   const spin = useSharedValue(0); // turn about the vertical axis, degrees; every tap adds 360
+  const trail = useSharedValue(0); // where the trails' tail has got to, degrees
   const haloLift = useSharedValue(0); // pt, relative to the cloud
   const haloTilt = useSharedValue(0); // degrees
 
@@ -273,6 +309,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     const to = target.current;
     // The turn, about the vertical axis: a spring that overshoots and swings back to face us.
     spin.value = withSpring(to, SPIN);
+    trail.value = withTiming(to, TRAIL_CHASE);
     // Float up during the fast part, then land on a soft bounce.
     lift.value = withSequence(withTiming(-7, { duration: 240, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
     // The halo is a ring around that axis, so it does not turn: it lags the take-off, floats
@@ -373,6 +410,9 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     };
   });
 
+  const upperTrail = useAnimatedProps(() => trailProps(spin.value, trail.value, TRAIL_RINGS[0]));
+  const lowerTrail = useAnimatedProps(() => trailProps(spin.value, trail.value, TRAIL_RINGS[1]));
+
   const cheekStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -CHEEK_RISE * happy.value }] }));
   const lightStyle = useAnimatedStyle(() => ({ opacity: (1 - happy.value) * (1 - blink.value) }));
 
@@ -388,6 +428,12 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       style={styles.press}
     >
       <Animated.View style={[styles.rig, rigStyle]}>
+        <View style={styles.trails}>
+          <Svg width={TRAIL_W} height={H}>
+            <AnimatedPath animatedProps={upperTrail} fill={colors.white} />
+            <AnimatedPath animatedProps={lowerTrail} fill={colors.white} />
+          </Svg>
+        </View>
         <Animated.View style={[styles.halo, haloStyle]}>
           <Image source={ART} style={styles.art} contentFit="contain" transition={0} />
         </Animated.View>
@@ -417,6 +463,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
 const styles = StyleSheet.create({
   press: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
   rig: { width: W, height: H },
+  trails: { position: 'absolute', left: W / 2 - TRAIL_W / 2, top: 0, width: TRAIL_W, height: H, pointerEvents: 'none' },
   halo: { position: 'absolute', left: 0, top: 0, width: W, height: SPLIT, overflow: 'hidden' },
   body: { position: 'absolute', left: 0, top: SPLIT, width: W, height: H - SPLIT, overflow: 'hidden' },
   cloud: { position: 'absolute', left: 0, top: 0, width: W, height: H - SPLIT },

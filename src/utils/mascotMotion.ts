@@ -29,6 +29,23 @@ export const TURN = {
   depth: 0.6,
 } as const;
 
+export const TRAIL = {
+  /** Longest trail drawn, degrees of arc. */
+  maxArc: 140,
+  /** Ribbon thickness at the head, pt. */
+  width: 1.8,
+  /** Points along each edge of the ribbon. */
+  samples: 14,
+} as const;
+
+export interface TrailRing {
+  /** Centre height of the ring, pt. */
+  cy: number;
+  /** Half-width and half-height of the ring as seen from slightly above (a flattened ellipse), pt. */
+  rx: number;
+  ry: number;
+}
+
 export interface TurnPose {
   /** Silhouette width as a share of the front-on width. */
   width: number;
@@ -89,6 +106,43 @@ export function turnPose(deg: number, faceOffset: number): TurnPose {
     faceX: sinPsi * c + d * cosPsi * s,
     faceScale: Math.max(0, (nz * c - nx * s) / Math.sqrt(nx * nx + nz * nz)),
   };
+}
+
+/**
+ * SVG path for a comet trail on a horizontal ring around the ghost: a ribbon from the lagging
+ * `tail` angle to the `head` angle (degrees; 0 is the front of the ring, nearest the viewer, and
+ * angles grow to the right like the turn), tapering to a point at the tail. "M0 0" (nothing)
+ * until the head is ahead of the tail.
+ */
+export function trailPath(head: number, tail: number, ring: TrailRing, cx: number): string {
+  'worklet';
+  const arc = Math.min(head - tail, TRAIL.maxArc);
+  if (arc <= 0.5) return 'M0 0';
+  const start = ((head - arc) * Math.PI) / 180;
+  const span = (arc * Math.PI) / 180;
+  const n = TRAIL.samples;
+  const upper: string[] = [];
+  const lower: string[] = [];
+  let tip = '';
+  for (let i = 0; i <= n; i++) {
+    const s = i / n;
+    const a = start + span * s;
+    const sin = Math.sin(a);
+    const cos = Math.cos(a);
+    const x = cx + ring.rx * sin;
+    const y = ring.cy + ring.ry * cos;
+    // Unit tangent and normal of the ellipse here; the ribbon thickens along the normal.
+    const tx = ring.rx * cos;
+    const ty = -ring.ry * sin;
+    const len = Math.sqrt(tx * tx + ty * ty) || 1;
+    const w = (TRAIL.width / 2) * Math.pow(s, 0.7);
+    const nx = (-ty / len) * w;
+    const ny = (tx / len) * w;
+    upper.push(`${(x + nx).toFixed(2)} ${(y + ny).toFixed(2)}`);
+    lower.push(`${(x - nx).toFixed(2)} ${(y - ny).toFixed(2)}`);
+    if (i === n) tip = `${(x + (tx / len) * w).toFixed(2)} ${(y + (ty / len) * w).toFixed(2)}`;
+  }
+  return `M${upper.join(' L')} L${tip} L${lower.reverse().join(' L')} Z`;
 }
 
 /**

@@ -1,4 +1,43 @@
-import { BREATH, TURN, breathCurve, clamp, dizzyOffset, randomBetween, turnPose, wrap01 } from '../utils/mascotMotion';
+import { BREATH, TRAIL, TURN, breathCurve, clamp, dizzyOffset, randomBetween, trailPath, turnPose, wrap01 } from '../utils/mascotMotion';
+
+describe('trailPath', () => {
+  const ring = { cy: 20, rx: 20, ry: 3 };
+  const cx = 32;
+  const coords = (d: string) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  const xs = (d: string) => coords(d).filter((_, i) => i % 2 === 0);
+  const ys = (d: string) => coords(d).filter((_, i) => i % 2 === 1);
+  const ringPoint = (deg: number) => {
+    const t = (deg * Math.PI) / 180;
+    return [cx + ring.rx * Math.sin(t), ring.cy + ring.ry * Math.cos(t)];
+  };
+
+  it('draws nothing until the head pulls ahead of the tail', () => {
+    expect(trailPath(10, 10, ring, cx)).toBe('M0 0');
+    expect(trailPath(5, 20, ring, cx)).toBe('M0 0');
+  });
+
+  it('runs from a sharp tail on the ring to a head further round it', () => {
+    const d = trailPath(90, 30, ring, cx);
+    const [x0, y0] = coords(d);
+    const [tx, ty] = ringPoint(30);
+    expect(x0).toBeCloseTo(tx, 1);
+    expect(y0).toBeCloseTo(ty, 1);
+    // Turning right moves the head right of the tail across the front of the ring.
+    expect(Math.max(...xs(d))).toBeGreaterThan(ringPoint(85)[0]);
+    expect(d.endsWith('Z')).toBe(true);
+  });
+
+  it('never draws more than the longest trail', () => {
+    expect(trailPath(300, 0, ring, cx)).toBe(trailPath(300, 300 - TRAIL.maxArc, ring, cx));
+  });
+
+  it('stays on the ring, within the ribbon width', () => {
+    const d = trailPath(400, 290, ring, cx);
+    const pad = TRAIL.width;
+    for (const x of xs(d)) expect(Math.abs(x - cx)).toBeLessThanOrEqual(ring.rx + pad);
+    for (const y of ys(d)) expect(Math.abs(y - ring.cy)).toBeLessThanOrEqual(ring.ry + pad);
+  });
+});
 
 describe('turnPose', () => {
   // The ghost's face sits a little right of the cloud's centre.

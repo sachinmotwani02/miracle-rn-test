@@ -73,7 +73,12 @@ the first build spun it in the plane and was corrected after review on device.
    surface normal and is hidden while the ghost faces away.
 4. **Halo:** a ring around that axis, so it does not turn. It lags the take-off, floats on past
    the top, settles on a loose spring and tilts a few degrees on landing.
-5. **Landing (≈0.45 s):** soft haptic; eyes open into the dizzy swirl (0.65 s), then a blink.
+5. **Trails** (added after review): two white comet trails on horizontal rings round the cloud
+   (heights 19 and 28.5 pt, half-widths 20 and 22 pt). Each is a ribbon from a tail angle that
+   chases the turn over 700 ms (ease in-out cubic) to the turn's own angle, capped at 140° of arc,
+   1.8 pt thick at the head and tapering to a point. Drawn behind the cloud, so they only show
+   round its sides; they fade as the tail catches up and are gone by about 0.65 s.
+6. **Landing (≈0.45 s):** soft haptic; eyes open into the dizzy swirl (0.65 s), then a blink.
 - The head also follows the eyes: 12° toward a tapped tab, up to 6° with idle glances.
 - Tapping again during a turn adds one more turn (the spring keeps its velocity); a burst of taps
   stacks up to three turns.

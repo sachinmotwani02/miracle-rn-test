@@ -73,8 +73,10 @@ The idea: **the mascot is paying attention.**
      vertical axis on a spring. Side-on the cloud narrows to its depth instead of collapsing like a
      card, the face slides round and disappears while it faces away, then comes back smiling,
      overshoots and settles. It floats up 7 pt and lands with squash and stretch; the halo, a ring
-     around that axis, stays level, lifts off a beat late and jiggles back. Then a dizzy swirl, a
-     blink, and a few quicker breaths. Light and soft haptics mark the press and the landing; a
+     around that axis, stays level, lifts off a beat late and jiggles back. White comet trails
+     whip round its middle while it turns: tapered SVG ribbons on two rings whose tail chases the
+     turn on a slower clock, drawn behind the cloud so they only show round its sides, gone once
+     it settles. Then a dizzy swirl, a blink, and a few quicker breaths. Light and soft haptics mark the press and the landing; a
      burst of taps stacks up to three turns. With Reduce Motion on it stays still and only smiles.
 3. Press feedback: the pressed icon scales to 0.88 on a stiff spring and a soft white bloom expands
    and fades behind it.
