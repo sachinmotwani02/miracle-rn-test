@@ -1,24 +1,15 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { Easing, SharedValue, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
-import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
+import { haptic } from '../utils/haptics';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
-import { Mascot } from './Mascot';
+import { Mascot, MascotHandle } from './Mascot';
 
 export const NAV_ITEMS = ['home', 'explore', 'mascot', 'stats', 'profile'] as const;
+/** The ghost's slot. It is a toy, not a tab: tapping it never changes `active`. */
 const MASCOT_INDEX = 2;
 
 interface Props {
@@ -29,17 +20,11 @@ interface Props {
   scrollDirection: SharedValue<number>;
 }
 
-function haptic(style: 'light' | 'medium') {
-  if (Platform.OS === 'web') return;
-  Haptics.impactAsync(style === 'light' ? Haptics.ImpactFeedbackStyle.Light : Haptics.ImpactFeedbackStyle.Medium);
-}
-
 interface ButtonProps {
   index: number;
   active: boolean;
   onPress: (index: number) => void;
   children: React.ReactNode;
-  bloom: boolean;
   label: string;
 }
 
@@ -47,7 +32,7 @@ interface ButtonProps {
 const SLOT_W = 56;
 
 
-function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
+function NavButton({ index, active, onPress, children, label }: ButtonProps) {
   const pressed = useSharedValue(0);
   const bloomT = useSharedValue(1);
   const iconStyle = useAnimatedStyle(() => ({
@@ -66,10 +51,8 @@ function NavButton({ index, active, onPress, children, bloom, label }: ButtonPro
       style={[styles.slot, { left: navSlotCenter(index) - SLOT_W / 2 }]}
       onPressIn={() => {
         pressed.value = 1;
-        if (bloom) {
-          bloomT.value = 0;
-          bloomT.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) });
-        }
+        bloomT.value = 0;
+        bloomT.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) });
       }}
       onPressOut={() => {
         pressed.value = 0;
@@ -77,35 +60,24 @@ function NavButton({ index, active, onPress, children, bloom, label }: ButtonPro
       onPress={() => onPress(index)}
       hitSlop={6}
     >
-      {bloom && <Animated.View style={[styles.bloom, bloomStyle]} />}
+      <Animated.View style={[styles.bloom, bloomStyle]} />
       <Animated.View style={iconStyle}>{children}</Animated.View>
     </Pressable>
   );
 }
 
 /**
- * The nav bar's idea: the mascot is paying attention. The active pill slides and
- * stretches toward the tapped tab, the mascot glances that way and bobs, and
- * tapping the mascot itself makes it jump. The bar sinks a little while the feed
- * is being scrolled downward and springs back as soon as the scroll eases.
+ * The nav bar's idea: the ghost is paying attention. The active pill slides and
+ * stretches toward the tapped tab and the ghost glances that way and bobs. The ghost
+ * itself is a toy with a life of its own (see Mascot); tapping it never changes the
+ * tab. The bar sinks a little while the feed is being scrolled downward and springs
+ * back as soon as the scroll eases.
  */
 export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: Props) {
   const insets = useSafeAreaInsets();
   const pillX = useSharedValue(navPillLeft(active));
   const target = useSharedValue(navPillLeft(active));
-  const look = useSharedValue(0);
-  const blink = useSharedValue(0);
-  const bob = useSharedValue(0);
-  const squash = useSharedValue(1);
-
-  // Idle blink every ~4s, looping on the UI thread.
-  useEffect(() => {
-    blink.value = withRepeat(
-      withSequence(withDelay(3800, withTiming(1, { duration: 70 })), withTiming(0, { duration: 110 })),
-      -1,
-      false,
-    );
-  }, [blink]);
+  const mascot = useRef<MascotHandle>(null);
 
   useEffect(() => {
     const next = navPillLeft(active);
@@ -113,38 +85,13 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
     pillX.value = withSpring(next, { damping: 15, stiffness: 190, mass: 0.9 });
   }, [active, pillX, target]);
 
-  const react = useCallback(
-    (index: number) => {
-      const dir = index === MASCOT_INDEX ? 0 : Math.sign(index - MASCOT_INDEX);
-      look.value = withSequence(
-        withSpring(dir, { damping: 12, stiffness: 260 }),
-        withDelay(650, withSpring(0, { damping: 14, stiffness: 200 })),
-      );
-      if (index === MASCOT_INDEX) {
-        bob.value = withSequence(
-          withTiming(-14, { duration: 160, easing: Easing.out(Easing.quad) }),
-          withSpring(0, { damping: 9, stiffness: 240 }),
-        );
-        squash.value = withSequence(withTiming(0.82, { duration: 90 }), withSpring(1, { damping: 8, stiffness: 300 }));
-        blink.value = withSequence(withTiming(1, { duration: 60 }), withTiming(0, { duration: 120 }));
-        haptic('medium');
-      } else {
-        bob.value = withSequence(
-          withTiming(-5, { duration: 110, easing: Easing.out(Easing.quad) }),
-          withSpring(0, { damping: 11, stiffness: 260 }),
-        );
-        haptic('light');
-      }
-    },
-    [look, bob, squash, blink],
-  );
-
   const onPress = useCallback(
     (index: number) => {
-      react(index);
+      mascot.current?.glance(Math.sign(index - MASCOT_INDEX));
+      haptic('light');
       onChange(index);
     },
-    [react, onChange],
+    [onChange],
   );
 
   // Pill stretches along the direction of travel while it is far from its target.
@@ -167,10 +114,6 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
     };
   });
 
-  const mascotStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: bob.value }, { scaleY: squash.value }, { scaleX: 1 + (1 - squash.value) * 0.6 }],
-  }));
-
   const bottom = Math.max(insets.bottom, 16) + layout.nav.bottomGap;
 
   return (
@@ -185,21 +128,19 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
           <View style={styles.rim} />
           <Animated.View style={[styles.pill, pillStyle]} />
           <View style={styles.slots}>
-            <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
+            <NavButton index={0} active={active === 0} onPress={onPress} label="Home">
               <HomeIcon />
             </NavButton>
-            <NavButton index={1} active={active === 1} onPress={onPress} bloom label="Explore">
+            <NavButton index={1} active={active === 1} onPress={onPress} label="Explore">
               <CompassIcon />
             </NavButton>
-            <NavButton index={2} active={active === 2} onPress={onPress} bloom={false} label="Mascot">
-              <Animated.View style={mascotStyle}>
-                <Mascot look={look} blink={blink} />
-              </Animated.View>
-            </NavButton>
-            <NavButton index={3} active={active === 3} onPress={onPress} bloom label="Stats">
+            <View style={[styles.slot, { left: navSlotCenter(MASCOT_INDEX) - SLOT_W / 2 }]}>
+              <Mascot ref={mascot} />
+            </View>
+            <NavButton index={3} active={active === 3} onPress={onPress} label="Stats">
               <BarsIcon />
             </NavButton>
-            <NavButton index={4} active={active === 4} onPress={onPress} bloom label="Profile">
+            <NavButton index={4} active={active === 4} onPress={onPress} label="Profile">
               <PersonIcon />
             </NavButton>
           </View>
