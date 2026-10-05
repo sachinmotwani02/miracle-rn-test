@@ -54,9 +54,11 @@ at them.
 
 The idea: **the mascot is paying attention.**
 
-1. The active pill is a spring-driven circle that slides to the tapped slot. While it is far from its
-   target it stretches along the direction of travel (scaleX up to 1.28, scaleY compensates) and
-   settles with a small overshoot.
+1. The active pill is a spring-driven 56×48 lens that slides to the tapped slot. While it is far from
+   its target it stretches along the direction of travel (scaleX up to 1.28, scaleY compensates) and
+   settles with a small overshoot. On iOS 26 the lens is its own interactive Liquid Glass view laid
+   over the bar's glass (siblings, never nested, as Apple requires), so it refracts the icons and
+   bar beneath it like the system tab bar's selection; elsewhere it is a 12% white rounded rect.
 2. Every tab change makes the mascot glance toward the tapped tab (its eyes are separate animated
    views over the raster body) and do a short bob. Tapping the mascot itself makes it jump with
    squash-and-stretch, blink, and fire a medium haptic. It also blinks idly every few seconds.

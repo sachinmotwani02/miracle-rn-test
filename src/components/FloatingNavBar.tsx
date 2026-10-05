@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
 import { Mascot } from './Mascot';
-import { Glass, liquidGlassAvailable } from './Glass';
+import { GlassView } from 'expo-glass-effect';
+import { liquidGlassAvailable } from './Glass';
 
 export const NAV_ITEMS = ['home', 'explore', 'mascot', 'stats', 'profile'] as const;
 const MASCOT_INDEX = 2;
@@ -53,6 +54,10 @@ const SLOT_W = 56;
  * makes the bar read as a flat fill. Raise/lower this to taste on a device.
  */
 const NAV_GLASS_TINT = 'rgba(34,36,42,0.18)';
+
+/** The active state is its own Liquid Glass lens, like the iOS 26 tab bar selection. */
+const PILL_GLASS_TINT = 'rgba(255,255,255,0.10)';
+const AnimatedGlassView = Animated.createAnimatedComponent(GlassView);
 
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
   const pressed = useSharedValue(0);
@@ -183,12 +188,27 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
   return (
     <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
       <View style={styles.shadow}>
-        <Glass style={styles.bar} scheme="dark" tint={NAV_GLASS_TINT} fallback={styles.barFallback}>
-          {!liquidGlassAvailable && Platform.OS === 'ios' ? (
-            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : null}
-          {!liquidGlassAvailable && <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />}
-          <Animated.View style={[styles.pill, pillStyle]} />
+        <View style={styles.bar}>
+          {/* Bar material and the active lens are siblings: Liquid Glass must not be nested. */}
+          {liquidGlassAvailable ? (
+            <GlassView style={StyleSheet.absoluteFill} glassEffectStyle="regular" colorScheme="dark" tintColor={NAV_GLASS_TINT} />
+          ) : (
+            <>
+              {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />
+            </>
+          )}
+          {liquidGlassAvailable ? (
+            <AnimatedGlassView
+              style={[styles.pill, pillStyle]}
+              glassEffectStyle="regular"
+              colorScheme="light"
+              tintColor={PILL_GLASS_TINT}
+              isInteractive
+            />
+          ) : (
+            <Animated.View style={[styles.pill, styles.pillFallback, pillStyle]} />
+          )}
           <View style={styles.slots}>
             <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
               <HomeIcon />
@@ -208,7 +228,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
               <PersonIcon />
             </NavButton>
           </View>
-        </Glass>
+        </View>
       </View>
     </Animated.View>
   );
@@ -226,7 +246,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.nav.height / 2,
     overflow: 'hidden',
   },
-  barFallback: {},
   pill: {
     position: 'absolute',
     top: layout.nav.padding,
@@ -234,9 +253,9 @@ const styles = StyleSheet.create({
     width: layout.nav.pillWidth,
     height: layout.nav.pillHeight,
     borderRadius: layout.nav.pillRadius,
-    backgroundColor: colors.navPill,
     pointerEvents: 'none',
   },
+  pillFallback: { backgroundColor: colors.navPill },
   slots: { flex: 1 },
   slot: { position: 'absolute', top: 0, bottom: 0, width: SLOT_W, alignItems: 'center', justifyContent: 'center' },
   bloom: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, pointerEvents: 'none' },
