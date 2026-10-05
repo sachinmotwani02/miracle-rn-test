@@ -27,7 +27,7 @@ build is needed. Liquid Glass shows on an iPhone running iOS 26; everything else
 | Area | Implementation |
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
-| Portfolio header | Label, value (counts up on mount through a `TextInput` driven by `animatedProps`, no React re-render per frame), delta line, glass Deposit pill (white 20% + 1 pt white 35% border). |
+| Portfolio header | Label, value (counts up on mount), delta line, glass Deposit pill (Liquid Glass on iOS 26, white gradient elsewhere). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
 | Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
@@ -76,7 +76,9 @@ scrolls.
 - Sparkline draws in once per card (stroke-dash offset through `animatedProps` on an SVG `Path`),
   entry markers pop as the line reaches them, the end dot lands last. A module-level set of ids makes
   sure recycled FlashList rows never replay it.
-- Portfolio value counts up over 900 ms.
+- Portfolio value counts up over 900 ms. This is the one JS-driven animation: text content cannot
+  be set from the UI thread on the new architecture (the TextInput `text` animatedProps trick does
+  not apply there), so a single Text re-renders per frame for under a second on mount.
 - The first five cards enter with a staggered fade and 12 pt rise on the first mount only.
 - Tab switch remounts the list so the first cards replay their entrance; active label opacity animates.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
@@ -94,7 +96,8 @@ Nothing else moves. The header, carousel and cards are static by design.
   FlashList calls it as a function.)
 - Sparkline geometry (`src/utils/sparkline.ts`) is computed once per item with `useMemo` and
   rendered with `react-native-svg`, not images.
-- No per-frame JS work: scroll, pill, mascot, bloom, draw-in and count-up are all worklets.
+- No per-frame JS work while scrolling: scroll, pill, mascot, bloom and draw-in are all worklets.
+  The only JS-driven motion is the 900 ms count-up on mount.
 - Mock data is generated once at module load from a seeded PRNG, so renders are deterministic.
 
 ## Robustness
@@ -117,8 +120,9 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
 - **Verification.** No iOS or Android device was attached to the machine this was built on, so the
   app was verified with the unit tests, `tsc`, and the Expo web build, where DOM measurements were
   compared against the exact Figma geometry (every measured box lands within 1 pt). The native-only paths
-  (`BlurView`, `MaskedView`, haptics, the `TextInput` count-up) follow the documented APIs but were
-  not exercised on a device from here. A real-device recording is still to do.
+  (`BlurView`, `MaskedView`, haptics, Liquid Glass) follow the documented APIs. A later pass on an
+  iPhone running iOS 26 confirmed the layout, the glass surfaces and the nav lens, and caught the
+  count-up not applying on the new architecture (now JS-driven). A real-device recording is still to do.
 - **Assets.** The verified seal, swap badge, coin logos and nav icons are hand-drawn SVGs matched to
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
 - **Fonts.** The design's SF Pro Rounded is replaced by Nunito on every platform (see above);

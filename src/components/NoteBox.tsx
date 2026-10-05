@@ -32,7 +32,8 @@ export function NoteBox({ note, expanded, onToggle }: Props) {
   return (
     <View style={styles.box}>
       <Animated.View style={[styles.clip, style]}>
-        <Text style={[text.note, styles.note]} maxFontSizeMultiplier={1.2}>
+        {/* Collapsed: a real two-line clamp so the second line ends in "…" as in the Figma. */}
+        <Text style={[text.note, styles.note]} numberOfLines={expanded ? undefined : 2} maxFontSizeMultiplier={1.2}>
           {note}
         </Text>
       </Animated.View>

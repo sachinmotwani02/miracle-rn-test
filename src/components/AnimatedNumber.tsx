@@ -1,10 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleProp, Text, TextInput, TextStyle } from 'react-native';
-import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { StyleProp, Text, TextStyle } from 'react-native';
 import { formatMoney } from '../utils/format';
-
-const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
-const IS_WEB = Platform.OS === 'web';
 
 interface Props {
   value: number;
@@ -14,41 +10,16 @@ interface Props {
 }
 
 /**
- * Counts up to `value` entirely on the UI thread: the formatted string is
- * written straight into a non-editable TextInput through animatedProps, so no
- * React re-render happens per frame.
+ * Counts up to `value` over `duration` ms with an ease-out cubic.
+ *
+ * Text content cannot be changed from the UI thread (the TextInput `text`
+ * animatedProps trick does not apply on the new architecture), so this is the
+ * one JS-driven animation on the screen: a single Text re-rendered per frame
+ * for under a second on mount, well before any scrolling starts.
  */
-export function AnimatedNumber(props: Props) {
-  return IS_WEB ? <WebAnimatedNumber {...props} /> : <NativeAnimatedNumber {...props} />;
-}
-
-function NativeAnimatedNumber({ value, duration = 900, delay = 150, style }: Props) {
-  const v = useSharedValue(0);
-
-  useEffect(() => {
-    v.value = withDelay(delay, withTiming(value, { duration, easing: Easing.out(Easing.cubic) }));
-  }, [value, duration, delay, v]);
-
-  const animatedProps = useAnimatedProps(() => {
-    const s = formatMoney(v.value);
-    return { text: s } as Record<string, string>;
-  });
-
-  return (
-    <AnimatedTextInput
-      animatedProps={animatedProps as never}
-      editable={false}
-      underlineColorAndroid="transparent"
-      style={[{ padding: 0, margin: 0, includeFontPadding: false } as TextStyle, style]}
-      defaultValue={formatMoney(0)}
-      accessibilityLabel={formatMoney(value)}
-    />
-  );
-}
-
-/** Web preview only: react-native-web has no `text` native prop, so count up with rAF. */
-function WebAnimatedNumber({ value, duration = 900, delay = 150, style }: Props) {
+export function AnimatedNumber({ value, duration = 900, delay = 150, style }: Props) {
   const [shown, setShown] = useState(0);
+
   useEffect(() => {
     let raf = 0;
     let start = 0;
@@ -67,5 +38,10 @@ function WebAnimatedNumber({ value, duration = 900, delay = 150, style }: Props)
       cancelAnimationFrame(raf);
     };
   }, [value, duration, delay]);
-  return <Text style={style}>{formatMoney(shown)}</Text>;
+
+  return (
+    <Text style={style} maxFontSizeMultiplier={1.2} accessibilityLabel={formatMoney(value)}>
+      {formatMoney(shown)}
+    </Text>
+  );
 }
