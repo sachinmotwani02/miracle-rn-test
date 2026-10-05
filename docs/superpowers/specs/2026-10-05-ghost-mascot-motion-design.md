@@ -65,8 +65,8 @@ live glance-toward-tab input).
 3. **Halo:** its own softer spring to the same angle, so it trails behind during the spin and
    overshoots a little more at the end (relative angle stays within about ±35°).
 4. **Landing (≈0.45 s):** soft haptic; eyes open into the dizzy swirl (0.65 s), then a blink.
-- Tapping again during a turn adds one more turn (the spring keeps its velocity), at most three
-  turns ahead of the current angle.
+- Tapping again during a turn adds one more turn (the spring keeps its velocity); a burst of taps
+  stacks up to three turns.
 - The idle blink and glance scheduler pauses while a turn is playing.
 
 ## Reduce Motion
