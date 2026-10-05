@@ -10,13 +10,20 @@ export const TopTradeCard = React.memo(function TopTradeCard({ trade }: { trade:
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Avatar avatar={trade.trader.avatar} size={layout.avatarSmall} verified={trade.trader.verified} badgeSize={layout.badge} />
+        <Avatar
+          avatar={trade.trader.avatar}
+          size={layout.avatarSmall}
+          ring
+          verified={trade.trader.verified}
+          badgeSize={layout.badge}
+          badgeOffset={{ right: -5, bottom: -3 }}
+        />
         <Text style={[text.name, styles.name]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
           {trade.trader.name}
         </Text>
       </View>
       <View style={styles.body}>
-        <CoinLogo asset={trade.asset} size={layout.coinLogo} badgeSize={layout.buyBadgeSmall} />
+        <CoinLogo asset={trade.asset} size={layout.coinLogo} badgeSize={layout.buyBadge} />
         <View style={styles.texts}>
           <Text style={[text.gain, styles.gain]} maxFontSizeMultiplier={1.2}>
             {formatSignedMoney(trade.gainUsd, true)}
@@ -35,17 +42,18 @@ const styles = StyleSheet.create({
     width: layout.carouselCardWidth,
     height: layout.carouselCardHeight,
     borderRadius: layout.cardRadius,
-    backgroundColor: colors.white85,
+    backgroundColor: colors.carouselCard,
     borderWidth: 1,
-    borderColor: colors.white,
+    borderColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 11,
-    paddingTop: 8,
+    paddingTop: 11,
     overflow: 'hidden',
   },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 24 },
-  name: { color: colors.textPrimary, marginTop: 2 },
-  body: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 10 },
+  // Figma: photo at (12,12) with a 1pt ring outside it; name box starts at x 40.
+  header: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 22 },
+  name: { color: colors.textPrimary },
+  body: { flexDirection: 'row', alignItems: 'center', marginTop: 11, gap: 10, marginLeft: 1 },
   texts: { flex: 1 },
   gain: { color: colors.green },
-  meta: { color: colors.textSecondary },
+  meta: { color: colors.textTertiary },
 });

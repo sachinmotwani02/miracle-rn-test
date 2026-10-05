@@ -14,7 +14,7 @@ export function PortfolioHeader({ portfolio }: { portfolio: Portfolio }) {
           Your portfolio
         </Text>
         <AnimatedNumber value={portfolio.valueUsd} style={[text.portfolioValue, styles.value]} />
-        <Text style={styles.delta} maxFontSizeMultiplier={1.3}>
+        <Text style={[text.delta, styles.delta]} maxFontSizeMultiplier={1.3}>
           <Text style={[text.delta, styles.deltaStrong]}>{formatSignedMoney(portfolio.deltaUsd)}</Text>
           <Text style={[text.deltaMuted, styles.deltaMuted]}>{` · ${formatPct(portfolio.deltaPct)} 24h`}</Text>
         </Text>
@@ -33,9 +33,9 @@ const styles = StyleSheet.create({
     paddingRight: layout.screenPadding,
   },
   left: { flex: 1, paddingRight: 12 },
-  label: { color: colors.white, marginBottom: 6 },
-  value: { color: colors.white, height: 28 },
-  delta: { marginTop: 2 },
+  label: { color: colors.white, marginBottom: 4 },
+  value: { color: colors.white88, height: 28 },
+  delta: { marginTop: 6 },
   deltaStrong: { color: colors.white },
-  deltaMuted: { color: colors.white70 },
+  deltaMuted: { color: colors.white64 },
 });

@@ -37,6 +37,6 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
-  title: { color: colors.white, paddingHorizontal: layout.screenPadding, marginBottom: 8 },
+  title: { color: colors.white, paddingHorizontal: layout.screenPadding, marginBottom: 8, height: 20 },
   content: { paddingHorizontal: layout.screenPadding },
 });

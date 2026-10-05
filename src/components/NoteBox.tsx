@@ -15,6 +15,7 @@ interface Props {
 /**
  * Two-line clamp that springs open to the note's full height. The full height
  * is measured from an invisible copy of the text so the spring has a real target.
+ * Figma: 12pt padding, 2pt gap, 20pt "Read more" line, 8pt bottom padding, radius 20.
  */
 export function NoteBox({ note, expanded, onToggle }: Props) {
   const [fullHeight, setFullHeight] = useState(COLLAPSED);
@@ -61,11 +62,11 @@ const styles = StyleSheet.create({
     borderRadius: layout.noteRadius,
     paddingHorizontal: 12,
     paddingTop: 12,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   clip: { overflow: 'hidden' },
   note: { color: colors.textPrimary },
   measure: { position: 'absolute', left: 12, right: 12, top: 12, opacity: 0 },
-  more: { marginTop: 4, alignSelf: 'flex-start' },
+  more: { marginTop: 2, alignSelf: 'flex-start' },
   link: { color: colors.link },
 });

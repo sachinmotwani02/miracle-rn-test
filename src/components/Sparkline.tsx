@@ -19,10 +19,13 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 /** Ids whose draw-in already played. Recycled list rows must not replay it. */
 const seen = new Set<string>();
 
-const STROKE = 3;
-const MARKER_R = 6.5;
-const DOT_R = 2.5;
-const END_R = 5;
+// Figma: 2.2pt stroke, 12pt "+" markers floating 10pt above a 6pt dot (2pt white
+// ring) on the line, and a 9pt dot on the last point.
+const STROKE = 2.2;
+const MARKER_R = 6;
+const MARKER_LIFT = 10;
+const DOT_R = 3;
+const END_R = 4.5;
 
 interface Props {
   id: string;
@@ -41,13 +44,13 @@ function Marker({ x, y, progress, at }: { x: number; y: number; progress: Shared
     };
   });
   return (
-    <Animated.View style={[styles.marker, { left: x - MARKER_R, top: y - 2 * MARKER_R - 3 }, style]}>
+    <Animated.View style={[styles.marker, { left: x - MARKER_R, top: y - MARKER_LIFT - MARKER_R }, style]}>
       <Svg width={MARKER_R * 2} height={MARKER_R * 2}>
         <Circle cx={MARKER_R} cy={MARKER_R} r={MARKER_R} fill={colors.sparkline} />
         <Path
-          d={`M${MARKER_R - 3} ${MARKER_R} H${MARKER_R + 3} M${MARKER_R} ${MARKER_R - 3} V${MARKER_R + 3}`}
+          d={`M${MARKER_R - 2.6} ${MARKER_R} H${MARKER_R + 2.6} M${MARKER_R} ${MARKER_R - 2.6} V${MARKER_R + 2.6}`}
           stroke={colors.white}
-          strokeWidth={1.8}
+          strokeWidth={1.6}
           strokeLinecap="round"
         />
       </Svg>
@@ -62,7 +65,11 @@ export const Sparkline = React.memo(function Sparkline({
   width = layout.sparklineWidth,
   height = layout.sparklineHeight,
 }: Props) {
-  const geo = useMemo(() => buildSparkline(values, { width, height, padding: 6 }), [values, width, height]);
+  // Keep the line in the lower 27pt so the lifted markers fit above it.
+  const geo = useMemo(
+    () => buildSparkline(values, { width, height: height - 4, padding: 5 }),
+    [values, width, height],
+  );
   const first = useRef(!seen.has(id)).current;
   const progress = useSharedValue(first ? 0 : 1);
 
@@ -80,10 +87,11 @@ export const Sparkline = React.memo(function Sparkline({
   });
   const last = geo.points[geo.points.length - 1];
   const markers = entryIndices.filter(i => geo.points[i] !== undefined);
+  const offsetY = 4;
 
   return (
     <View style={{ width, height }}>
-      <Svg width={width} height={height}>
+      <Svg width={width} height={height} style={{ position: 'absolute', top: offsetY }}>
         <AnimatedPath
           d={geo.path}
           stroke={colors.sparkline}
@@ -95,13 +103,21 @@ export const Sparkline = React.memo(function Sparkline({
           animatedProps={pathProps}
         />
         {markers.map(i => (
-          <Circle key={i} cx={geo.points[i].x} cy={geo.points[i].y} r={DOT_R} fill={colors.sparkline} />
+          <Circle key={i} cx={geo.points[i].x} cy={geo.points[i].y} r={DOT_R} fill={colors.sparkline} stroke={colors.white} strokeWidth={2} />
         ))}
       </Svg>
       {markers.map(i => (
-        <Marker key={i} x={geo.points[i].x} y={geo.points[i].y} progress={progress} at={(i / (geo.points.length - 1)) * 0.9} />
+        <Marker
+          key={i}
+          x={geo.points[i].x}
+          y={geo.points[i].y + offsetY}
+          progress={progress}
+          at={(i / (geo.points.length - 1)) * 0.9}
+        />
       ))}
-      {last && <Animated.View style={[styles.end, { left: last.x - END_R, top: last.y - END_R }, endStyle]} />}
+      {last && (
+        <Animated.View style={[styles.end, { left: last.x - END_R, top: last.y + offsetY - END_R }, endStyle]} />
+      )}
     </View>
   );
 });

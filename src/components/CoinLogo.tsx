@@ -23,7 +23,8 @@ function Sol({ size }: { size: number }) {
           <Stop offset="1" stopColor="#14F195" />
         </LinearGradient>
       </Defs>
-      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="#1C1C1E" />
+      <Circle cx={size / 2} cy={size / 2} r={size / 2} fill="#1C1C1C" />
+      <Circle cx={size / 2} cy={size / 2} r={size / 2 - 0.5} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth={1} />
       <Path d={bar(11 * s, true)} fill="url(#solGradient)" />
       <Path d={bar(16.2 * s, false)} fill="url(#solGradient)" />
       <Path d={bar(21.4 * s, true)} fill="url(#solGradient)" />
@@ -65,13 +66,14 @@ interface Props {
   badgeSize?: number;
 }
 
-export function CoinLogo({ asset, size = 36, badge = true, badgeSize = 21 }: Props) {
+export function CoinLogo({ asset, size = 36, badge = true, badgeSize = 15 }: Props) {
   const Logo = asset === 'SOL' ? Sol : asset === 'ETH' ? Eth : Btc;
   return (
     <View style={{ width: size, height: size }}>
       <Logo size={size} />
       {badge && (
-        <View style={[styles.badge, { right: -badgeSize * 0.22, bottom: -badgeSize * 0.12 }]}>
+        // Figma: the 15pt badge's bottom-right corner sits 1.5pt outside the logo.
+        <View style={[styles.badge, { right: -1.5, bottom: -1.2 }]}>
           <BuyBadge size={badgeSize} />
         </View>
       )}

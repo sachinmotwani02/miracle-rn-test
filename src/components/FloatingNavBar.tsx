@@ -14,7 +14,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, layout, navPillLeft } from '../theme';
+import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
 import { Mascot } from './Mascot';
 
@@ -43,6 +43,9 @@ interface ButtonProps {
   label: string;
 }
 
+/** Each slot is absolutely positioned on the icon centres measured from the Figma. */
+const SLOT_W = 56;
+
 function NavButton({ index, active, onPress, children, bloom, label }: ButtonProps) {
   const pressed = useSharedValue(0);
   const bloomT = useSharedValue(1);
@@ -59,7 +62,7 @@ function NavButton({ index, active, onPress, children, bloom, label }: ButtonPro
       accessibilityRole="tab"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
-      style={styles.slot}
+      style={[styles.slot, { left: navSlotCenter(index) - SLOT_W / 2 }]}
       onPressIn={() => {
         pressed.value = 1;
         if (bloom) {
@@ -146,7 +149,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
   // Pill stretches along the direction of travel while it is far from its target.
   const pillStyle = useAnimatedStyle(() => {
     const dist = Math.abs(target.value - pillX.value);
-    const stretch = 1 + Math.min(dist / layout.nav.pill, 1) * 0.28;
+    const stretch = 1 + Math.min(dist / layout.nav.pillWidth, 1) * 0.28;
     return {
       transform: [{ translateX: pillX.value }, { scaleX: stretch }, { scaleY: 1 / Math.sqrt(stretch) }],
     };
@@ -174,12 +177,7 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
       <View style={styles.shadow}>
         <View style={styles.bar}>
           {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: Platform.OS === 'ios' ? colors.navBar : colors.navBarAndroid },
-            ]}
-          />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.navBar }]} />
           <Animated.View style={[styles.pill, pillStyle]} />
           <View style={styles.slots}>
             <NavButton index={0} active={active === 0} onPress={onPress} bloom label="Home">
@@ -222,13 +220,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: layout.nav.padding,
     left: 0,
-    width: layout.nav.pill,
-    height: layout.nav.pill,
-    borderRadius: layout.nav.pill / 2,
+    width: layout.nav.pillWidth,
+    height: layout.nav.pillHeight,
+    borderRadius: layout.nav.pillRadius,
     backgroundColor: colors.navPill,
     pointerEvents: 'none',
   },
-  slots: { flex: 1, flexDirection: 'row', paddingHorizontal: layout.nav.padding },
-  slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  slots: { flex: 1 },
+  slot: { position: 'absolute', top: 0, bottom: 0, width: SLOT_W, alignItems: 'center', justifyContent: 'center' },
   bloom: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.white, pointerEvents: 'none' },
 });

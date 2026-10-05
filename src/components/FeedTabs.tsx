@@ -12,7 +12,7 @@ interface Props {
 function Tab({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const pressed = useSharedValue(0);
   const style = useAnimatedStyle(() => ({
-    opacity: withTiming(selected ? 1 : 0.7, { duration: 180 }),
+    opacity: withTiming(selected ? 1 : 0.72, { duration: 180 }),
     transform: [{ scale: withTiming(pressed.value ? 0.96 : 1, { duration: 120 }) }],
   }));
   return (

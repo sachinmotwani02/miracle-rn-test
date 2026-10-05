@@ -89,13 +89,14 @@ export function DiscoverScreen() {
 
   const header = useMemo(
     () => (
-      <View style={{ paddingTop: insets.top + 12 }}>
+      // Figma (status bar 59pt): label 70, title 167, carousel 195, tabs 309, first card 347.
+      <View style={{ paddingTop: insets.top + 11 }}>
         <PortfolioHeader portfolio={portfolio} />
-        <View style={{ height: 30 }} />
+        <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades} />
-        <View style={{ height: 24 }} />
+        <View style={{ height: 22 }} />
         <FeedTabs active={tab} onChange={onTab} />
-        <View style={{ height: 16 }} />
+        <View style={{ height: 18 }} />
       </View>
     ),
     [insets.top, tab, onTab],

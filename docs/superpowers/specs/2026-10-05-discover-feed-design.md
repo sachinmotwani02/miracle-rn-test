@@ -11,7 +11,31 @@ Rebuild the "Discover" feed screen 1:1 in React Native (Expo, TypeScript) and br
 life with UI-thread animation, with the floating nav bar as the creative centrepiece.
 Mock data only. Runs on iOS and Android with safe areas and no layout breakage.
 
-## Constraints and how the Figma was measured
+## Revision (2026-10-05, second pass)
+
+An editable copy of the file was later available. The Feed frame was copied as SVG and parsed, and
+every text layer's Typography panel was read. Corrections over the first pass:
+
+- Typeface is SF Pro Rounded (shipped as Nunito, see README). Sizes/line heights: label 12/16 600,
+  value 24/28 700 white 88% (-3% tracking), delta 12/16 600 (white / white 64%), Deposit 15/20 700,
+  section title 15/20 600, names 15/20 600, meta 12/16 600 at 64% (48% for "Bought … at"/"at"),
+  Buy 11/14 700, asset 19/22 600, price 12/16 600, note 13/16 500, Read more 13/20 600, tabs 15/20 600
+  (inactive 72% opacity), carousel gain 15/20 600. Letter spacing 1% except the value.
+- Header line boxes at y 70 / 90 / 125; section title at 167; carousel at 195; tabs at 309;
+  first card at 347 (height 188, gap 4).
+- Carousel: avatar 20 with a 1 pt white ring outside, name box at x 40 (card-relative), card fill
+  white 92% with Figma Glass + inner shadow (approximated); logo badge 15 (13.5 disc + 1.5 white
+  stroke, glyph #42D578) overhanging the logo by 1.5 pt.
+- Feed card: padding top 10, header row 40 (name 20 + 4 + stats 16) with the avatar centred, 2 pt
+  dot separators (black 24%), a 2 pt vertical thread (black 10%) from avatar to logo, asset row 38,
+  gap 11, note box radius 20 with padding 12/12/8 and a 2 pt gap before the 20 pt "Read more".
+- Sparkline: 2.2 pt stroke, 12 pt "+" markers lifted 10 pt above 6 pt ringed dots, 9 pt end dot.
+- Nav bar: 304×64 at x 45, fill #22242A 80%, 8 pt inset, active pill 56×48 radius 24, icon centres
+  at bar-local x 36 / 92 / 152 / 212 / 268, bottom edge 37 pt above the frame bottom. Bottom fade is
+  a 114 pt white gradient (0 → 100%).
+- Deposit fill is a white gradient (32% → 64%) at 32% layer opacity.
+
+## Constraints and how the Figma was measured (first pass)
 
 The Figma MCP server refused the file (the account only has view access), so the design
 was measured from lossless captures of the Figma web viewer at 200% and 400% zoom

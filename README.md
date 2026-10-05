@@ -29,20 +29,25 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no de
 | Portfolio header | Label, value (counts up on mount through a `TextInput` driven by `animatedProps`, no React re-render per frame), delta line, glass Deposit pill (white 20% + 1 pt white 35% border). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
-| Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line, coin logo with the swap badge, size/price/change line, 90×32 SVG sparkline with entry markers, and the expandable note. |
-| Floating nav bar | 300×64 pill, five equal slots, 56 pt active circle, cloud mascot in the centre, progressive blur/fade behind it. |
+| Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
+| Floating nav bar | 304×64 pill (`#22242A` at 80%), icons on the measured slot centres, 56×48 active pill, cloud mascot in the centre, a 114 pt white fade behind it. |
 
 ## How the Figma was measured
 
-The Figma MCP server refused the file (view-only access), so the screen was measured from lossless
-captures of the Figma web viewer's WebGL canvas at 200% and 400% zoom (3.5 and 7 device px per pt).
-Every spacing, radius, type size and colour in `src/theme` comes from those captures; the spec lists
-them. The avatar photos were cropped from the 400% capture; the sky export and the mascot SVG were
-supplied afterwards and replaced the reproductions.
+Two passes. First, with view-only access, the screen was measured from lossless captures of the
+Figma web viewer's WebGL canvas at 200% and 400% zoom. Second, with an editable copy of the file,
+the Feed frame was copied as SVG and parsed (every rect, path, fill and opacity), and each text
+layer's Typography panel was read. Every value in `src/theme` now comes from that second pass;
+the spec lists them. The avatar photos were cropped from the capture; the sky export and the mascot
+SVG are the designer's files.
 
-Typeface: the Figma uses SF Pro. iOS renders it as the system font; Android and web load Inter
-(the closest metric match) through `@expo-google-fonts/inter`. The `font(weight)` helper in
-`src/theme/typography.ts` hides the split.
+Typeface: the Figma is set in **SF Pro Rounded** (Semibold almost everywhere; Bold 24 for the
+portfolio value, Bold 15 for Deposit, Bold 11 for the Buy pill, Medium 13 for the note). Apple does
+not expose the rounded design through React Native's `fontFamily` and its licence is Apple-only, so
+the app ships **Nunito** (OFL), the closest rounded match, on every platform via
+`@expo-google-fonts/nunito`. To use the real thing on iOS: put Apple's `SF-Pro-Rounded-*.otf` files
+in `assets/fonts`, load them in `App.tsx`, and point the `family` map in `src/theme/typography.ts`
+at them.
 
 ## Animation: the nav bar
 
@@ -108,13 +113,15 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
 
 - **Verification.** No iOS or Android device was attached to the machine this was built on, so the
   app was verified with the unit tests, `tsc`, and the Expo web build, where DOM measurements were
-  compared against the Figma numbers (everything lands within ~1 pt). The native-only paths
+  compared against the exact Figma geometry (every measured box lands within 1 pt). The native-only paths
   (`BlurView`, `MaskedView`, haptics, the `TextInput` count-up) follow the documented APIs but were
   not exercised on a device from here. A real-device recording is still to do.
 - **Assets.** The verified seal, swap badge, coin logos and nav icons are hand-drawn SVGs matched to
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
-- **Fonts.** SF Pro is only available on iOS; Inter is a close but not identical substitute on
-  Android, so glyph widths differ slightly there.
+- **Fonts.** The design's SF Pro Rounded is replaced by Nunito on every platform (see above);
+  letterforms are close but glyph widths differ by a few points, which shows most in the tab row.
+- **Glass effects.** The carousel cards and Deposit button use Figma's Glass + inner-shadow
+  effects; they are approximated with a 92% white fill, a 1 pt white border and a white gradient.
 - **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
 

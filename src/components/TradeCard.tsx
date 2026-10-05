@@ -22,6 +22,11 @@ function Triangle({ up }: { up: boolean }) {
   return <View style={[styles.tri, up ? styles.triUp : styles.triDown]} />;
 }
 
+/** The "·" separators in the stats line are 2pt dots in the Figma, not glyphs. */
+function Dot() {
+  return <View style={styles.dot} />;
+}
+
 export const TradeCard = React.memo(function TradeCard({ item, index, expanded, onToggleNote, animateIn }: Props) {
   const up = item.changePct >= 0;
   const isBuy = item.side === 'Buy';
@@ -31,7 +36,9 @@ export const TradeCard = React.memo(function TradeCard({ item, index, expanded, 
       style={styles.card}
     >
       <View style={styles.header}>
-        <Avatar avatar={item.trader.avatar} size={layout.avatar} verified={item.trader.verified} badgeSize={layout.badge} />
+        <View style={styles.avatar}>
+          <Avatar avatar={item.trader.avatar} size={layout.avatar} verified={item.trader.verified} badgeSize={layout.badge} />
+        </View>
         <View style={styles.headerText}>
           <View style={styles.nameRow}>
             <Text style={[text.name, styles.name]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
@@ -42,15 +49,23 @@ export const TradeCard = React.memo(function TradeCard({ item, index, expanded, 
                 {item.side}
               </Text>
             </View>
-            <Text style={[text.meta, styles.meta]} maxFontSizeMultiplier={1.2}>
+            <Text style={[text.meta, styles.meta, styles.age]} maxFontSizeMultiplier={1.2}>
               {formatAge(item.ageMinutes)}
             </Text>
           </View>
-          <Text style={[text.meta, styles.meta]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-            {`Top ${item.trader.rank} · ${item.trader.winRate}% WR · ${formatCompactMoney(item.trader.volumeUsd)}`}
-          </Text>
+          <View style={styles.statsRow}>
+            <Text style={[text.meta, styles.meta]} maxFontSizeMultiplier={1.2}>{`Top ${item.trader.rank}`}</Text>
+            <Dot />
+            <Text style={[text.meta, styles.meta]} maxFontSizeMultiplier={1.2}>{`${item.trader.winRate}% WR`}</Text>
+            <Dot />
+            <Text style={[text.meta, styles.meta]} maxFontSizeMultiplier={1.2}>
+              {formatCompactMoney(item.trader.volumeUsd)}
+            </Text>
+          </View>
         </View>
       </View>
+
+      <View style={styles.thread} />
 
       <View style={styles.assetRow}>
         <CoinLogo asset={item.asset} size={layout.coinLogo} badgeSize={layout.buyBadge} />
@@ -84,43 +99,55 @@ export const TradeCard = React.memo(function TradeCard({ item, index, expanded, 
   );
 });
 
+const INNER = layout.cardPadding - layout.noteInset;
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: layout.cardRadius,
     marginHorizontal: layout.cardMargin,
-    paddingTop: layout.cardPadding,
+    paddingTop: layout.cardPaddingTop,
     paddingHorizontal: layout.noteInset,
     paddingBottom: layout.noteInset,
   },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: layout.cardPadding - layout.noteInset },
-  headerText: { flex: 1, gap: 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  // Figma: 40pt text column (name 20 + 4 + stats 16) with the 36pt avatar centred on it.
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: INNER, height: 40 },
+  avatar: { marginTop: 2 },
+  headerText: { flex: 1, gap: 4 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', height: 20 },
   name: { color: colors.textPrimary, flexShrink: 1 },
-  pill: { height: 16, paddingHorizontal: 6, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  pill: { height: 16, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 3 },
+  age: { marginLeft: 6 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', height: 16 },
   meta: { color: colors.textSecondary },
+  dot: { width: 2, height: 2, borderRadius: 1, backgroundColor: colors.dot, marginHorizontal: 4 },
+  thread: {
+    width: 2,
+    height: 11,
+    backgroundColor: colors.thread,
+    marginLeft: INNER + layout.avatar / 2 - 1,
+  },
   assetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 12,
-    marginBottom: 12,
-    paddingHorizontal: layout.cardPadding - layout.noteInset,
+    marginBottom: 11,
+    paddingHorizontal: INNER,
   },
   assetText: { flex: 1 },
-  assetName: { color: colors.textPrimary },
-  priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  assetName: { color: colors.textPrimary, height: 22 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', height: 16 },
   priceDark: { color: colors.textPrimary },
-  priceMuted: { color: colors.textSecondary },
-  changeRow: { flexDirection: 'row', alignItems: 'center', marginLeft: 6, gap: 3 },
+  priceMuted: { color: colors.textTertiary },
+  changeRow: { flexDirection: 'row', alignItems: 'center', marginLeft: 5, gap: 2 },
   tri: {
     width: 0,
     height: 0,
-    borderLeftWidth: 3.5,
-    borderRightWidth: 3.5,
+    borderLeftWidth: 3,
+    borderRightWidth: 3,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
   },
-  triUp: { borderBottomWidth: 6, borderBottomColor: colors.green },
-  triDown: { borderTopWidth: 6, borderTopColor: colors.red },
+  triUp: { borderBottomWidth: 5, borderBottomColor: colors.green },
+  triDown: { borderTopWidth: 5, borderTopColor: colors.red },
 });
