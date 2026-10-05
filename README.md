@@ -59,9 +59,23 @@ The idea: **the mascot is paying attention.**
    settles with a small overshoot. On iOS 26 the lens is its own interactive Liquid Glass view laid
    over the bar's glass (siblings, never nested, as Apple requires), so it refracts the icons and
    bar beneath it like the system tab bar's selection; elsewhere it is a 12% white rounded rect.
-2. Every tab change makes the mascot glance toward the tapped tab (its eyes are separate animated
-   views over the raster body) and do a short bob. Tapping the mascot itself makes it jump with
-   squash-and-stretch, blink, and fire a medium haptic. It also blinks idly every few seconds.
+2. The ghost in the centre is a toy, not a tab: tapping it never moves the pill. It has a life of
+   its own (`src/components/Mascot.tsx`, maths in `src/utils/mascotMotion.ts`):
+   - **Breathing** runs on a UI-thread clock (`useFrameCallback`): about 3.8 s a breath (in for 40%,
+     out for 45% and front-loaded like a passive exhale, then a pause), each breath a little
+     different in length and depth. The cloud grows 3% taller breathing in; the halo follows
+     ~200 ms later.
+   - **Eyes** are a small rig over the raster: true ovals with catchlights that blink at random
+     (sometimes twice), glance around now and then (often behind a blink, the head turning a little
+     after them), widen, go happy (a body-white cheek rises inside each eye and leaves an arch) or
+     roll in a dizzy swirl. Every tab change makes the ghost glance toward the tapped tab and bob.
+   - **Tap:** pressing squashes it and winds it up; releasing spins it a full turn about its
+     vertical axis on a spring. Side-on the cloud narrows to its depth instead of collapsing like a
+     card, the face slides round and disappears while it faces away, then comes back smiling,
+     overshoots and settles. It floats up 7 pt and lands with squash and stretch; the halo, a ring
+     around that axis, stays level, lifts off a beat late and jiggles back. Then a dizzy swirl, a
+     blink, and a few quicker breaths. Light and soft haptics mark the press and the landing; a
+     burst of taps stacks up to three turns. With Reduce Motion on it stays still and only smiles.
 3. Press feedback: the pressed icon scales to 0.88 on a stiff spring and a soft white bloom expands
    and fades behind it.
 4. Scroll-linked: while the feed is being scrolled downward the bar sinks 12 pt and shrinks to 0.97,

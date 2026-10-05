@@ -5,7 +5,7 @@ Date: 2026-10-05 · Status: approved in chat
 ## Goal
 
 The cloud ghost in the centre of the floating nav bar is a toy, not a tab. Give it life:
-more expressive eyes, a subtle, realistic breathing loop, and a fun 360° turn on the Z axis
+more expressive eyes, a subtle, realistic breathing loop, and a fun 360° turn about its vertical axis
 when it is tapped. The inspiration clip was used for principles only (eyes carry the emotion,
 shape changes, gaze shifts hidden behind blinks, settle instead of stopping); nothing is copied.
 
@@ -27,8 +27,9 @@ live glance-toward-tab input).
 
 - **Halo layer:** the PNG clipped to y 0–8.8 (halo occupies rows 3.1–8.5 pt).
 - **Body layer:** the same PNG clipped to y 8.8–40 (body occupies 9.2–37.8 pt). Eyes live inside it.
-- **Pivot:** the body centre (17, 23.5) for the spin and for the halo's lag.
-- Everything stays inside the 64 pt bar while spinning (maximum reach about 22 pt from the pivot).
+- **Pivot:** the body centre (17, 23.5) for the squash and stretch; the turn's axis runs
+  vertically through x = 17.
+- Everything stays inside the 64 pt bar while turning and lifting.
 
 ## Eyes
 
@@ -58,13 +59,22 @@ live glance-toward-tab input).
 
 ## Tap: the turn (about 1.2 s)
 
-1. **Press in:** squash (scaleY 0.88, scaleX compensates), wind up −12°, eyes wide, light haptic.
-2. **Release:** spring clockwise to the next full turn (`stiffness 70, damping 11, mass 1`): about 360° in
-   0.36 s, overshoot about 20°, settle by 0.9 s. Lift 7 pt (240 ms ease-out) then settle on a soft
-   spring; stretch to 1.08 on take-off, squash to 0.92 on landing. Eyes go happy ∩∩.
-3. **Halo:** its own softer spring to the same angle, so it trails behind during the spin and
-   overshoots a little more at the end (relative angle stays within about ±35°).
-4. **Landing (≈0.45 s):** soft haptic; eyes open into the dizzy swirl (0.65 s), then a blink.
+The turn is about the ghost's own vertical axis (a pirouette), not a spin in the screen plane;
+the first build spun it in the plane and was corrected after review on device.
+
+1. **Press in:** squash (scaleY 0.88, scaleX compensates), turn −15° against the coming turn,
+   eyes wide, light haptic.
+2. **Release:** spring to the next full turn (`stiffness 55, damping 10, mass 1`): about 360° in
+   0.42 s, overshoot about 20°, settle by about 1 s. Lift 7 pt (240 ms ease-out) then settle on a
+   soft spring; stretch to 1.08 on take-off, squash to 0.92 on landing. Eyes go happy ∩∩.
+3. **Fake 3D from one front-view raster:** in plan view the cloud is an ellipse 0.6 as deep as it
+   is wide (`turnPose` in `mascotMotion.ts`). Its silhouette narrows to 0.6 side-on instead of
+   collapsing like a card; the face (both eyes) slides round the ellipse, foreshortens by its
+   surface normal and is hidden while the ghost faces away.
+4. **Halo:** a ring around that axis, so it does not turn. It lags the take-off, floats on past
+   the top, settles on a loose spring and tilts a few degrees on landing.
+5. **Landing (≈0.45 s):** soft haptic; eyes open into the dizzy swirl (0.65 s), then a blink.
+- The head also follows the eyes: 12° toward a tapped tab, up to 6° with idle glances.
 - Tapping again during a turn adds one more turn (the spring keeps its velocity); a burst of taps
   stacks up to three turns.
 - The idle blink and glance scheduler pauses while a turn is playing.
