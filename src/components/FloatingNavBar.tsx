@@ -69,7 +69,7 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
 
 /**
  * The nav bar's idea: the ghost is paying attention. The active pill slides and
- * stretches toward the tapped tab and the ghost glances that way. The ghost
+ * stretches toward the tapped tab and the ghost glances that way with a tiny hop. The ghost
  * itself is a toy with a life of its own (see Mascot); tapping it never changes the
  * tab. The bar sinks a little while the feed is being scrolled downward and springs
  * back as soon as the scroll eases.

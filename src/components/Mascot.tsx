@@ -101,6 +101,10 @@ const BLINK_OPEN = { duration: 130, easing: Easing.out(Easing.quad) };
 // Reanimated 4 springs default to mass 4, so every config here spells out mass 1.
 const DART = { stiffness: 500, damping: 26, mass: 1 };
 const DRIFT_BACK = { stiffness: 220, damping: 20, mass: 1 };
+/** A tab change gets a barely-there hop: 1.5 pt up, then a well-damped settle with no bounce-back. */
+const TAB_HOP = 1.5;
+const HOP_UP = { duration: 120, easing: Easing.out(Easing.quad) };
+const HOP_SETTLE = { stiffness: 300, damping: 21, mass: 1 };
 const PRESS = { stiffness: 500, damping: 26, mass: 1 };
 const RELAX = { stiffness: 300, damping: 18, mass: 1 };
 const SPIN = { stiffness: 55, damping: 10, mass: 1 };
@@ -214,6 +218,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const gazeX = useSharedValue(0); // idle gaze, -1..1
   const gazeY = useSharedValue(0);
   // Body.
+  const hop = useSharedValue(0); // pt, the tab-change hop
   const lift = useSharedValue(0);
   const squash = useSharedValue(1);
   const spin = useSharedValue(0); // turn about the vertical axis, degrees; every tap adds 360
@@ -247,17 +252,18 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   useImperativeHandle(
     ref,
     () => ({
-      // Only the eyes (and the head, a little) follow a tab change; the body stays put, so the
-      // pill is the one thing that moves for navigation.
+      // A tab change gets a glance (the eyes, and the head a little) and a barely-there hop; the
+      // pill stays the main thing that moves for navigation.
       glance(direction: number) {
         if (reduceMotion) return;
         gazeX.value = withSpring(0, DART);
         gazeY.value = withSpring(0, DART);
         look.value = withSequence(withSpring(direction, DART), withDelay(650, withSpring(0, DRIFT_BACK)));
         wide.value = withSequence(withTiming(0.4, { duration: 120 }), withDelay(450, withTiming(0, { duration: 220 })));
+        hop.value = withSequence(withTiming(-TAB_HOP, HOP_UP), withSpring(0, HOP_SETTLE));
       },
     }),
-    [reduceMotion, gazeX, gazeY, look, wide],
+    [reduceMotion, gazeX, gazeY, look, wide, hop],
   );
 
   const relax = () => {
@@ -346,7 +352,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
 
   const rigStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: lift.value + RIG_PIVOT },
+      { translateY: lift.value + hop.value + RIG_PIVOT },
       { scaleX: 1 + (1 - squash.value) * 0.7 },
       { scaleY: squash.value },
       { translateY: -RIG_PIVOT },

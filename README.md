@@ -68,7 +68,8 @@ The idea: **the mascot is paying attention.**
    - **Eyes** are a small rig over the raster (exactly the Figma ovals at rest) that blink at random
      (sometimes twice), glance around now and then (often behind a blink, the head turning a little
      after them), widen, go happy (a body-white cheek rises inside each eye and leaves an arch) or
-     roll in a dizzy swirl. Every tab change makes the ghost glance toward the tapped tab.
+     roll in a dizzy swirl. Every tab change makes the ghost glance toward the tapped tab with a
+     barely-there 1.5 pt hop.
    - **Tap:** pressing squashes it and winds it up; releasing spins it a full turn about its
      vertical axis on a spring. Side-on the cloud narrows to its depth instead of collapsing like a
      card, the face slides round and disappears while it faces away, then comes back smiling,
