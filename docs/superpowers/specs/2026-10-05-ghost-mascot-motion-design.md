@@ -13,7 +13,9 @@ shape changes, gaze shifts hidden behind blinks, settle instead of stopping); no
 
 - Tapping the ghost no longer selects it: the active pill and the `nav` state stay put.
 - It is a plain button (`accessibilityRole="button"`, label "Ghost", hint "Spins the ghost").
-- Tapping a real tab still makes the ghost glance toward it and bob, as before.
+- Tapping a real tab makes the ghost glance toward it. (It used to bob as well; dropped on review:
+  the pill is the one thing that moves for navigation, and a bouncing ghost read as part of the
+  selection.)
 
 ## Approach
 
@@ -45,8 +47,8 @@ live glance-toward-tab input).
 - **Expressions** (each 0..1, combinable): *wide* (eyes grow 20%), *happy ∩∩* (a body-white
   "cheek" rises inside each eye so the visible part is an arch),
   *dizzy* (gaze traces a small circle that grows and shrinks).
-- **Tab glance:** eyes dart toward the tapped tab and widen a little, return after 650 ms;
-  the ghost bobs 5 pt.
+- **Tab glance:** eyes dart toward the tapped tab and widen a little (the head turns 12° after
+  them), return after 650 ms. The body does not move.
 
 ## Breathing
 

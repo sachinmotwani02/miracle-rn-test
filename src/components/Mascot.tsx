@@ -101,7 +101,6 @@ const BLINK_OPEN = { duration: 130, easing: Easing.out(Easing.quad) };
 // Reanimated 4 springs default to mass 4, so every config here spells out mass 1.
 const DART = { stiffness: 500, damping: 26, mass: 1 };
 const DRIFT_BACK = { stiffness: 220, damping: 20, mass: 1 };
-const BOB = { stiffness: 260, damping: 12, mass: 1 };
 const PRESS = { stiffness: 500, damping: 26, mass: 1 };
 const RELAX = { stiffness: 300, damping: 18, mass: 1 };
 const SPIN = { stiffness: 55, damping: 10, mass: 1 };
@@ -215,7 +214,6 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const gazeX = useSharedValue(0); // idle gaze, -1..1
   const gazeY = useSharedValue(0);
   // Body.
-  const bob = useSharedValue(0);
   const lift = useSharedValue(0);
   const squash = useSharedValue(1);
   const spin = useSharedValue(0); // turn about the vertical axis, degrees; every tap adds 360
@@ -249,16 +247,17 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   useImperativeHandle(
     ref,
     () => ({
+      // Only the eyes (and the head, a little) follow a tab change; the body stays put, so the
+      // pill is the one thing that moves for navigation.
       glance(direction: number) {
         if (reduceMotion) return;
         gazeX.value = withSpring(0, DART);
         gazeY.value = withSpring(0, DART);
         look.value = withSequence(withSpring(direction, DART), withDelay(650, withSpring(0, DRIFT_BACK)));
         wide.value = withSequence(withTiming(0.4, { duration: 120 }), withDelay(450, withTiming(0, { duration: 220 })));
-        bob.value = withSequence(withTiming(-5, { duration: 110, easing: Easing.out(Easing.quad) }), withSpring(0, BOB));
       },
     }),
-    [reduceMotion, gazeX, gazeY, look, wide, bob],
+    [reduceMotion, gazeX, gazeY, look, wide],
   );
 
   const relax = () => {
@@ -347,7 +346,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
 
   const rigStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateY: lift.value + bob.value + RIG_PIVOT },
+      { translateY: lift.value + RIG_PIVOT },
       { scaleX: 1 + (1 - squash.value) * 0.7 },
       { scaleY: squash.value },
       { translateY: -RIG_PIVOT },
