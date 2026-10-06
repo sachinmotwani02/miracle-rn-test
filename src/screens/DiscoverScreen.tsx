@@ -12,6 +12,7 @@ import { useDials } from '../dev/dials';
 import { useFeedLanding } from '../hooks/useFeedLanding';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
+import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
@@ -57,12 +58,13 @@ const AnimatedFlashList = Animated.createAnimatedComponent(
   FlashListProps<FeedItem> & { onScroll?: unknown; ref?: React.Ref<FlashListRef<FeedItem>> }
 >;
 
-/** Hidden from screen readers while the sky bar holds the live copy. */
+/**
+ * Hidden from screen readers while the sky bar holds the live copy. `aria-hidden` rather than
+ * the native-only props, which react-native-web drops: it becomes accessibilityElementsHidden on
+ * iOS, importantForAccessibility no-hide-descendants on Android and aria-hidden on the web.
+ */
 function a11yHidden(hidden: boolean) {
-  return {
-    accessibilityElementsHidden: hidden,
-    importantForAccessibility: hidden ? ('no-hide-descendants' as const) : ('auto' as const),
-  };
+  return { 'aria-hidden': hidden };
 }
 
 /** Owns the loading dials. Replay forgets every load and remounts the screen as a cold start. */
@@ -157,6 +159,20 @@ function Discover({ latency }: { latency: Latency }) {
     if (!bar.docked) setMenuOpen(false);
   }
 
+  // Closing the menu hands the screen reader back to the dropdown that opened it, if the bar is
+  // still there to hold it.
+  const dropdownRef = useRef<View>(null);
+  const menuWasOpen = useRef(false);
+  useEffect(() => {
+    if (menuOpen) {
+      menuWasOpen.current = true;
+      return;
+    }
+    if (!menuWasOpen.current) return;
+    menuWasOpen.current = false;
+    if (bar.docked) moveAccessibilityFocus(dropdownRef.current);
+  }, [menuOpen, bar.docked]);
+
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => (
       // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
@@ -236,30 +252,33 @@ function Discover({ latency }: { latency: Latency }) {
     <SkeletonSweep active={loading}>
       <View style={styles.root}>
         <StatusBar style="light" />
-        <SkyBackground scrollY={scrollY} />
-        <View style={styles.list}>
-          <AnimatedFlashList
-            ref={listRef}
-            data={items}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            extraData={expanded}
-            ListHeaderComponent={header}
-            ListEmptyComponent={<View style={emptyFeed}>{feed.phase === 'skeleton' ? <FeedSkeleton /> : null}</View>}
-            ItemSeparatorComponent={Separator}
-            contentContainerStyle={{ paddingBottom: navClearance }}
-            showsVerticalScrollIndicator={false}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            drawDistance={height}
-            // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
-            // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
-            maintainVisibleContentPosition={MVCP_OFF}
-          />
+        {/* While the feed menu is open, it is all a screen reader reaches. */}
+        <View style={styles.screen} {...a11yHidden(menuOpen)}>
+          <SkyBackground scrollY={scrollY} />
+          <View style={styles.list}>
+            <AnimatedFlashList
+              ref={listRef}
+              data={items}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              extraData={expanded}
+              ListHeaderComponent={header}
+              ListEmptyComponent={<View style={emptyFeed}>{feed.phase === 'skeleton' ? <FeedSkeleton /> : null}</View>}
+              ItemSeparatorComponent={Separator}
+              contentContainerStyle={{ paddingBottom: navClearance }}
+              showsVerticalScrollIndicator={false}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              drawDistance={height}
+              // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
+              // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
+              maintainVisibleContentPosition={MVCP_OFF}
+            />
+          </View>
+          <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} dropdownRef={dropdownRef} />
+          <BottomFade height={navClearance + 20} />
+          <FloatingNavBar active={nav} onChange={setNav} scrollY={scrollY} />
         </View>
-        <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} />
-        <BottomFade height={navClearance + 20} />
-        <FloatingNavBar active={nav} onChange={setNav} scrollY={scrollY} />
         <FeedMenu
           open={menuOpen}
           active={selection.tab}
@@ -282,5 +301,6 @@ function Separator() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.feedBg },
+  screen: { flex: 1 },
   list: { flex: 1 },
 });

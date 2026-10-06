@@ -46,11 +46,13 @@ function Tab({ label, selected, onPress, fold, x, folded, onLayout }: TabProps) 
   return (
     <Animated.View
       style={[styles.tab, folding, { pointerEvents: folded && !selected ? 'none' : 'auto' }]}
+      // Folded away, a tab is gone for screen readers too.
+      aria-hidden={folded && !selected}
       onLayout={onLayout}
     >
       <Pressable
         accessibilityRole="tab"
-        accessibilityState={{ selected }}
+        aria-selected={selected}
         onPress={onPress}
         onPressIn={() => {
           pressed.set(1);
@@ -58,8 +60,9 @@ function Tab({ label, selected, onPress, fold, x, folded, onLayout }: TabProps) 
         onPressOut={() => {
           pressed.set(0);
         }}
-        // Folded, the active label also answers taps on the chevron beside it.
-        hitSlop={{ top: 10, bottom: 10, left: 4, right: folded && selected ? 24 : 4 }}
+        // 44 pt tall round the 20 pt label. Folded, the active label also answers taps on the
+        // chevron beside it.
+        hitSlop={{ top: 12, bottom: 12, left: 4, right: folded && selected ? 24 : 4 }}
       >
         <Animated.Text style={[text.tab, styles.label, style]} maxFontSizeMultiplier={1.2}>
           {label}
@@ -79,7 +82,7 @@ export function FeedTabs({ active, onChange, fold, folded = false, onOpenMenu }:
   });
   const activeWidth = boxes[active]?.width ?? 0;
   return (
-    <View style={styles.row}>
+    <View style={styles.row} accessibilityRole="tablist">
       {TABS.map(t => (
         <Tab
           key={t.key}

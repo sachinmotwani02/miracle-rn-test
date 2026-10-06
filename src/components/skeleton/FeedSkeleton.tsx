@@ -77,7 +77,7 @@ export function TradeCardSkeleton({ seed, fade }: { seed: number; fade?: number 
 /** The feed while it loads: three cards fading with distance, announced once as busy. */
 export function FeedSkeleton() {
   return (
-    <View accessible accessibilityLabel="Loading trades" accessibilityState={{ busy: true }} style={styles.feed}>
+    <View accessible accessibilityLabel="Loading trades" aria-busy style={styles.feed}>
       {SKELETON.feedFade.map((fade, i) => (
         <TradeCardSkeleton key={i} seed={i} fade={fade} />
       ))}

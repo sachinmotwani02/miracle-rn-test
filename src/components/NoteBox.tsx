@@ -72,13 +72,14 @@ export function NoteBox({ note, expanded, onToggle }: Props) {
         onLayout={onMeasure}
         style={[text.note, styles.note, styles.measure]}
         maxFontSizeMultiplier={MAX_SCALE}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
+        // Only a ruler: hidden from screen readers on every platform, the web included.
+        aria-hidden
       >
         {note}
       </Text>
       {needsToggle && (
-        <Pressable onPress={onToggle} hitSlop={8} accessibilityRole="button" style={styles.more}>
+        // 44 pt tall round the 20 pt line.
+        <Pressable onPress={onToggle} hitSlop={12} accessibilityRole="button" aria-expanded={expanded} style={styles.more}>
           <Text style={[text.link, styles.link]} maxFontSizeMultiplier={MAX_SCALE}>
             {expanded ? 'Show less' : 'Read more'}
           </Text>

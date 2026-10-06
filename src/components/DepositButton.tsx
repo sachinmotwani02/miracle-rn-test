@@ -21,6 +21,8 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
     <Animated.View style={[styles.shadow, style]}>
       <Pressable
         accessibilityRole="button"
+        // 44 pt tall round the 36 pt pill.
+        hitSlop={{ top: 4, bottom: 4 }}
         onPressIn={() => {
           scale.set(withSpring(0.95, PRESS));
         }}

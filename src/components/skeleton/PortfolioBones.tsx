@@ -8,7 +8,7 @@ import { Bone, BoneGroup } from './Bone';
 export function PortfolioBones() {
   return (
     <BoneGroup>
-      <View accessible accessibilityLabel="Loading portfolio" accessibilityState={{ busy: true }}>
+      <View accessible accessibilityLabel="Loading portfolio" aria-busy>
         <View style={styles.value}>
           <Bone width={132} height={boneHeight(text.portfolioValue.fontSize ?? 24)} tone="sky" />
         </View>

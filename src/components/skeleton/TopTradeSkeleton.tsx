@@ -34,7 +34,7 @@ export function TopTradeCardBones({ seed }: { seed: number }) {
 /** The carousel while it loads: real glass cards with bones inside; the row does not scroll. */
 export function TopTradesSkeleton() {
   return (
-    <View accessible accessibilityLabel="Loading top trades" accessibilityState={{ busy: true }} style={styles.row}>
+    <View accessible accessibilityLabel="Loading top trades" aria-busy style={styles.row}>
       {Array.from({ length: SKELETON.carouselCards }, (_, i) => (
         <View key={i} style={styles.card}>
           <TopTradeCardBones seed={i} />

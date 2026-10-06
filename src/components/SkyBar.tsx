@@ -14,6 +14,8 @@ interface Props {
   feedLabel: string;
   menuOpen: boolean;
   onOpenMenu: () => void;
+  /** The dropdown, for handing the screen reader back to it when the menu closes. */
+  dropdownRef?: React.Ref<View>;
 }
 
 /**
@@ -22,7 +24,7 @@ interface Props {
  * up in the feed a bar holding the feed dropdown and Deposit. Every layer is a window onto the
  * background sky, so none of it can be seen until content slides beneath it.
  */
-export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
+export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu, dropdownRef }: Props) {
   const { width } = useWindowDimensions();
   const { scrollY, presence, geometry, top } = bar;
   const barHeight = top + SKY_BAR.height;
@@ -49,11 +51,17 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
   return (
     <View style={styles.root}>
       <SkyWindow offset={offset} top={bandTop} left={0} width={width} height={barHeight} blocksTouches />
-      <Animated.View style={[styles.dropdown, dropdown, { pointerEvents: bar.docked ? 'auto' : 'none' }]}>
+      {/* Each control here is a copy of one in the header, so it is hidden from screen readers
+          whenever it is hidden from sight; the header hides its own copy the rest of the time. */}
+      <Animated.View
+        style={[styles.dropdown, dropdown, { pointerEvents: bar.docked ? 'auto' : 'none' }]}
+        aria-hidden={!bar.docked}
+      >
         <Pressable
+          ref={dropdownRef}
           accessibilityRole="button"
           accessibilityLabel={`Feed: ${feedLabel}`}
-          accessibilityState={{ expanded: menuOpen }}
+          aria-expanded={menuOpen}
           onPress={onOpenMenu}
           hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
           style={styles.dropdownRow}
@@ -78,6 +86,7 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
       </Animated.View>
       <Animated.View
         style={[styles.deposit, { left: depositLeft }, deposit, { pointerEvents: bar.pinned ? 'box-none' : 'none' }]}
+        aria-hidden={!bar.pinned}
       >
         <DepositButton />
       </Animated.View>
