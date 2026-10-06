@@ -26,18 +26,18 @@ crosses back into the header while the bar is partway shown.
 
 ## Geometry
 
-`s` is the list's scroll offset, `T` the safe-area top inset, `BAR = 44` the bar row under the
-status bar. Positions inside the list header are measured at runtime (`onLayout`), so Dynamic Type
+`s` is the list's scroll offset, `T` the safe-area top inset, `BAR = 52` the bar row under the
+status bar (44 at first; 8 pt more room went under Deposit and the dropdown). Positions inside the list header are measured at runtime (`onLayout`), so Dynamic Type
 and other insets move the thresholds with the layout. Values in brackets are the Figma frame
 (T = 59).
 
 | Name | Meaning | Value |
 | --- | --- | --- |
-| `PIN` | Deposit's top reaches its bar slot (`T + 4`, the 36 pt pill centred in the row) | depositTop − (T + 4) [24] |
-| `DOCK` | the tab row's top reaches its bar slot (`T + 12`, the 20 pt row centred) | tabsTop − (T + 12) [238] |
-| `RISE` | start of the tab row's 40 pt rise into the bar, which is also the fold | DOCK − 40 [198] |
-| `FEED` | past this the bar answers scroll direction | DOCK + BAR [282] |
-| `FEED_TOP` | puts the first card right under the bar | firstCardTop − (T + BAR) [244] |
+| `PIN` | Deposit's top reaches its bar slot (`T + 4`, the 36 pt pill, 12 pt of room below it) | depositTop − (T + 4) [24] |
+| `DOCK` | the tab row's top reaches its bar slot (`T + 12`, the 20 pt row, 20 pt of room below it) | tabsTop − (T + 12) [238] |
+| `RISE` | start of the tab row's 48 pt rise into the bar (BAR − 12 + the 8 pt ride gap), which is also the fold | DOCK − 48 [190] |
+| `FEED` | past this the bar answers scroll direction | DOCK + BAR [290] |
+| `FEED_TOP` | puts the first card right under the bar | firstCardTop − (T + BAR) [236] |
 | `UNDER` | the first card's top reaches the status bar, and the header's sky behind it starts fading | firstCardTop − T [288] |
 
 ## Presence
@@ -46,7 +46,7 @@ and other insets move the thresholds with the layout. Values in brackets are the
 
 - `s <= 0`: `h = 0`. At the very top the header is the bar.
 - `s >= FEED`: `h -= Δs / (T + BAR)`, clamped, so the band follows the finger 1:1: `T + BAR`
-  (103 pt) of upward scroll brings it all the way down from the top of the screen, as much downward
+  (111 pt) of upward scroll brings it all the way down from the top of the screen, as much downward
   scroll pushes it back off. When scroll events stop for 160 ms with `h` partway, it eases to the
   nearer end (180 ms).
 - `0 < s < FEED`: `h` holds, so the hand-back always runs with a settled bar. If the list crosses

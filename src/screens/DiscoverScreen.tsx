@@ -1,22 +1,30 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
-import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedScrollHandler,
+  useComposedEventHandler,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
-import { clearResources, useResource } from '../data/resources';
+import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { SKELETON } from '../utils/skeleton';
+import { TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
+import { TabResolve, TabSoftenContext } from '../components/TabResolve';
 import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
 import { SkyBar } from '../components/SkyBar';
@@ -98,22 +106,65 @@ function Discover({ latency }: { latency: Latency }) {
   // its feed behind a short show delay; anything loaded before comes straight from the cache.
   const portfolio = useResource('portfolio', () => fetchPortfolio(latency.portfolio));
   const topTrades = useResource('topTrades', () => fetchTopTrades(latency.topTrades));
-  // The feed follows the deferred tab, so a tap repaints its label before the cards change.
+  // The feed follows the deferred tab, so a tap repaints its label before the cards change. Only
+  // the cold start's feed draws bones; the feeds behind the other tabs load quietly (ahead of time,
+  // below), and until one lands the cards of the feed shown before stay up.
   const cold = shown.tab === firstTab;
   const feed = useResource(`feed:${shown.tab}`, () => fetchFeed(shown.tab, cold ? latency.feed : latency.tabFeed), {
-    showDelay: cold ? 0 : SKELETON.gate.showDelay,
+    quiet: !cold,
   });
-  const loading = portfolio.phase !== 'content' || topTrades.phase !== 'content' || feed.phase !== 'content';
-  const items = feed.phase === 'content' && feed.data ? feed.data : NO_ITEMS;
+  const [feedTab, setFeedTab] = useState<TabKey | null>(null);
+  // A switch, to a feed loaded ahead or one that just landed, resolves the cards on screen in place.
+  const [resolveKey, setResolveKey] = useState(0);
+  if (feed.phase === 'content' && feedTab !== shown.tab) {
+    setFeedTab(shown.tab);
+    if (feedTab !== null) setResolveKey(k => k + 1);
+  }
+  const showing = feed.phase === 'content' ? feed : feedTab ? readResource<FeedItem[]>(`feed:${feedTab}`) : feed;
+  const items = showing.phase === 'content' && showing.data ? showing.data : NO_ITEMS;
+  const loading = portfolio.phase !== 'content' || topTrades.phase !== 'content' || feed.phase === 'skeleton';
   const revealing = feed.revealing;
   // The staggered entrance is for a first feed that arrives without bones. One that reveals from
   // its bones retires it for good, so cards that mount after the reveal window never play it.
   const [revealed, setRevealed] = useState(false);
   if (revealing && !revealed) setRevealed(true);
 
-  const onTab = useCallback((tab: TabKey) => {
-    setSelection(prev => (prev.tab === tab ? prev : { tab, switched: true }));
-  }, []);
+  // Once the first feed is in, the others load behind it, so a tab tap usually finds its feed ready.
+  const firstFeedIn = feedTab !== null;
+  useEffect(() => {
+    if (!firstFeedIn) return;
+    for (const { key } of TABS) {
+      if (key !== firstTab) load(`feed:${key}`, () => fetchFeed(key, latency.tabFeed), { quiet: true });
+    }
+  }, [firstFeedIn, firstTab, latency.tabFeed]);
+
+  // The cards start to soften on the tap itself, from this handler, before React renders anything;
+  // the new feed then resolves out of the softness (TabResolve).
+  const pending = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const onTab = useCallback(
+    (tab: TabKey) => {
+      if (tab === selection.tab) return;
+      if (!reduced) pending.set(withTiming(1, { duration: TAB_RESOLVE.soften, easing: TAB_RESOLVE.easing }));
+      setSelection({ tab, switched: true });
+    },
+    [selection.tab, reduced, pending],
+  );
+  const softening = feedTab !== null && selection.tab !== feedTab;
+  const soften = useMemo(() => ({ pending, softening }), [pending, softening]);
+  // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken
+  // over from `pending` (their layout effects run first), so it drops at once; with no resolve (tapped
+  // away and back before the cards changed) they ease back to sharp.
+  const handedOff = useRef(resolveKey);
+  useLayoutEffect(() => {
+    if (softening) return;
+    if (handedOff.current !== resolveKey) {
+      handedOff.current = resolveKey;
+      pending.set(0);
+    } else {
+      pending.set(withTiming(0, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing }));
+    }
+  }, [softening, resolveKey, pending]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -149,7 +200,7 @@ function Discover({ latency }: { latency: Latency }) {
     // The new cards render first (in the deferred render); then the list lands on the first one,
     // right under the bar.
     requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
-  }, [shown.tab, bar.feedTop]);
+  }, [feedTab, bar.feedTop]);
 
   // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
   // scrolls to the top while it is open).
@@ -172,16 +223,19 @@ function Discover({ latency }: { latency: Latency }) {
         delay={index * SKELETON.reveal.stagger}
         bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
       >
-        <TradeCard
-          item={item}
-          index={index}
-          expanded={!!expanded[item.id]}
-          onToggleNote={onToggleNote}
-          animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
-        />
+        {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
+        <TabResolve resolveKey={resolveKey} index={index}>
+          <TradeCard
+            item={item}
+            index={index}
+            expanded={!!expanded[item.id]}
+            onToggleNote={onToggleNote}
+            animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
+          />
+        </TabResolve>
       </Reveal>
     ),
-    [revealed, shown.switched, expanded, onToggleNote, revealing],
+    [revealed, shown.switched, expanded, onToggleNote, revealing, resolveKey],
   );
 
   const header = useMemo(
@@ -236,24 +290,26 @@ function Discover({ latency }: { latency: Latency }) {
         <StatusBar style={bar.darkStatus ? 'dark' : 'light'} animated />
         <SkyBackground scrollY={scrollY} />
         <View style={styles.list}>
-          <AnimatedFlashList
-            ref={listRef}
-            data={items}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            extraData={expanded}
-            ListHeaderComponent={header}
-            ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
-            ItemSeparatorComponent={Separator}
-            contentContainerStyle={{ paddingBottom: navClearance }}
-            showsVerticalScrollIndicator={false}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            drawDistance={height}
-            // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
-            // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
-            maintainVisibleContentPosition={MVCP_OFF}
-          />
+          <TabSoftenContext.Provider value={soften}>
+            <AnimatedFlashList
+              ref={listRef}
+              data={items}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              extraData={expanded}
+              ListHeaderComponent={header}
+              ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
+              ItemSeparatorComponent={Separator}
+              contentContainerStyle={{ paddingBottom: navClearance }}
+              showsVerticalScrollIndicator={false}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              drawDistance={height}
+              // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
+              // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
+              maintainVisibleContentPosition={MVCP_OFF}
+            />
+          </TabSoftenContext.Provider>
         </View>
         <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} />
         <BottomFade height={navClearance + 20} />

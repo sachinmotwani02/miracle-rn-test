@@ -62,6 +62,16 @@ describe('resources', () => {
     expect(readResource('c', delayed)).toEqual({ phase: 'content', data: 'C', revealing: true });
   });
 
+  it('never draws bones for a quiet load, however long it takes, and lands without a reveal', async () => {
+    const quiet = { quiet: true };
+    expect(readResource('q', quiet).phase).toBe('blank');
+    load('q', reply('Q', 2000), quiet);
+    await jest.advanceTimersByTimeAsync(1999);
+    expect(readResource('q', quiet).phase).toBe('blank');
+    await jest.advanceTimersByTimeAsync(1);
+    expect(readResource('q', quiet)).toEqual({ phase: 'content', data: 'Q', revealing: false });
+  });
+
   it('reads an unknown key as pending: bones, or blank under a show delay', () => {
     expect(readResource('nope').phase).toBe('skeleton');
     expect(readResource('nope', { showDelay: 150 }).phase).toBe('blank');

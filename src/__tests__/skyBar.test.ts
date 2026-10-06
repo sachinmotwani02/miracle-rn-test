@@ -21,12 +21,12 @@ const T = 59;
 const g = barGeometry(T, figmaHeader(T));
 
 describe('sky bar geometry', () => {
-  it('reads the Figma frame: Deposit pins at 24, the tabs rise from 198 and dock at 238', () => {
+  it('reads the Figma frame: Deposit pins at 24, the tabs rise from 190 and dock at 238', () => {
     expect(g.pin).toBe(24);
-    expect(g.riseStart).toBe(198);
+    expect(g.riseStart).toBe(190);
     expect(g.dock).toBe(238);
-    expect(g.feed).toBe(282);
-    expect(g.feedTop).toBe(244);
+    expect(g.feed).toBe(290);
+    expect(g.feedTop).toBe(236);
     expect(g.under).toBe(288);
   });
 
@@ -51,7 +51,7 @@ describe('presence', () => {
     expect(nextPresence(0, 260, 280, g)).toBe(0);
   });
 
-  it('follows the finger 1:1 in the feed: the full band height (T + 44 pt) shows or hides it', () => {
+  it('follows the finger 1:1 in the feed: the full band height (T + 52 pt) shows or hides it', () => {
     const full = T + SKY_BAR.height;
     expect(nextPresence(0, 700 - full / 2, 700, g)).toBeCloseTo(0.5);
     expect(nextPresence(0, 700 - full, 700, g)).toBe(1);
@@ -84,20 +84,20 @@ describe('band edge', () => {
   });
 
   it('slides down over the first 60 pt with the bar shown', () => {
-    expect(bandEdge(30, 1, g)).toBe(T + 22);
-    expect(bandEdge(60, 1, g)).toBe(T + 44);
-    expect(bandEdge(150, 1, g)).toBe(T + 44);
+    expect(bandEdge(30, 1, g)).toBe(T + SKY_BAR.height / 2);
+    expect(bandEdge(60, 1, g)).toBe(T + SKY_BAR.height);
+    expect(bandEdge(150, 1, g)).toBe(T + SKY_BAR.height);
   });
 
   it('rides 8 pt above the rising tab row, without a jump where the ride starts', () => {
-    expect(bandEdge(g.riseStart, 1, g)).toBe(T + 44);
+    expect(bandEdge(g.riseStart, 1, g)).toBe(T + SKY_BAR.height);
     expect(bandEdge(218, 1, g)).toBe(309 - 218 - 8);
   });
 
   it('sits under the docked row, and slides in from the top of the screen in the feed', () => {
-    expect(bandEdge(g.dock, 1, g)).toBe(T + 44);
-    expect(bandEdge(900, 0.5, g)).toBe((T + 44) / 2);
-    expect(bandEdge(900, 1, g)).toBe(T + 44);
+    expect(bandEdge(g.dock, 1, g)).toBe(T + SKY_BAR.height);
+    expect(bandEdge(900, 0.5, g)).toBe((T + SKY_BAR.height) / 2);
+    expect(bandEdge(900, 1, g)).toBe(T + SKY_BAR.height);
   });
 
   it('has no jump at the first card: the fade and the bar are separate layers', () => {
@@ -109,11 +109,11 @@ describe('band edge', () => {
 });
 
 describe('fold', () => {
-  it('runs over the 40 pt rise, and only with the bar shown', () => {
+  it('runs over the 48 pt rise, and only with the bar shown', () => {
     expect(foldProgress(g.riseStart, 1, g)).toBe(0);
-    expect(foldProgress(218, 1, g)).toBeCloseTo(0.5);
+    expect(foldProgress(214, 1, g)).toBeCloseTo(0.5);
     expect(foldProgress(g.dock, 1, g)).toBe(1);
-    expect(foldProgress(218, 0, g)).toBe(0);
+    expect(foldProgress(214, 0, g)).toBe(0);
   });
 
   it('slides every tab to the start; only the active one stays solid', () => {
@@ -149,7 +149,7 @@ describe('sky and visibility', () => {
     expect(barLift(150, 1, g)).toBe(0);
     expect(barLift(150, 0, g)).toBe(SKY_BAR.height);
     for (const [s, h] of [[900, 0.5], [g.under + 20, 0.3], [g.dock, 0.6], [g.dock, 1]]) {
-      // The controls' row bottom (T + 44 - lift) sits on the band's bottom edge.
+      // The controls' row bottom (T + row height - lift) sits on the band's bottom edge.
       expect(T + SKY_BAR.height - barLift(s, h, g)).toBeCloseTo(bandEdge(s, h, g));
     }
   });
