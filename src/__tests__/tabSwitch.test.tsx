@@ -42,6 +42,8 @@ const isLit = (label: string) => screen.queryByRole('tab', { name: label, select
 const showsDiscoverCards = () => screen.queryAllByText('moonpilot').length > 0;
 /** Card views carrying an entrance animation, which plays when they mount. */
 const entering = () => screen.container.queryAll(node => node.props.entering != null);
+/** Blur overlays of cards resolving after a switch (mounted only while they play). */
+const resolving = () => screen.queryAllByTestId('tab-resolve-blur').length;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -114,6 +116,45 @@ describe('switching feed tabs', () => {
     await press('Discover');
     await settle();
     expect(entering()).toHaveLength(0);
+  });
+
+  it('resolves the cards on screen in place when switching to a loaded feed', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+    await press('Following');
+    await settle();
+    await press('Discover');
+    await settle();
+    const card = screen.getAllByText('$18.4K')[0];
+
+    await press('Following');
+    await act(() => jest.advanceTimersByTimeAsync(50));
+
+    expect(resolving()).toBeGreaterThan(0);
+    expect(resolving()).toBeLessThanOrEqual(5);
+    expect(screen.getAllByText('$18.4K')[0] === card).toBe(true);
+
+    await settle();
+    expect(resolving()).toBe(0);
+  });
+
+  it('reveals a feed on its first visit from bones, without the resolve on top', async () => {
+    const counts: number[] = [];
+    let recording = false;
+    await render(
+      <Profiler id="feed" onRender={() => recording && counts.push(resolving())}>
+        <DiscoverScreen />
+      </Profiler>,
+    );
+    await settle();
+
+    recording = true;
+    await press('Following');
+    await settle();
+
+    expect(showsDiscoverCards()).toBe(false);
+    expect(counts.length).toBeGreaterThan(0);
+    expect(Math.max(...counts)).toBe(0);
   });
 
   it('leaves the nav bar and its ghost alone', async () => {

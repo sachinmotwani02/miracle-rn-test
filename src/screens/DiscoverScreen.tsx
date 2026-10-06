@@ -19,6 +19,7 @@ import { useRollIn } from '../components/PortfolioTicker';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
+import { TabResolve } from '../components/TabResolve';
 import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
 import { SkyBar } from '../components/SkyBar';
@@ -115,6 +116,14 @@ function Discover({ latency }: { latency: Latency }) {
   // its bones retires it for good, so cards that mount after the reveal window never play it.
   const [revealed, setRevealed] = useState(false);
   if (revealing && !revealed) setRevealed(true);
+  // A switch to a feed that is already loaded resolves the cards on screen in place. A feed's first
+  // visit reveals from its bones instead, and two arrivals must never play over each other.
+  const [resolvedTab, setResolvedTab] = useState(shown.tab);
+  const [resolveKey, setResolveKey] = useState(0);
+  if (shown.tab !== resolvedTab) {
+    setResolvedTab(shown.tab);
+    if (feed.phase === 'content' && !revealing) setResolveKey(k => k + 1);
+  }
 
   const onTab = useCallback((tab: TabKey) => {
     setSelection(prev => (prev.tab === tab ? prev : { tab, switched: true }));
@@ -177,16 +186,19 @@ function Discover({ latency }: { latency: Latency }) {
         delay={index * SKELETON.reveal.stagger}
         bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
       >
-        <TradeCard
-          item={item}
-          index={index}
-          expanded={!!expanded[item.id]}
-          onToggleNote={onToggleNote}
-          animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
-        />
+        {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
+        <TabResolve resolveKey={resolveKey} index={index}>
+          <TradeCard
+            item={item}
+            index={index}
+            expanded={!!expanded[item.id]}
+            onToggleNote={onToggleNote}
+            animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
+          />
+        </TabResolve>
       </Reveal>
     ),
-    [revealed, shown.switched, expanded, onToggleNote, revealing],
+    [revealed, shown.switched, expanded, onToggleNote, revealing, resolveKey],
   );
 
   const header = useMemo(

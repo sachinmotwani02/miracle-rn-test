@@ -166,10 +166,15 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   on the first load enter with a staggered fade and 12 pt rise, the first five only.
 - Tab switches are instant, because they happen all the time. The tapped label brightens with a
   100 ms ease-out (more than half of it on the first frame), and a loaded feed drops into the cards
-  already on screen: FlashList recycles them, so nothing is rebuilt or faded in, and the list keeps
-  its scroll position for the sky bar. A feed's first visit shows its bones (after 150 ms) and its
-  cards crossfade in from them. Rebuilding every card and replaying the entrance made each switch
-  wait on a burst of work and then on the fade.
+  already on screen: FlashList recycles them, so nothing is rebuilt, and the list keeps its scroll
+  position for the sky bar. The new content shows on the next frame and then resolves: the first
+  five cards start soft (a light blur, 6 px on web), at 0.97 scale and 45% opacity, and sharpen into place over
+  300 ms, 45 ms apart, with the same strong ease-out. Content first, motion second, so the switch
+  never waits on the animation. The blur is an expo-blur overlay mounted only while a card
+  resolves, since iOS cannot blur a view with `filter`. Android, whose BlurView needs a blur target,
+  resolves with scale and fade only, and Reduce Motion skips it. A feed's first visit shows its
+  bones (after 150 ms) and its cards crossfade in from them, without the resolve on top. Rebuilding
+  every card and replaying the entrance made each switch wait on a burst of work and then on the fade.
 - "Read more" eases the note box open to its measured full height (320 ms, a strong ease-out with
   no bounce). An invisible copy of the full text gives the target, measured synchronously on mount,
   so a card mounts at its final height instead of growing mid-entrance.
@@ -251,8 +256,9 @@ The motion maths has its own tests: the ghost's breath, eyes and turns (and its 
 through the real Pressability), the card entrance, the nav pill's stretch, nav shrink, the Deposit
 springs' overshoot and settle, and the Dials store.
 `tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
-label before the cards change, reuses the mounted cards of a loaded feed, never replays the
-entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade frame by frame.
+label before the cards change, reuses the mounted cards of a loaded feed, resolves them in place
+(and not on a feed's first visit), never replays the entrance and leaves the nav bar alone.
+`tabResolve.test.ts` pins the resolve's start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
 
 ## Trade-offs and honest notes
 
