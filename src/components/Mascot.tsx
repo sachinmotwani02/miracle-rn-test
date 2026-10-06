@@ -42,19 +42,20 @@ const PIVOT_Y = 23.5;
 const RIG_PIVOT = PIVOT_Y - H / 2;
 const BODY_HALF_W = 14.6;
 
-// Eyes: 4.2 x 6.6 ovals tilted -8deg, drawn as 6.6 circles squeezed on X so they stay true ellipses.
-const EYE = 6.6;
-const EYE_SX = 4.2 / 6.6;
+// Eyes: exactly the Figma ellipses (Ghost.svg), 4.089 x 6.578 tilted -8deg, plain #131722 with no
+// highlight. Drawn as 6.578 circles squeezed on X so they stay true ellipses.
+const EYE = 6.578;
+const EYE_SX = 4.089 / 6.578;
 const EYES = [
-  { cx: 15.7, cy: 20.8 },
-  { cx: 21.4, cy: 19.9 },
+  { cx: 15.685, cy: 20.77 },
+  { cx: 21.419, cy: 19.925 },
 ];
 /**
  * The eyes ride on a face patch centred between them, which slides around the cloud and
  * foreshortens as the ghost turns about its vertical axis.
  */
-const FACE_X = 18.55;
-const FACE_Y = 20.35;
+const FACE_X = 18.552;
+const FACE_Y = 20.348;
 const FACE_W = 16;
 const FACE_H = 12;
 const FACE_LEFT = FACE_X - FACE_W / 2;
@@ -94,8 +95,6 @@ const GAZE_Y = 1.4;
 const CHEEK = 10;
 const CHEEK_TOP = EYE + 0.3;
 const CHEEK_RISE = CHEEK_TOP - 2.2;
-/** Catchlight diameter, pt. */
-const LIGHT = 1.3;
 
 const BLINK_CLOSE = { duration: 70, easing: Easing.in(Easing.quad) };
 const BLINK_OPEN = { duration: 130, easing: Easing.out(Easing.quad) };
@@ -414,8 +413,6 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const lowerTrail = useAnimatedProps(() => trailProps(spin.value, trail.value, TRAIL_RINGS[1]));
 
   const cheekStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -CHEEK_RISE * happy.value }] }));
-  const lightStyle = useAnimatedStyle(() => ({ opacity: (1 - happy.value) * (1 - blink.value) }));
-
   return (
     <Pressable
       accessibilityRole="button"
@@ -449,7 +446,6 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
               >
                 <Animated.View style={[styles.ball, ballStyle]}>
                   <Animated.View style={[styles.cheek, cheekStyle]} />
-                  <Animated.View style={[styles.light, lightStyle]} />
                 </Animated.View>
               </Animated.View>
             ))}
@@ -479,16 +475,6 @@ const styles = StyleSheet.create({
     width: CHEEK,
     height: CHEEK,
     borderRadius: CHEEK / 2,
-    backgroundColor: colors.white,
-  },
-  // Pre-stretched on X so the ball's squeeze leaves it round.
-  light: {
-    position: 'absolute',
-    left: 1.6,
-    top: 1.3,
-    width: LIGHT / EYE_SX,
-    height: LIGHT,
-    borderRadius: LIGHT,
     backgroundColor: colors.white,
   },
 });

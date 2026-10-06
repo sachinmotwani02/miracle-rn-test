@@ -65,7 +65,7 @@ The idea: **the mascot is paying attention.**
      out for 45% and front-loaded like a passive exhale, then a pause), each breath a little
      different in length and depth. The cloud grows 3% taller breathing in; the halo follows
      ~200 ms later.
-   - **Eyes** are a small rig over the raster: true ovals with catchlights that blink at random
+   - **Eyes** are a small rig over the raster (exactly the Figma ovals at rest) that blink at random
      (sometimes twice), glance around now and then (often behind a blink, the head turning a little
      after them), widen, go happy (a body-white cheek rises inside each eye and leaves an arch) or
      roll in a dizzy swirl. Every tab change makes the ghost glance toward the tapped tab and bob.

@@ -33,15 +33,17 @@ live glance-toward-tab input).
 
 ## Eyes
 
-- True ellipses 4.2×6.6 pt (a 6.6 pt circle scaled 0.636 on X), tilted −8°, centres (15.7, 20.8)
-  and (21.4, 19.9), colour `#131722`. Each has a 1.3 pt white catchlight at the upper left.
+- At rest the eyes are exactly the Figma ellipses from `Ghost.svg`: 4.089×6.578 pt (a 6.578 pt
+  circle scaled 0.6216 on X), tilted −8°, centres (15.685, 20.77) and (21.419, 19.925), plain
+  `#131722`. (The first build added white catchlights; removed on review, the design has none.)
+  The cloud and halo raster matches `Ghost.svg` pixel for pixel.
 - **Blink:** close in 70 ms, open in 130 ms, the slit sits slightly low like a lid. Idle blinks
   every 2–6 s at random, one in five is a double blink.
 - **Idle glances:** every 4–9 s the eyes dart (stiff spring, slight overshoot) to a random point,
   ±2.2 pt across and ±1.4 pt up and down; half of the darts hide behind a blink. Hold 0.9–1.8 s, return.
   Eyes narrow up to 12% when looking far to the side.
 - **Expressions** (each 0..1, combinable): *wide* (eyes grow 20%), *happy ∩∩* (a body-white
-  "cheek" rises inside each eye so the visible part is an arch; catchlight fades out),
+  "cheek" rises inside each eye so the visible part is an arch),
   *dizzy* (gaze traces a small circle that grows and shrinks).
 - **Tab glance:** eyes dart toward the tapped tab and widen a little, return after 650 ms;
   the ghost bobs 5 pt.
