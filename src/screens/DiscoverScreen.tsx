@@ -18,7 +18,7 @@ import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { TAB_RESOLVE, slideDirection } from '../utils/tabResolve';
+import { TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -33,8 +33,6 @@ import { FeedMenu } from '../components/FeedMenu';
 import { FeedSkeleton, TradeCardSkeleton } from '../components/skeleton/FeedSkeleton';
 import { Reveal } from '../components/skeleton/Reveal';
 import { SkeletonSweep } from '../components/skeleton/Sweep';
-
-const TAB_KEYS = TABS.map(t => t.key);
 
 const ENTRANCE_COUNT = 5;
 
@@ -142,30 +140,20 @@ function Discover({ latency }: { latency: Latency }) {
     }
   }, [firstFeedIn, firstTab, latency.tabFeed]);
 
-  // The old content starts sliding out on the tap itself, from this handler, before React renders
-  // anything; the new feed then slides in from the other side (TabResolve). The direction follows
-  // the tab row, measured from the feed on screen: tapping back to it keeps the direction, so the
-  // old content slides home the way it went.
+  // The cards start to soften on the tap itself, from this handler, before React renders anything;
+  // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
-  const direction = useSharedValue(1);
-  // Read through a ref so the handler (and the header holding it) stays the same when a feed lands.
-  const feedTabRef = useRef(feedTab);
-  useLayoutEffect(() => {
-    feedTabRef.current = feedTab;
-  }, [feedTab]);
   const reduced = useReducedMotion();
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
-      const towards = slideDirection(TAB_KEYS, feedTabRef.current ?? selection.tab, tab);
-      if (towards !== 0) direction.set(towards);
       if (!reduced) pending.set(withTiming(1, { duration: TAB_RESOLVE.soften, easing: TAB_RESOLVE.easing }));
       setSelection({ tab, switched: true });
     },
-    [selection.tab, reduced, pending, direction],
+    [selection.tab, reduced, pending],
   );
   const softening = feedTab !== null && selection.tab !== feedTab;
-  const soften = useMemo(() => ({ pending, direction, softening }), [pending, direction, softening]);
+  const soften = useMemo(() => ({ pending, softening }), [pending, softening]);
   // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken
   // over from `pending` (their layout effects run first), so it drops at once; with no resolve (tapped
   // away and back before the cards changed) they ease back to sharp.
