@@ -5,6 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { colors, layout, text } from '../theme';
 
+// Reanimated 4 springs default to mass 4, so these spell out the mass 1 they were tuned with.
+export const PRESS = { damping: 15, stiffness: 300, mass: 1 };
+export const RELEASE = { damping: 12, stiffness: 220, mass: 1 };
+
 /**
  * Glass pill built from the Figma values so it is identical on iOS and Android:
  * a white gradient (32% -> 64%) at 32% layer opacity, a soft white drop shadow, and
@@ -18,10 +22,10 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
       <Pressable
         accessibilityRole="button"
         onPressIn={() => {
-          scale.value = withSpring(0.95, { damping: 15, stiffness: 300 });
+          scale.value = withSpring(0.95, PRESS);
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 12, stiffness: 220 });
+          scale.value = withSpring(1, RELEASE);
         }}
         onPress={() => {
           if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
