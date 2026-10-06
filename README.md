@@ -251,7 +251,18 @@ and are cached for the session by a small store that also owns the loading timin
   which lands the bar 36 pt above the bottom on an iPhone with a home indicator, as in the Figma).
 - The feed has bottom padding so the last card clears the bar; layout is flex-based so other widths
   reflow (cards keep 4 pt margins, the carousel keeps its 204 pt cards and snaps).
-- Dense rows clamp Dynamic Type with `maxFontSizeMultiplier` 1.2–1.3.
+- Dense rows clamp Dynamic Type with `maxFontSizeMultiplier` 1.2–1.3, and rows that hold text take
+  their Figma heights as minimums, so larger text grows them instead of being clipped; the note's
+  two-line clamp is sized from the font scale.
+- On a 320 pt phone a trade's size and price wrap as text and its change drops to a line of its own,
+  clear of the note.
+- Screen readers reach only the copy of each control that is on screen, and the feed menu is modal
+  for them: focus moves to the current feed, the platform's escape gesture, back button or Escape
+  closes it, and focus returns to the dropdown. Deposit, the feed tabs and Read more have 44 pt tall
+  touch targets.
+- Only the three Nunito weights in use are bundled (Android and web); iOS draws SF Pro Rounded from
+  the system and loads none. If the fonts fail to load, the text falls back to the system font
+  rather than leaving the screen blank.
 - Android: the nav bar uses a solid colour instead of `BlurView` and the bottom edge uses a plain
   gradient instead of the masked progressive blur. Web gets the same fallbacks.
 
@@ -273,6 +284,12 @@ label before the cards change, reuses the mounted cards of a loaded feed, resolv
 in the commit that lights the tab, ignores a tap on the tab already shown, never replays the
 entrance and leaves the nav bar alone.
 `tabResolve.test.ts` pins the resolve's start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
+`feedMenu.test.tsx` drags across the menu's rows (a tick per row, lifting on a row picks it,
+drifting past the sides keeps the row, lifting off the rows picks nothing). `screenReader.test.tsx`
+checks what a screen reader reaches at the top, with the bar docked and with the menu open. The
+ghost's tests also check that the rare spin is queued in full as the finger lifts, so no stage
+waits on a JS timer. `noteBox.test.tsx` sizes the note's clamp from the font scale, and
+`rareStyles.test.ts` covers the craft page's silk and comet geometry.
 
 ## Trade-offs and honest notes
 
@@ -309,5 +326,6 @@ entrance and leaves the nav bar alone.
 3. Replace the hand-drawn SVG badges and logos with the Figma vector exports once the file can be
    exported.
 4. Add gesture-driven dismissal of the nav bar and a pull-to-refresh that reuses the mascot.
-5. More component tests with `@testing-library/react-native`, for the card's "Read more" and the
-   carousel (the screen, the ghost and the portfolio figures have them).
+5. More component tests with `@testing-library/react-native`, for the note's expand animation and
+   the carousel (the screen, the ghost, the menu, the note's clamp and the portfolio figures have
+   them).

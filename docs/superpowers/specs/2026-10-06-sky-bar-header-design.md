@@ -131,21 +131,29 @@ opens the menu.
   ink shadow. It is anchored 4 pt under the bar at x 10, 180 wide, with four 40 pt rows in ink.
   (It began as a dark glass card in the nav bar's material, the one dark surface on a light screen.)
 - A 6% ink lens sits behind the current feed.
-- It opens with a fade and a scale from 0.92 at its top-left on a quick, critically damped spring;
-  Reduce Motion fades only. Tapping outside closes it.
-- Picking a feed fires a selection haptic, slides the lens to the pick, closes the menu, switches the
-  feed (the cards replay their entrance) and puts the list at `FEED_TOP` with the bar still docked.
+- It opens with a fade and a scale from 0.94 at its top-left over 160 ms on a strong ease-out
+  (bezier 0.23, 1, 0.32, 1) and closes in 100 ms; Reduce Motion fades only. Tapping outside closes it.
+- Tap a row, or press and drag over the rows: the lens follows the finger row by row with a
+  selection tick, and lifting on a row picks it (lifting off the rows picks nothing).
+- Picking a feed fires a selection haptic, slides the lens to the pick (150 ms), and 80 ms later
+  closes the menu and switches the feed (the cards resolve in place). Once the picked feed is on
+  screen the list lands at `FEED_TOP` with the bar still docked.
 
-Tab switches keep the list mounted: the cards are keyed by tab and FlashList's
-`maintainVisibleContentPosition` is off, matching `feat/feed-skeleton` and the shared folder's
-uncommitted work, so the scroll position and bar state survive a switch.
+Tab switches keep the list mounted: the cards are reused rather than keyed by tab, and FlashList's
+`maintainVisibleContentPosition` is off, so the scroll position and bar state survive a switch.
 
 ## Accessibility
 
-- While pinned, the header's portfolio block is hidden from screen readers.
-- While docked, the in-list tab row is hidden.
+- Only one copy of each control is reachable: while pinned, the header's portfolio block is hidden
+  from screen readers, and while docked, the in-list tab row; the bar's dropdown and Deposit are
+  hidden whenever the bar is not showing them. Everything uses `aria-hidden`, `aria-selected` and
+  `aria-expanded`, which reach iOS, Android and the web (react-native-web ignores
+  `accessibilityState` and the native-only hiding props).
 - The dropdown is a button labelled "Feed: Discover" with an expanded state.
-- Menu rows report their selected state.
+- The menu is modal for screen readers: the rest of the screen is hidden while it is open, opening
+  it moves focus to the current feed's row, the iOS escape gesture, Android's back button and
+  Escape on the web close it, and closing hands focus back to the dropdown. Rows report their
+  selected state.
 
 ## Architecture
 
