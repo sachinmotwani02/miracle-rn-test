@@ -1,68 +1,111 @@
 import {
   BREATH,
-  RIBBON,
+  SILK,
+  SPARKLE,
+  SPARKLE_MS,
   TRAIL,
   TURN,
   breathCurve,
   clamp,
   dizzyOffset,
   randomBetween,
-  ribbonArc,
-  ribbonPaths,
+  silkBand,
+  silkSpan,
+  sparkle,
+  starPath,
+  stripPaths,
   trailPath,
   turnPose,
   wrap01,
 } from '../utils/mascotMotion';
 
-describe('ribbonPaths', () => {
-  const orbit = { rx: 20, ry: 5, tilt: 0 };
-  const cx = 38;
-  const cy = 28;
-  const coords = (d: string) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
-  const xs = (d: string) => coords(d).filter((_, i) => i % 2 === 0);
-  const ys = (d: string) => coords(d).filter((_, i) => i % 2 === 1);
-  const pad = RIBBON.width;
+const coords = (d: string) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+const xsOf = (d: string) => coords(d).filter((_, i) => i % 2 === 0);
+const ysOf = (d: string) => coords(d).filter((_, i) => i % 2 === 1);
+const mean = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
+/** Both depth halves of a ribbon, leaving out an empty half's "M0 0" placeholder. */
+const both = (p: { front: string; back: string }) => [p.front, p.back].filter(d => d !== 'M0 0').join(' ');
 
-  it('draws nothing for a ribbon with no length', () => {
-    expect(ribbonPaths(90, 0, orbit, 1, cx, cy)).toEqual({ front: 'M0 0', back: 'M0 0' });
+describe('stripPaths', () => {
+  const line = (front: (i: number) => boolean) =>
+    Array.from({ length: 6 }, (_, i) => ({ x: i * 4, y: 10, w: 1, front: front(i) }));
+
+  it('builds one closed ribbon for points all on one side', () => {
+    const p = stripPaths(line(() => true));
+    expect(p.back).toBe('M0 0');
+    expect(p.front.startsWith('M')).toBe(true);
+    expect(p.front.endsWith('Z')).toBe(true);
+    for (const y of ysOf(p.front)) expect(Math.abs(y - 10)).toBeLessThanOrEqual(1 + 1e-9);
   });
 
-  it('puts the near half of the orbit in front of the ghost and the far half behind it', () => {
-    // Seen from slightly above, the near side of a flat orbit is its lower half.
-    const nearOnly = ribbonPaths(40, 70, orbit, 1, cx, cy); // -30..40 deg: all on the near side
-    expect(nearOnly.back).toBe('M0 0');
-    for (const y of ys(nearOnly.front)) expect(y).toBeGreaterThanOrEqual(cy - pad);
-    const farOnly = ribbonPaths(220, 70, orbit, 1, cx, cy); // 150..220 deg: all on the far side
-    expect(farOnly.front).toBe('M0 0');
-    for (const y of ys(farOnly.back)) expect(y).toBeLessThanOrEqual(cy + pad);
-  });
-
-  it('splits a ribbon that wraps round the side into a front piece and a back piece', () => {
-    const p = ribbonPaths(130, 100, orbit, 1, cx, cy); // 30..130 deg crosses 90
+  it('splits where the ribbon passes from the front of the ghost to behind it', () => {
+    const p = stripPaths(line(i => i < 3));
     expect(p.front).not.toBe('M0 0');
     expect(p.back).not.toBe('M0 0');
   });
+});
 
-  it('tilts the orbit and grows it with the spread', () => {
-    const flat = ribbonPaths(200, 200, orbit, 1, cx, cy);
-    const tilted = ribbonPaths(200, 200, { ...orbit, tilt: 45 }, 1, cx, cy);
-    const span = (d: string) => Math.max(...ys(d)) - Math.min(...ys(d));
-    expect(span(tilted.front + tilted.back)).toBeGreaterThan(span(flat.front + flat.back) + 5);
-    const wide = ribbonPaths(200, 200, orbit, 1.5, cx, cy);
-    for (const x of xs(wide.front + wide.back)) expect(Math.abs(x - cx)).toBeLessThanOrEqual(orbit.rx * 1.5 + pad);
-    expect(Math.max(...xs(wide.front + wide.back))).toBeGreaterThan(cx + orbit.rx * 1.2);
+describe('silkBand', () => {
+  const cx = 40;
+  const cy = 40;
+  // Averaged over a full turn of the swirl, so the loops' up-and-down wobble cancels out.
+  const bandYs = (band: number, unravel = 0) =>
+    Array.from({ length: 36 }, (_, k) => ysOf(both(silkBand(band, k * 10, 400, unravel, cx, cy)))).flat();
+
+  it('winds the ribbon round the cloud, climbing from its tail to its head', () => {
+    expect(mean(bandYs(0))).toBeGreaterThan(mean(bandYs(SILK.bands - 1)) + SILK.climb / 2);
+    for (let band = 0; band < SILK.bands; band++) {
+      const p = silkBand(band, 30, 400, 0, cx, cy);
+      for (const x of xsOf(both(p))) expect(Math.abs(x - cx)).toBeLessThanOrEqual(SILK.radius + SILK.width);
+    }
   });
 
-  it('never draws more than the longest ribbon', () => {
-    expect(ribbonPaths(300, 999, orbit, 1, cx, cy)).toEqual(ribbonPaths(300, RIBBON.maxArc, orbit, 1, cx, cy));
+  it('lifts off and stretches upward as it unravels', () => {
+    expect(mean(bandYs(SILK.bands - 1, 1))).toBeLessThan(mean(bandYs(SILK.bands - 1, 0)) - 10);
+  });
+
+  it('wraps further round the faster the swirl runs, within limits', () => {
+    expect(silkSpan(0)).toBe(SILK.minSpan);
+    expect(silkSpan(800)).toBeGreaterThan(silkSpan(200));
+    expect(silkSpan(1e6)).toBe(SILK.maxSpan);
   });
 });
 
-describe('ribbonArc', () => {
-  it('gets longer the faster the swirl runs, within limits', () => {
-    expect(ribbonArc(0)).toBe(RIBBON.minArc);
-    expect(ribbonArc(600)).toBeGreaterThan(ribbonArc(200));
-    expect(ribbonArc(100000)).toBe(RIBBON.maxArc);
+describe('sparkle', () => {
+  const cx = 40;
+  const cy = 40;
+
+  it('pops each twinkle in turn and is gone when the burst ends', () => {
+    expect(sparkle(0, 0, 0, cx, cy).opacity).toBe(0);
+    const peak0 = SPARKLE.delay + SPARKLE.life / 2;
+    expect(sparkle(0, peak0, 0, cx, cy).scale).toBeCloseTo(SPARKLE.size, 6);
+    expect(sparkle(1, peak0 - SPARKLE.life / 2 + 1, 0, cx, cy).opacity).toBe(0); // the second one has not started yet
+    for (let i = 0; i < SPARKLE.count; i++) expect(sparkle(i, SPARKLE_MS + 1, 0, cx, cy).opacity).toBe(0);
+  });
+
+  it('stays round the cloud, inside the nav bar, rising as it fades', () => {
+    for (let i = 0; i < SPARKLE.count; i++) {
+      for (let ms = 0; ms <= SPARKLE_MS; ms += 10) {
+        const s = sparkle(i, ms, 123, cx, cy);
+        if (s.opacity === 0) continue;
+        expect(Math.abs(s.x - cx)).toBeLessThanOrEqual(SPARKLE.rx + 1e-9);
+        expect(Math.abs(s.y - cy)).toBeLessThanOrEqual(SPARKLE.ry + SPARKLE.rise + 1e-9);
+      }
+    }
+    const early = sparkle(0, SPARKLE.delay + 10, 0, cx, cy);
+    const late = sparkle(0, SPARKLE.delay + SPARKLE.life - 10, 0, cx, cy);
+    expect(late.y).toBeLessThan(early.y);
+  });
+});
+
+describe('starPath', () => {
+  it('draws a four-point star centred on the point, or nothing at zero size', () => {
+    expect(starPath(10, 20, 0, 0)).toBe('M0 0');
+    const d = starPath(10, 20, 3, 30);
+    expect(coords(d)).toHaveLength(16);
+    expect(mean(xsOf(d))).toBeCloseTo(10, 6);
+    expect(mean(ysOf(d))).toBeCloseTo(20, 6);
+    for (let i = 0; i < 8; i++) expect(Math.hypot(xsOf(d)[i] - 10, ysOf(d)[i] - 20)).toBeLessThanOrEqual(3 + 0.01);
   });
 });
 

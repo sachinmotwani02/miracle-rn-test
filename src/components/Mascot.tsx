@@ -21,6 +21,7 @@ import { haptic } from '../utils/haptics';
 import { SwirlLayer, useSwirl } from './MascotSwirl';
 import {
   BREATH,
+  SPARKLE_MS,
   TrailRing,
   breathCurve,
   clamp,
@@ -315,11 +316,12 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     });
   };
 
-  // Held long enough: the colourful swirl charges up round the ghost while it hunkers down.
+  // Held long enough: the silk ribbon winds up round the ghost while it hunkers down.
   const beginCharge = () => {
     chargeStart.current = Date.now();
     swirl.run(true);
-    swirl.spread.value = 1;
+    swirl.unravel.value = 0;
+    swirl.sparkleMs.value = 0;
     swirl.alpha.value = withTiming(1, { duration: 250 });
     swirl.speed.value = withTiming(CHARGE_SPEED, { duration: CHARGE_MS, easing: Easing.in(Easing.quad) });
     squash.value = withTiming(0.84, { duration: CHARGE_MS, easing: Easing.out(Easing.quad) });
@@ -339,7 +341,8 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     endSwirl(200);
   };
 
-  // Let go after charging: a double spin with the swirl whipping round it, then a burst.
+  // Let go after charging: a double spin with the ribbon whipping round it; on landing it unravels
+  // upward and four twinkles pop round the ghost.
   const bigSpin = () => {
     queued.current = MAX_TURNS; // nothing stacks on top of the big one
     busy.current = true;
@@ -372,17 +375,18 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
     clearTurnTimers();
-    // Landing: the swirl bursts outward and fades like a small firework.
+    // Landing: the ribbon lets go, floating up as it fades, and the twinkles pop.
     schedule(480, () => {
       haptic('soft');
-      swirl.spread.value = withTiming(1.45, { duration: 420, easing: Easing.out(Easing.quad) });
-      swirl.alpha.value = withTiming(0, { duration: 420, easing: Easing.in(Easing.quad) });
+      swirl.sparkleSeed.value = Math.random() * 360;
+      swirl.unravel.value = withTiming(1, { duration: 520 });
+      swirl.sparkleMs.value = withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear });
     });
-    schedule(1000, () => {
+    schedule(480 + SPARKLE_MS + 60, () => {
       if (chargeStart.current !== null) return;
       swirl.run(false);
+      swirl.alpha.value = 0;
       swirl.speed.value = 0;
-      swirl.spread.value = 1;
     });
     schedule(BIG_SPIN_MS, () => {
       queued.current = 0;

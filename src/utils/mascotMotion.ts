@@ -38,24 +38,47 @@ export const TRAIL = {
   samples: 14,
 } as const;
 
-export const RIBBON = {
-  /** Shortest and longest ribbon, degrees of arc; length grows with the swirl's speed. */
-  minArc: 40,
-  maxArc: 200,
-  /** Degrees of extra length per degree-per-second of swirl speed. */
-  arcPerSpeed: 0.14,
-  /** Thickness at the head, pt. */
-  width: 1.6,
-  /** Points along each ribbon. */
-  samples: 18,
+export const SILK = {
+  /** The ribbon winds round the cloud on a helix this wide, seen slightly from above (pt). */
+  radius: 20,
+  depth: 5,
+  /** Height it climbs from tail to head, pt. */
+  climb: 18,
+  /** Thickness at its widest, pt; it tapers to both ends. */
+  width: 2.4,
+  /** Degrees of helix: it wraps further round the faster the swirl runs. */
+  minSpan: 260,
+  maxSpan: 420,
+  spanPerSpeed: 0.12,
+  /** Colour bands along it, tail to head, and points per band. */
+  bands: 5,
+  samples: 12,
 } as const;
 
-/** A tilted elliptical orbit round the ghost (pt and degrees). */
-export interface Orbit {
-  rx: number;
-  ry: number;
-  /** In-plane tilt of the orbit, so the ribbons cross like rings round a planet. */
-  tilt: number;
+export const SPARKLE = {
+  count: 4,
+  /** They pop on an ellipse round the cloud, pt. */
+  rx: 22,
+  ry: 14,
+  /** Each one's life, the gap between them and the wait before the first, ms. */
+  life: 420,
+  stagger: 70,
+  delay: 40,
+  /** Peak star radius (pt), rise (pt) and spin (degrees) over a life. */
+  size: 3,
+  rise: 6,
+  spin: 60,
+} as const;
+
+/** From the ribbon letting go to the last sparkle fading, ms. */
+export const SPARKLE_MS = SPARKLE.delay + (SPARKLE.count - 1) * SPARKLE.stagger + SPARKLE.life;
+
+/** A point on a ribbon's centre line: half-width `w`, and whether it is in front of the ghost. */
+export interface StripPoint {
+  x: number;
+  y: number;
+  w: number;
+  front: boolean;
 }
 
 export interface TrailRing {
@@ -165,63 +188,31 @@ export function trailPath(head: number, tail: number, ring: TrailRing, cx: numbe
   return `M${upper.join(' L')} L${tip} L${lower.reverse().join(' L')} Z`;
 }
 
-/** How long a swirl ribbon is, degrees of arc, at a swirl speed in degrees per second. */
-export function ribbonArc(speed: number): number {
-  'worklet';
-  return clamp(RIBBON.minArc + RIBBON.arcPerSpeed * speed, RIBBON.minArc, RIBBON.maxArc);
-}
-
 /**
- * SVG paths for one coloured swirl ribbon on a tilted orbit round the ghost, split by depth:
- * `front` is the part on the near side of the orbit (drawn over the cloud) and `back` the far
- * side (drawn behind it). The ribbon runs `arc` degrees back from `head` (0 = nearest the viewer)
- * and tapers to a point at its tail. `spread` scales the orbit for the burst at the end.
+ * Fills a ribbon along a centre line, split by depth: `front` for the stretches in front of the
+ * ghost (drawn over the cloud) and `back` for those behind it. Each crossing point is shared by
+ * both pieces so they join.
  */
-export function ribbonPaths(
-  head: number,
-  arc: number,
-  orbit: Orbit,
-  spread: number,
-  cx: number,
-  cy: number,
-): { front: string; back: string } {
+export function stripPaths(pts: StripPoint[]): { front: string; back: string } {
   'worklet';
-  const len = Math.min(arc, RIBBON.maxArc);
-  if (len <= 0.5) return { front: 'M0 0', back: 'M0 0' };
-  const start = ((head - len) * Math.PI) / 180;
-  const span = (len * Math.PI) / 180;
-  const tilt = (orbit.tilt * Math.PI) / 180;
-  const ct = Math.cos(tilt);
-  const st = Math.sin(tilt);
-  const rx = orbit.rx * spread;
-  const ry = orbit.ry * spread;
-  const n = RIBBON.samples;
   let front = '';
   let back = '';
   let upper: string[] = [];
   let lower: string[] = [];
   let side = 0;
-  for (let i = 0; i <= n; i++) {
-    const s = i / n;
-    const a = start + span * s;
-    const sin = Math.sin(a);
-    const cos = Math.cos(a);
-    // Point and tangent on the flat orbit (near side is its lower half), then tilted in plane.
-    const lx = rx * sin;
-    const ly = ry * cos;
-    const x = cx + lx * ct - ly * st;
-    const y = cy + lx * st + ly * ct;
-    const tlx = rx * cos;
-    const tly = -ry * sin;
-    const tx = tlx * ct - tly * st;
-    const ty = tlx * st + tly * ct;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const a = pts[Math.max(0, i - 1)];
+    const b = pts[Math.min(pts.length - 1, i + 1)];
+    let tx = b.x - a.x;
+    let ty = b.y - a.y;
     const l = Math.sqrt(tx * tx + ty * ty) || 1;
-    const w = (RIBBON.width / 2) * Math.pow(s, 0.7);
-    const top = `${(x - (ty / l) * w).toFixed(2)} ${(y + (tx / l) * w).toFixed(2)}`;
-    const bottom = `${(x + (ty / l) * w).toFixed(2)} ${(y - (tx / l) * w).toFixed(2)}`;
-    const here = cos >= 0 ? 1 : -1;
+    tx /= l;
+    ty /= l;
+    const top = `${(p.x - ty * p.w).toFixed(2)} ${(p.y + tx * p.w).toFixed(2)}`;
+    const bottom = `${(p.x + ty * p.w).toFixed(2)} ${(p.y - tx * p.w).toFixed(2)}`;
+    const here = p.front ? 1 : -1;
     if (side !== 0 && here !== side) {
-      // Crossing the side of the orbit: end this piece on this point and start the next from it.
       upper.push(top);
       lower.push(bottom);
       const piece = `M${upper.join(' L')} L${lower.reverse().join(' L')} Z`;
@@ -240,6 +231,80 @@ export function ribbonPaths(
     else back += piece;
   }
   return { front: front || 'M0 0', back: back || 'M0 0' };
+}
+
+/** Degrees of helix the silk ribbon wraps at a swirl speed (degrees per second). */
+export function silkSpan(speed: number): number {
+  'worklet';
+  return clamp(SILK.minSpan + SILK.spanPerSpeed * speed, SILK.minSpan, SILK.maxSpan);
+}
+
+/**
+ * One colour band of the silk ribbon (band 0 is the tail), wound round the cloud on a helix that
+ * climbs from tail to head, with its head at `angle` (degrees, 0 = nearest the viewer). `lift`
+ * (0..1) is the unravel at the end: the helix stretches upward and floats off.
+ */
+export function silkBand(band: number, angle: number, speed: number, lift: number, cx: number, cy: number): { front: string; back: string } {
+  'worklet';
+  const span = silkSpan(speed);
+  const n = SILK.samples;
+  const pts: StripPoint[] = [];
+  for (let i = 0; i <= n; i++) {
+    const u = (band + i / n) / SILK.bands;
+    const a = ((angle - span * (1 - u)) * Math.PI) / 180;
+    const h = (SILK.climb / 2 - SILK.climb * u) * (1 + 1.2 * lift) - 12 * lift;
+    pts.push({
+      x: cx + SILK.radius * Math.sin(a),
+      y: cy + h + SILK.depth * Math.cos(a),
+      w: (SILK.width / 2) * Math.pow(Math.sin(Math.PI * u), 0.6) + 0.05,
+      front: Math.cos(a) >= 0,
+    });
+  }
+  return stripPaths(pts);
+}
+
+/**
+ * Sparkle `i` at `ms` after the ribbon lets go: where it is, how big and how visible. They pop one
+ * after another round the cloud, rise a little and spin as they twinkle out; `seed` (degrees) turns
+ * the whole pattern so each burst lands differently.
+ */
+export function sparkle(
+  i: number,
+  ms: number,
+  seed: number,
+  cx: number,
+  cy: number,
+): { x: number; y: number; scale: number; opacity: number; rotate: number } {
+  'worklet';
+  const t = (ms - SPARKLE.delay - i * SPARKLE.stagger) / SPARKLE.life;
+  if (t <= 0 || t >= 1) return { x: cx, y: cy, scale: 0, opacity: 0, rotate: 0 };
+  const k = Math.sin(Math.PI * t);
+  const a = ((seed + (i * 360) / SPARKLE.count + (i % 2) * 25) * Math.PI) / 180;
+  const rise = SPARKLE.rise * (1 - (1 - t) * (1 - t));
+  return {
+    x: cx + SPARKLE.rx * Math.cos(a),
+    y: cy + (SPARKLE.ry - SPARKLE.rise) * Math.sin(a) - rise,
+    scale: SPARKLE.size * k,
+    opacity: Math.min(1, k * 1.4),
+    rotate: SPARKLE.spin * t,
+  };
+}
+
+const STAR_POINTS = [0, -1, 0.26, -0.26, 1, 0, 0.26, 0.26, 0, 1, -0.26, 0.26, -1, 0, -0.26, -0.26];
+
+/** A four-point star of radius `r` at (x, y), turned `rotate` degrees; "M0 0" (nothing) at zero size. */
+export function starPath(x: number, y: number, r: number, rotate: number): string {
+  'worklet';
+  if (r <= 0.01) return 'M0 0';
+  const c = Math.cos((rotate * Math.PI) / 180);
+  const s = Math.sin((rotate * Math.PI) / 180);
+  let d = '';
+  for (let i = 0; i < STAR_POINTS.length; i += 2) {
+    const px = STAR_POINTS[i];
+    const py = STAR_POINTS[i + 1];
+    d += `${i === 0 ? 'M' : ' L'}${(x + r * (px * c - py * s)).toFixed(2)} ${(y + r * (px * s + py * c)).toFixed(2)}`;
+  }
+  return `${d} Z`;
 }
 
 /**

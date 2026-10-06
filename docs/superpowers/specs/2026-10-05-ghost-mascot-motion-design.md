@@ -89,27 +89,32 @@ the first build spun it in the plane and was corrected after review on device.
   stacks up to three turns.
 - The idle blink and glance scheduler pauses while a turn is playing.
 
-## Hold: colourful swirl and big spin (added after review)
+## Hold: silk ribbon and big spin (added after review)
 
-Hold only; quick taps are unchanged and three quick taps still just stack turns.
+Hold only; quick taps are unchanged and three quick taps still just stack turns. Three swirl
+styles were prototyped side by side (orbit rings, silk ribbon, sparkle comets); the silk ribbon
+with end sparkles was picked.
 
-- **Charge:** once a press has lasted 300 ms, five coloured ribbons (halo gold, pink `#FF5FA2`,
-  violet `#9B6BFF`, sky blue, mint `#3DDC97`) fade in on tilted orbits round the cloud (tilts
-  −55° to 52°, 19–23 pt wide), each at its own speed. The swirl speeds up to 650°/s over 900 ms
-  and the ribbons lengthen with speed (40° → up to 200° of arc). The ghost hunkers down (squash
-  0.84), grins (happy 0.55) and turns away to −32°. Three selection ticks: at the start, halfway
-  and at full charge. Holding longer keeps it charged; it never fires on its own.
-- **Depth:** each ribbon is drawn twice: its near half over the cloud and its far half behind
-  it (`ribbonPaths` in `mascotMotion.ts`), so the swirl reads as rings round the ghost.
+- **Charge:** once a press has lasted 300 ms, one silk ribbon in five colour bands (halo gold,
+  pink `#FF5FA2`, violet `#9B6BFF`, sky blue, mint `#3DDC97`) fades in, wound round the cloud on a
+  helix (radius 20 pt, loops 5 pt deep seen from slightly above) that climbs 18 pt from its tail to
+  its head and tapers at both ends (2.4 pt at its widest). The swirl speeds up to 650°/s over
+  900 ms and the ribbon wraps further round as it does (260° → up to 420°). The ghost hunkers down
+  (squash 0.84), grins (happy 0.55) and turns away to −32°. Three selection ticks: at the start,
+  halfway and at full charge. Holding longer keeps it charged; it never fires on its own.
+- **Depth:** the ribbon is drawn twice: its near side over the cloud and its far side behind it
+  (`silkBand` and `stripPaths` in `mascotMotion.ts`), so it winds round the ghost in 3D.
 - **Let go** with at least 30% charge (about 0.57 s of holding): medium haptic, a double turn
   (720°, `stiffness 60, damping 12.5, mass 1`), lift 9 pt, stretch 1.1 and squash 0.9 on landing,
-  halo lifts 5 pt late and tilts 7°. The swirl whips round at 1100°/s; the white trails stay off.
-  At the landing (480 ms) a soft haptic and the swirl bursts outward (orbits grow 1.45×) and fades
-  over 420 ms. Then happy eyes, a 1 s dizzy swirl, a blink and quicker breathing; about 2 s in all.
-  Taps during the big spin are ignored.
-- **Let go early** (under 30%): the swirl fades and it is an ordinary turn. **Slide off**: the
-  swirl fizzles out and the ghost relaxes.
-- The swirl's clock only runs while it is showing, so it costs nothing at rest.
+  halo lifts 5 pt late and tilts 7°. The ribbon whips round at 1100°/s; the white trails stay off.
+- **Landing (480 ms):** soft haptic; the ribbon unravels, stretching upward and fading over
+  520 ms, and four four-point twinkles (gold, pink, sky blue, mint) pop round the cloud one after
+  another (70 ms apart, 420 ms each, up to 3 pt radius), rising 6 pt and spinning 60° as they fade.
+  The pattern is turned at random each time. Then happy eyes, a 1 s dizzy swirl, a blink and
+  quicker breathing; about 2 s in all. Taps during the big spin are ignored.
+- **Let go early** (under 30%): the ribbon fades and it is an ordinary turn. **Slide off**: the
+  ribbon fizzles out and the ghost relaxes.
+- The swirl's clock only runs while the ribbon or sparkles are showing, so it costs nothing at rest.
 
 ## Reduce Motion
 
