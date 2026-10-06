@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -7,14 +7,14 @@ import { colors, layout, text } from '../theme';
 
 /**
  * Glass pill built from the Figma values so it is identical on iOS and Android:
- * a white gradient (32% -> 64%) at 32% layer opacity, a hairline rim, and a 1pt
- * top highlight standing in for the inner shadow.
+ * a white gradient (32% -> 64%) at 32% layer opacity, a soft white drop shadow, and
+ * the Figma Glass effect faked with inner white shadows (see `glass`).
  */
 export function DepositButton({ onPress }: { onPress?: () => void }) {
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
-    <Animated.View style={style}>
+    <Animated.View style={[styles.shadow, style]}>
       <Pressable
         accessibilityRole="button"
         onPressIn={() => {
@@ -30,6 +30,8 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
         style={styles.button}
       >
         <LinearGradient colors={[colors.depositTop, colors.depositBottom]} style={StyleSheet.absoluteFill} />
+        {/* Inset shadows paint under a view's own children, so they sit on a layer above the gradient. */}
+        <View style={styles.glass} />
         <Text style={[text.button, styles.label]} maxFontSizeMultiplier={1.2}>
           Deposit
         </Text>
@@ -39,16 +41,31 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  // Figma drop shadow: 0 2 12, white 12%. Kept off the clipped button so it is not cut away.
+  shadow: {
+    borderRadius: layout.depositHeight / 2,
+    boxShadow: '0 2px 12px rgba(255, 255, 255, 0.12)',
+  },
   button: {
     width: layout.depositWidth,
     height: layout.depositHeight,
     borderRadius: layout.depositHeight / 2,
     overflow: 'hidden',
-    // The Figma edge is a soft glow, not a line: a wide rim at very low alpha.
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // Figma inner shadow (0 -6 12, white 32%) pools a glow along the bottom edge; the Glass
+  // light (-45deg, 16%) becomes a 1pt catch-light on the top-left and bottom-right rims.
+  glass: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: layout.depositHeight / 2,
+    boxShadow:
+      'inset 0 -6px 12px rgba(255, 255, 255, 0.32), inset 1px 1px 1px rgba(255, 255, 255, 0.16), inset -1px -1px 1px rgba(255, 255, 255, 0.16)',
+    pointerEvents: 'none',
   },
   label: { color: colors.white },
 });

@@ -26,8 +26,8 @@ export const colors = {
   white88: 'rgba(255,255,255,0.88)',
   white64: 'rgba(255,255,255,0.64)',
   white72: 'rgba(255,255,255,0.72)',
-  /** Figma: white 64% -> 32% top to bottom, at 32% layer opacity. */
-  depositTop: 'rgba(255,255,255,0.20)',
+  /** Figma: white gradient at 32% layer opacity, flattened to match the render (the inner shadow lights the bottom). */
+  depositTop: 'rgba(255,255,255,0.12)',
   depositBottom: 'rgba(255,255,255,0.10)',
   badgeDark: '#121212',
   coinDark: '#1C1C1C',
