@@ -1,30 +1,38 @@
-import { TextStyle } from 'react-native';
+import { Platform, TextStyle } from 'react-native';
 
 /** Figma weights. */
 export type Weight = '500' | '600' | '700';
 
 /**
- * The Figma is set in SF Pro Rounded. Apple does not expose that design through
- * React Native's `fontFamily`, and its licence only allows it on Apple platforms,
- * so the app ships Nunito (OFL), the closest rounded match, on every platform.
+ * The Figma is set in SF Pro Rounded. iOS ships it as a system font, reached
+ * through `fontFamily: 'ui-rounded'` (UIFontDescriptorSystemDesignRounded), so
+ * nothing is bundled and the Figma weights apply as-is. Apple's licence forbids
+ * shipping the font files, so Android and web use Nunito (OFL), the closest
+ * rounded match.
  *
  * Nunito is one step lighter and ~3% wider than SF Pro Rounded at the same
  * nominal weight (checked against the Figma at 6x), so each Figma weight maps one
- * step up and tracking is pulled in by 1%. To use SF Pro Rounded on iOS, drop
- * Apple's .otf files into assets/fonts, load them in App.tsx and point this map
- * at them with the original weights.
+ * step up and tracking is pulled in by 1%.
  */
-const family: Record<Weight, { fontFamily: string; fontWeight: TextStyle['fontWeight'] }> = {
-  '500': { fontFamily: 'Nunito_600SemiBold', fontWeight: '600' },
-  '600': { fontFamily: 'Nunito_700Bold', fontWeight: '700' },
-  '700': { fontFamily: 'Nunito_800ExtraBold', fontWeight: '800' },
-};
+const IS_IOS = Platform.OS === 'ios';
+
+const family: Record<Weight, { fontFamily: string; fontWeight: TextStyle['fontWeight'] }> = IS_IOS
+  ? {
+      '500': { fontFamily: 'ui-rounded', fontWeight: '500' },
+      '600': { fontFamily: 'ui-rounded', fontWeight: '600' },
+      '700': { fontFamily: 'ui-rounded', fontWeight: '700' },
+    }
+  : {
+      '500': { fontFamily: 'Nunito_600SemiBold', fontWeight: '600' },
+      '600': { fontFamily: 'Nunito_700Bold', fontWeight: '700' },
+      '700': { fontFamily: 'Nunito_800ExtraBold', fontWeight: '800' },
+    };
 
 export function font(weight: Weight): TextStyle {
   return { ...family[weight] };
 }
 
-const WIDTH_COMPENSATION = -0.01;
+const WIDTH_COMPENSATION = IS_IOS ? 0 : -0.01;
 
 function t(size: number, weight: Weight, lineHeight: number, tracking = 0.01): TextStyle {
   const spacing = (tracking + WIDTH_COMPENSATION) * size;
