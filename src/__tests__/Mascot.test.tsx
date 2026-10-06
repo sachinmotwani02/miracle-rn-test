@@ -4,18 +4,30 @@ import { Mascot } from '../components/Mascot';
 import { haptic } from '../utils/haptics';
 
 // The press logic runs on JS timers; the animations themselves are mocked to jump to their ends.
+// The animation builders are watched, to see when the ghost queues its motion.
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
-jest.mock('react-native-reanimated', () => ({
-  ...jest.requireActual('react-native-reanimated/mock'),
-  useReducedMotion: () => false,
-  useFrameCallback: () => ({ setActive: () => {}, isActive: false, callbackId: -1 }),
-}));
+jest.mock('react-native-reanimated', () => {
+  const mock = jest.requireActual('react-native-reanimated/mock');
+  return {
+    ...mock,
+    withTiming: jest.fn(mock.withTiming),
+    withSpring: jest.fn(mock.withSpring),
+    withSequence: jest.fn(mock.withSequence),
+    withDelay: jest.fn(mock.withDelay),
+    useReducedMotion: () => false,
+    useFrameCallback: () => ({ setActive: () => {}, isActive: false, callbackId: -1 }),
+  };
+});
 jest.mock('../utils/haptics', () => ({ haptic: jest.fn() }));
 
 // The haptics mark each beat: 'light' on a press the ghost answers, 'medium' when the rare spin
 // launches, 'soft' when a turn (plain or rare) lands.
 const haptics = haptic as jest.MockedFunction<typeof haptic>;
 const count = (style: Parameters<typeof haptic>[0]) => haptics.mock.calls.filter(([s]) => s === style).length;
+const reanimated = jest.requireMock<Record<'withTiming' | 'withSpring' | 'withSequence' | 'withDelay', jest.Mock>>(
+  'react-native-reanimated',
+);
+const builders = [reanimated.withTiming, reanimated.withSpring, reanimated.withSequence, reanimated.withDelay];
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -102,6 +114,22 @@ describe('tapping the ghost', () => {
     await g.tapAndWatch();
     expect(count('soft')).toBe(5);
     expect(count('medium')).toBe(1);
+  });
+
+  it('queues the whole rare spin as the finger lifts, so no stage waits on a JS timer', async () => {
+    const g = await ghost();
+    for (let i = 0; i < 3; i++) await g.tapAndWatch();
+    builders.forEach(b => b.mockClear());
+    await g.tap(); // the rare spin
+    // The double spin is queued already: three plain turns took the ghost to 1080 deg, this one 720 more.
+    expect(reanimated.withSpring).toHaveBeenCalledWith(1800, expect.anything());
+    builders.forEach(b => b.mockClear());
+    // The launch (240 ms after the release), the landing burst and the twinkles (720 ms) come from
+    // that queue. JS still marks the beats with haptics.
+    await g.wait(2000);
+    expect(builders.map(b => b.mock.calls.length)).toEqual([0, 0, 0, 0]);
+    expect(count('medium')).toBe(1);
+    expect(count('soft')).toBe(4);
   });
 
   it('treats a long press as a tap: nothing charges, and it turns on release', async () => {

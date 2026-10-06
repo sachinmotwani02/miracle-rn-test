@@ -324,62 +324,13 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     });
   };
 
-  // The rare spin's launch: a double spin with the rings whipping round it; on landing they burst
-  // outward and four twinkles pop round the ghost.
-  const launchRare = () => {
-    target.current += 720;
-    const to = target.current;
-    haptic('medium');
-    spin.set(withSpring(to, RARE_SPIN));
-    trail.set(to); // the coloured rings stand in for the white trails here
-    swirl.speed.set(withSequence(withTiming(SPIN_SPEED, { duration: 250 }), withDelay(250, withTiming(400, { duration: 500 }))));
-    lift.set(withSequence(withTiming(-9, { duration: 300, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND)));
-    haloLift.set(withSequence(
-      withTiming(1.5, { duration: 110 }),
-      withTiming(-5, { duration: 380, easing: Easing.inOut(Easing.quad) }),
-      withSpring(0, HALO_SETTLE),
-    ));
-    haloTilt.set(withSequence(withDelay(470, withTiming(-7, { duration: 90 })), withSpring(0, HALO_WOBBLE)));
-    squash.set(withSequence(
-      withTiming(1.1, { duration: 120, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 330, easing: Easing.inOut(Easing.quad) }),
-      withTiming(0.9, { duration: 90, easing: Easing.out(Easing.quad) }),
-      withSpring(1, SETTLE),
-    ));
-    wide.set(withTiming(0, { duration: 150 }));
-    happy.set(withSequence(withTiming(1, { duration: 120 }), withDelay(480, withTiming(0, { duration: 180 }))));
-    dizzy.set(0);
-    dizzy.set(withDelay(650, withTiming(1, { duration: 1000, easing: Easing.linear })));
-    blink.set(withDelay(1700, blinkOnce()));
-    exertion.set(withSequence(
-      withTiming(1, { duration: 300 }),
-      withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
-    ));
-    // Landing: the rings burst outward and fade like a small firework, and the twinkles pop.
-    schedule(RARE_LAND_MS, () => {
-      haptic('soft');
-      swirl.spread.set(withTiming(BURST_SPREAD, { duration: BURST_MS, easing: Easing.out(Easing.quad) }));
-      swirl.alpha.set(withTiming(0, { duration: BURST_MS, easing: Easing.in(Easing.quad) }));
-      swirl.sparkleSeed.set(Math.random() * 360);
-      swirl.sparkleMs.set(0);
-      swirl.sparkleMs.set(withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear }));
-    });
-    schedule(RARE_LAND_MS + SPARKLE_MS + 60, () => {
-      swirl.run(false);
-      swirlRunning.current = false;
-      swirl.alpha.set(0);
-      swirl.speed.set(0);
-      swirl.spread.set(1);
-    });
-    schedule(RARE_SPIN_MS, () => {
-      turnPlaying.current = false;
-      if (!pressing.current) busy.current = false;
-    });
-  };
-
   // Every fourth tap: the rare spin. The finger has lifted, so it can be seen winding up: the ghost
-  // crouches and turns away, grinning, as the rings fade in round it and pick up speed, then it
-  // launches.
+  // crouches and turns away, grinning, as the rings fade in round it and pick up speed. Then it
+  // launches into a double spin with the rings whipping round it; on landing they burst outward and
+  // four twinkles pop round the ghost.
+  // The whole timeline is queued here at the release, as delays and sequences that run on the UI
+  // thread, so a busy JS thread cannot hold up the launch or the burst. JS timers only fire the
+  // haptics and tidy up once the rings are gone.
   const rareSpin = () => {
     turns.current = 0;
     rareUntil.current = Date.now() + RARE_WINDUP_MS + RARE_AIR_MS;
@@ -388,19 +339,87 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     turnPlaying.current = true;
     busy.current = true;
     clearTurnTimers();
+    const from = target.current;
+    target.current += 720;
+    const to = target.current;
+    /** When it launches and when it lands (the rings burst), ms after the release. */
+    const launch = RARE_WINDUP_MS;
+    const burst = RARE_WINDUP_MS + RARE_LAND_MS;
+
+    // The body: a crouch turning a little away, then the double spin, a float up and a bouncy landing.
+    spin.set(withSequence(
+      withTiming(from - 35, { duration: RARE_WINDUP_MS, easing: Easing.inOut(Easing.quad) }),
+      withSpring(to, RARE_SPIN),
+    ));
+    squash.set(withSequence(
+      withTiming(0.84, { duration: RARE_WINDUP_MS, easing: Easing.out(Easing.quad) }),
+      withTiming(1.1, { duration: 120, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 330, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.9, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withSpring(1, SETTLE),
+    ));
+    lift.set(withDelay(launch, withSequence(
+      withTiming(-9, { duration: 300, easing: Easing.out(Easing.cubic) }),
+      withSpring(0, LAND),
+    )));
+    haloLift.set(withDelay(launch, withSequence(
+      withTiming(1.5, { duration: 110 }),
+      withTiming(-5, { duration: 380, easing: Easing.inOut(Easing.quad) }),
+      withSpring(0, HALO_SETTLE),
+    )));
+    haloTilt.set(withSequence(withDelay(launch + 470, withTiming(-7, { duration: 90 })), withSpring(0, HALO_WOBBLE)));
+    // The coloured rings stand in for the white trails, which jump to the end at the launch.
+    trail.set(withDelay(launch, withTiming(to, { duration: 0 })));
+    exertion.set(withDelay(launch, withSequence(
+      withTiming(1, { duration: 300 }),
+      withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
+    )));
+    // The face: wide-eyed and grinning through the wind-up, happy in the air, then a dizzy swirl
+    // and a blink. The last turn's dizzy spell and blink are cut short.
+    wide.set(withSequence(withTiming(0.3, { duration: 160 }), withDelay(launch - 160, withTiming(0, { duration: 150 }))));
+    happy.set(withSequence(
+      withTiming(0.55, { duration: 160 }),
+      withDelay(launch - 160, withTiming(1, { duration: 120 })),
+      withDelay(480, withTiming(0, { duration: 180 })),
+    ));
+    dizzy.set(0);
+    dizzy.set(withDelay(launch + 650, withTiming(1, { duration: 1000, easing: Easing.linear })));
+    blink.set(0);
+    blink.set(withDelay(launch + 1700, blinkOnce()));
+    // The rings fade in and wind up, whip round with the spin, then burst outward and fade like a
+    // small firework as the twinkles pop.
     swirl.run(true);
     swirlRunning.current = true;
+    swirl.alpha.set(withSequence(
+      withTiming(1, { duration: 160 }),
+      withDelay(burst - 160, withTiming(0, { duration: BURST_MS, easing: Easing.in(Easing.quad) })),
+    ));
+    swirl.speed.set(withSequence(
+      withTiming(WINDUP_SPEED, { duration: RARE_WINDUP_MS, easing: Easing.in(Easing.quad) }),
+      withTiming(SPIN_SPEED, { duration: 250 }),
+      withDelay(250, withTiming(400, { duration: 500 })),
+    ));
     swirl.spread.set(1);
-    swirl.alpha.set(withTiming(1, { duration: 160 }));
-    swirl.speed.set(withTiming(WINDUP_SPEED, { duration: RARE_WINDUP_MS, easing: Easing.in(Easing.quad) }));
-    squash.set(withTiming(0.84, { duration: RARE_WINDUP_MS, easing: Easing.out(Easing.quad) }));
-    spin.set(withTiming(target.current - 35, { duration: RARE_WINDUP_MS, easing: Easing.inOut(Easing.quad) }));
-    wide.set(withTiming(0.3, { duration: 160 }));
-    happy.set(withTiming(0.55, { duration: 160 }));
-    // The last turn's dizzy spell and blink are cut short.
-    dizzy.set(0);
-    blink.set(0);
-    schedule(RARE_WINDUP_MS, launchRare);
+    swirl.spread.set(withDelay(burst, withTiming(BURST_SPREAD, { duration: BURST_MS, easing: Easing.out(Easing.quad) })));
+    swirl.sparkleSeed.set(withDelay(burst, withTiming(Math.random() * 360, { duration: 0 })));
+    swirl.sparkleMs.set(withDelay(burst, withSequence(
+      withTiming(0, { duration: 0 }),
+      withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear }),
+    )));
+
+    schedule(launch, () => haptic('medium'));
+    schedule(burst, () => haptic('soft'));
+    schedule(burst + SPARKLE_MS + 60, () => {
+      swirl.run(false);
+      swirlRunning.current = false;
+      swirl.alpha.set(0);
+      swirl.speed.set(0);
+      swirl.spread.set(1);
+    });
+    schedule(launch + RARE_SPIN_MS, () => {
+      turnPlaying.current = false;
+      if (!pressing.current) busy.current = false;
+    });
   };
 
   const onPressIn = () => {

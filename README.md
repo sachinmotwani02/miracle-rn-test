@@ -100,9 +100,11 @@ The idea: **the mascot is paying attention.**
    rule is a pure worklet (`src/utils/navShrink.ts`, tested); one critically damped 350 ms spring
    drives both.
 
-Everything above is a Reanimated worklet (`useAnimatedStyle`, `withSpring`, `withSequence`,
-`useAnimatedScrollHandler`), so it runs on the UI thread and keeps running at 60 fps while the list
-scrolls.
+The motion above runs on the UI thread as Reanimated worklets (`useAnimatedStyle`, `withSpring`,
+`withSequence`, `withDelay`, `useAnimatedScrollHandler`, `useFrameCallback`), so it does not wait on
+the JS thread while the list scrolls. JS decides when a motion starts (a press, a tab change, the
+ghost's next idle blink or glance) and fires the haptics. The rare spin's whole timeline, from the
+wind-up to the burst, is queued as the finger lifts, so a busy JS thread cannot stall it halfway.
 
 ### Tuning the pill live
 
