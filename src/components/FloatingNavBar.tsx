@@ -82,10 +82,10 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
       accessibilityState={{ selected: active }}
       style={[styles.slot, { left: navSlotCenter(index) - SLOT_W / 2 }]}
       onPressIn={() => {
-        pressed.value = 1;
+        pressed.set(1);
       }}
       onPressOut={() => {
-        pressed.value = 0;
+        pressed.set(0);
       }}
       onPress={() => onPress(index)}
       hitSlop={6}
@@ -132,7 +132,7 @@ export const FloatingNavBar = React.memo(function FloatingNavBar({ active, onCha
 
   const stretch = useSharedValue<PillStretch>({ ...PILL.stretch });
   useEffect(() => {
-    stretch.value = pill.stretch;
+    stretch.set(pill.stretch);
   }, [pill.stretch, stretch]);
 
   // Quick and critically damped by default: the pill lands on the tab without overshooting.
@@ -140,9 +140,9 @@ export const FloatingNavBar = React.memo(function FloatingNavBar({ active, onCha
   const slowMo = replay.slowMo;
   useEffect(() => {
     const next = navPillLeft(active);
-    start.value = moveStart(pillX.value, start.value, target.value, next, layout.nav.pillWidth, stretch.value);
-    target.value = next;
-    pillX.value = withSpring(next, pillSpring({ duration, bounce }, slowMo));
+    start.set(moveStart(pillX.value, start.value, target.value, next, layout.nav.pillWidth, stretch.value));
+    target.set(next);
+    pillX.set(withSpring(next, pillSpring({ duration, bounce }, slowMo)));
   }, [active, pillX, target, start, stretch, duration, bounce, slowMo]);
 
   // Pill stretches along the direction of travel, growing in as it leaves and letting go as it lands.
@@ -156,7 +156,7 @@ export const FloatingNavBar = React.memo(function FloatingNavBar({ active, onCha
   useAnimatedReaction(
     () => scrollY.value,
     (y, prev) => {
-      if (prev !== null) shrink.value = navShrinkStep(shrink.value, y, y - prev);
+      if (prev !== null) shrink.set(navShrinkStep(shrink.value, y, y - prev));
     },
   );
 

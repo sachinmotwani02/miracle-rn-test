@@ -22,10 +22,10 @@ export function DepositButton({ onPress }: { onPress?: () => void }) {
       <Pressable
         accessibilityRole="button"
         onPressIn={() => {
-          scale.value = withSpring(0.95, PRESS);
+          scale.set(withSpring(0.95, PRESS));
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, RELEASE);
+          scale.set(withSpring(1, RELEASE));
         }}
         onPress={() => {
           if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

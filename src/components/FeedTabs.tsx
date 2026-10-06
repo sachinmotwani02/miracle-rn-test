@@ -53,10 +53,10 @@ function Tab({ label, selected, onPress, fold, x, folded, onLayout }: TabProps) 
         accessibilityState={{ selected }}
         onPress={onPress}
         onPressIn={() => {
-          pressed.value = 1;
+          pressed.set(1);
         }}
         onPressOut={() => {
-          pressed.value = 0;
+          pressed.set(0);
         }}
         // Folded, the active label also answers taps on the chevron beside it.
         hitSlop={{ top: 10, bottom: 10, left: 4, right: folded && selected ? 24 : 4 }}

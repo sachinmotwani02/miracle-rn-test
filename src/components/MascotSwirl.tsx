@@ -52,7 +52,7 @@ export function useSwirl(): Swirl {
   const sparkleMs = useSharedValue(0);
   const sparkleSeed = useSharedValue(0);
   const clock = useFrameCallback(({ timeSincePreviousFrame }) => {
-    angle.value += (speed.value * Math.min(timeSincePreviousFrame ?? 16, 64)) / 1000;
+    angle.set(angle.value + (speed.value * Math.min(timeSincePreviousFrame ?? 16, 64)) / 1000);
   }, false);
   return useMemo(
     () => ({ angle, speed, alpha, spread, sparkleMs, sparkleSeed, run: (on: boolean) => clock.setActive(on) }),
