@@ -24,8 +24,6 @@ export const SKY_BAR = {
   /** A bar left partway settles once scrolling has been still this long, over this long (ms). */
   settleDelay: 160,
   settleDuration: 180,
-  /** The sheet edge's corners: the cards' radius. */
-  corner: 24,
 } as const;
 
 /** Positions inside the list header, in content coordinates (pt). */

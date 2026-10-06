@@ -63,13 +63,12 @@ in the feed brings it to 1 (the bar is there for the hand-back).
   - `RISE <= s < DOCK`: `E_full = tabTop(s) − 8`, riding 8 pt above the rising tab row so the row
     stays visible all the way into its slot.
   - `s >= DOCK`: `E = T + BAR · h`.
-- **Sheet edge.** No gradient. Two 24 pt concave sky corners at the screen edges under the band
-  edge, so the edge reads as the rounded top of a sheet tucked under the sky (the cards' 24 pt
-  radius). Drawn with a `react-native-svg` clip path, because MaskedView has no web build and is
-  experimental on Android.
+- **Flat edge.** No gradient and no rounding: the band ends in a crisp straight line. (A first build
+  added 24 pt concave sky corners so the edge read as the top of a sheet; on the device the user
+  preferred it flat.)
 - **Status strip.** A sky window over the status bar area sits above the bar's controls, so they
   slide in and out from under it.
-- The band absorbs touches like a nav bar; the strip and corners do not.
+- The band absorbs touches like a nav bar; the strip does not.
 
 ## Deposit
 
@@ -121,7 +120,7 @@ uncommitted work, so the scroll position and bar state survive a switch.
   sky offset, visibility, fold transforms), unit-tested.
 - `src/components/SkyBackground.tsx`: also exports `SkyWindow`, a view that shows the background sky
   at its own screen position, sharing the sky's size and parallax constant.
-- `src/components/SkyBar.tsx`: the overlay (band, sheet corners, status strip, pinned Deposit,
+- `src/components/SkyBar.tsx`: the overlay (band, status strip, pinned Deposit,
   docked dropdown).
 - `src/components/FeedMenu.tsx`: the menu.
 - `src/hooks/useSkyBar.ts`: shared values, a scroll handler composed with the screen's own

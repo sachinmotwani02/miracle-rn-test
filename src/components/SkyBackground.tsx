@@ -5,12 +5,12 @@ import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { SKY_BAR } from '../utils/skyBar';
 
-export const SKY = require('../../assets/sky.png');
+const SKY = require('../../assets/sky.png');
 const SKY_W = 393;
 const SKY_H = 504;
 
 /** The sky's drawn height at a screen width (the Figma export is 393 x 504 pt). */
-export function skyHeight(width: number): number {
+function skyHeight(width: number): number {
   return (SKY_H * width) / SKY_W;
 }
 

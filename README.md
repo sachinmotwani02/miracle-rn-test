@@ -118,8 +118,8 @@ bar text disappear. Now the top of the screen is always sky:
 How: every layer of the bar is a window onto the background sky (`SkyWindow`), so it shows exactly
 the pixels behind it and cannot be seen until content slides under it; no colours are matched. The
 bar's sky follows the 0.3× parallax until the tabs dock, then holds, so it stays blue however far
-down you are. The edge has no gradient: 24 pt concave corners (an SVG clip, the cards' radius) make
-it read as the top of a sheet tucked under the sky. Every threshold comes from worklet maths in
+down you are. The edge is a flat, crisp line: no gradient and no rounding. Every threshold comes
+from worklet maths in
 `src/utils/skyBar.ts` (unit-tested) fed by measured header positions, so Dynamic Type and other
 insets move it with the layout. It all runs on the UI thread; JS only hears threshold crossings, for
 touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-header-design.md`.

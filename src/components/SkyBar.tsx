@@ -1,21 +1,12 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, {
-  SharedValue,
-  useAnimatedProps,
-  useAnimatedStyle,
-  useDerivedValue,
-  useSharedValue,
-} from 'react-native-reanimated';
-import Svg, { ClipPath, Defs, Image as SvgImage, Path } from 'react-native-svg';
+import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue } from 'react-native-reanimated';
 import { colors, layout, text } from '../theme';
 import type { SkyBarState } from '../hooks/useSkyBar';
 import { SKY_BAR, bandEdge, barLift, depositPinned, skyOffset, tabsDocked } from '../utils/skyBar';
 import { Chevron } from './Chevron';
 import { DepositButton } from './DepositButton';
-import { SKY, SkyWindow, skyHeight } from './SkyBackground';
-
-const AnimatedSvgImage = Animated.createAnimatedComponent(SvgImage);
+import { SkyWindow } from './SkyBackground';
 
 interface Props {
   bar: SkyBarState;
@@ -58,8 +49,6 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
   return (
     <View style={styles.root}>
       <SkyWindow offset={offset} top={bandTop} left={0} width={width} height={barHeight} blocksTouches />
-      <SheetCorner side="left" offset={offset} edge={edge} width={width} />
-      <SheetCorner side="right" offset={offset} edge={edge} width={width} />
       <Animated.View style={[styles.dropdown, dropdown, { pointerEvents: bar.docked ? 'auto' : 'none' }]}>
         <Pressable
           accessibilityRole="button"
@@ -98,51 +87,9 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
   );
 }
 
-interface CornerProps {
-  side: 'left' | 'right';
-  offset: SharedValue<number>;
-  edge: SharedValue<number>;
-  width: number;
-}
-
-/**
- * A concave corner of sky under the bar's edge at one side of the screen, so the edge reads as the
- * rounded top of a sheet tucked under the sky. Clipped with SVG: MaskedView has no web build and is
- * experimental on Android.
- */
-function SheetCorner({ side, offset, edge, width }: CornerProps) {
-  const r = SKY_BAR.corner;
-  const left = side === 'left' ? 0 : width - r;
-  const id = `sky-sheet-${side}`;
-  const d = side === 'left' ? `M0 0H${r}A${r} ${r} 0 0 0 0 ${r}Z` : `M0 0H${r}V${r}A${r} ${r} 0 0 0 0 0Z`;
-  const frame = useAnimatedStyle(() => ({ transform: [{ translateY: edge.value }] }));
-  const image = useAnimatedProps(() => ({ y: -(offset.value + edge.value) }));
-  return (
-    <Animated.View style={[styles.corner, { left, width: r, height: r }, frame]}>
-      <Svg width={r} height={r}>
-        <Defs>
-          <ClipPath id={id}>
-            <Path d={d} />
-          </ClipPath>
-        </Defs>
-        <AnimatedSvgImage
-          href={SKY}
-          x={-left}
-          width={width}
-          height={skyHeight(width)}
-          preserveAspectRatio="none"
-          clipPath={`url(#${id})`}
-          animatedProps={image}
-        />
-      </Svg>
-    </Animated.View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, pointerEvents: 'box-none' },
   layer: { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' },
-  corner: { position: 'absolute', top: 0, pointerEvents: 'none' },
   deposit: { position: 'absolute', top: 0 },
   dropdown: { position: 'absolute', top: 0, left: layout.screenPadding },
   dropdownRow: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20 },
