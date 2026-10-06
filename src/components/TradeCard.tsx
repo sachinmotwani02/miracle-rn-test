@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { FeedItem } from '../data/types';
 import { colors, layout, text } from '../theme';
+import { cardEntrance } from '../utils/cardEntrance';
 import { formatAge, formatCompactMoney, formatMoney, formatPct } from '../utils/format';
 import { Avatar } from './Avatar';
 import { CoinLogo } from './CoinLogo';
@@ -14,7 +15,7 @@ interface Props {
   index: number;
   expanded: boolean;
   onToggleNote: (id: string) => void;
-  /** Staggered entrance for the first cards on the initial mount only. */
+  /** Staggered entrance for the first cards; plays when the card mounts (first load or a tab switch). */
   animateIn: boolean;
 }
 
@@ -32,7 +33,7 @@ export const TradeCard = React.memo(function TradeCard({ item, index, expanded, 
   const isBuy = item.side === 'Buy';
   return (
     <Animated.View
-      entering={animateIn ? FadeInDown.delay(index * 70).duration(420).springify().damping(18) : undefined}
+      entering={animateIn ? cardEntrance(index) : undefined}
       style={styles.card}
     >
       <View style={styles.header}>
