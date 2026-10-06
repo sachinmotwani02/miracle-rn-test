@@ -39,9 +39,10 @@ interface Props {
 }
 
 /**
- * Plays the tab switch resolve (see TAB_RESOLVE) around one feed card: a scale and a blur, no fade.
- * The blur is an overlay over the card (inside its side margins), mounted only while the card
- * softens or resolves. The screen hands the softening over through
+ * Plays the tab switch resolve (see TAB_RESOLVE) around one feed card. The fade sits on the
+ * content only, and the blur is a sibling overlay outside it: a blur view under a see-through
+ * ancestor renders wrong on iOS. The overlay covers the card (inside its side margins) and is
+ * mounted only while the card softens or resolves. The screen hands the softening over through
  * context, so the tap re-renders these wrappers and not the list.
  */
 export function TabResolve({ resolveKey, index, children }: Props) {
@@ -55,7 +56,7 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const [seenKey, setSeenKey] = useState(resolveKey);
   const [run, setRun] = useState<{ id: number; delay: number } | null>(null);
   // The blur stays up while the screen eases `pending` back (tapped away and back before the cards
-  // changed), so it eases out with the scale instead of vanishing in one frame.
+  // changed), so it fades with the scale and the opacity instead of vanishing in one frame.
   const softening = !!soften?.softening;
   const [wasSoftening, setWasSoftening] = useState(softening);
   const [settling, setSettling] = useState(false);
@@ -95,6 +96,9 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const scaleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: resolveFrame(Math.min(progress.value, 1 - pending.value)).scale }],
   }));
+  const fadeStyle = useAnimatedStyle(() => ({
+    opacity: resolveFrame(Math.min(progress.value, 1 - pending.value)).opacity,
+  }));
   const blurProps = useAnimatedProps(() => ({
     intensity: resolveFrame(Math.min(progress.value, 1 - pending.value)).intensity,
   }));
@@ -102,7 +106,7 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const blurring = CAN_BLUR && takesPart && (run !== null || softening || settling);
   return (
     <Animated.View style={scaleStyle}>
-      {children}
+      <Animated.View style={fadeStyle}>{children}</Animated.View>
       {blurring ? (
         <View style={styles.overlay} testID="tab-resolve-blur">
           {/* Starts unblurred: the animated props take it to the live value from the first frame. */}
