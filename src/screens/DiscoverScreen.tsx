@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import Animated, { useAnimatedScrollHandler, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
@@ -32,18 +32,11 @@ export function DiscoverScreen() {
   const scrollY = useSharedValue(0);
   const scrollDirection = useSharedValue(0);
   const lastY = useSharedValue(0);
-  const firstMount = useRef(true);
 
   const items = useMemo(() => feedForTab(tab), [tab]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
-  }, []);
-
-  const onTab = useCallback((next: TabKey) => {
-    // The list remounts on a tab change, so let the first cards play their entrance again.
-    firstMount.current = true;
-    setTab(next);
   }, []);
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -70,15 +63,19 @@ export function DiscoverScreen() {
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => (
+      // Keyed by tab so a switch remounts just the cards (replaying their staggered entrance)
+      // while the header above stays mounted. Within a tab the key is stable, so FlashList's
+      // recycling keeps reusing card components as you scroll.
       <TradeCard
+        key={tab}
         item={item}
         index={index}
         expanded={!!expanded[item.id]}
         onToggleNote={onToggleNote}
-        animateIn={firstMount.current && index < ENTRANCE_COUNT}
+        animateIn={index < ENTRANCE_COUNT}
       />
     ),
-    [expanded, onToggleNote],
+    [tab, expanded, onToggleNote],
   );
 
   const header = useMemo(
@@ -89,11 +86,11 @@ export function DiscoverScreen() {
         <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades} />
         <View style={{ height: 22 }} />
-        <FeedTabs active={tab} onChange={onTab} />
+        <FeedTabs active={tab} onChange={setTab} />
         <View style={{ height: 18 }} />
       </View>
     ),
-    [insets.top, tab, onTab],
+    [insets.top, tab],
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;
@@ -102,9 +99,7 @@ export function DiscoverScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
       <SkyBackground scrollY={scrollY} />
-      {/* Keyed by tab so a switch remounts the list; cards re-run their staggered entrance.
-          No opacity fade here: Liquid Glass views inside it stop rendering at opacity 0. */}
-      <View key={tab} style={styles.list}>
+      <View style={styles.list}>
         <AnimatedFlashList
           data={items}
           renderItem={renderItem}
@@ -117,6 +112,9 @@ export function DiscoverScreen() {
           onScroll={scrollHandler}
           scrollEventThrottle={16}
           drawDistance={height}
+          // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
+          // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
+          maintainVisibleContentPosition={MVCP_OFF}
         />
       </View>
       <BottomFade height={navClearance + 20} />
@@ -126,6 +124,7 @@ export function DiscoverScreen() {
 }
 
 const keyExtractor = (item: FeedItem) => item.id;
+const MVCP_OFF = { disabled: true };
 
 function Separator() {
   return <View style={{ height: layout.cardGap }} />;
