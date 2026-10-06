@@ -122,13 +122,41 @@ folder: { … }, replay: { type: 'action' } }, { onAction })`.
 - Sparkline draws in once per card (stroke-dash offset through `animatedProps` on an SVG `Path`),
   entry markers pop as the line reaches them, the end dot lands last. A module-level set of ids makes
   sure recycled FlashList rows never replay it.
-- The first five cards enter with a staggered fade and 12 pt rise on the first mount only.
+- Cards that replace the loading bones crossfade in place (below); cards that arrive without bones
+  (a tab already loaded) enter with a staggered fade and 12 pt rise, the first five only.
 - Tab switch remounts the list so the first cards replay their entrance; active label opacity animates.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
   text provides the target so the spring has a real end value).
 - Deposit button and nav icons scale on press; sky parallax at 0.3×.
 
 Nothing else moves. The header, carousel and cards are static by design.
+
+## Loading skeleton
+
+The mock data arrives the way a network would (`src/data/api.ts`): portfolio, top trades and each
+tab's feed load on their own (600 / 900 / 1300 ms on a cold start, 700 ms for a tab's first visit)
+and are cached for the session by a small store that also owns the loading timing
+(`src/data/resources.ts`). Before building it I looked at how premium apps do it on Mobbin
+(Coinbase, Uniswap, Revolut, Wise, Bluesky, Substack, Perplexity); the rules below come from there.
+
+- **Only data becomes bones.** The sky, labels, Deposit, tabs, card shells, the thread line, the note
+  box and the nav bar stay real. Bones (`src/components/skeleton/`) mirror the real rows to the
+  point (measured in the web build: same card boxes, same avatar, coin, thread and note positions),
+  so nothing moves when the content arrives. They are 7% ink on white and glass, 30% white on the
+  sky, fully rounded, cap-height tall, with seeded widths, and lower feed cards fade with distance.
+- **One quick, very subtle sweep.** While anything loads, a faint white glint (100 pt, 35% white at
+  its peak, 20% on the sky) snaps across the screen in 0.65 s on an ease-in-out cubic, so what
+  shows is the fast middle of the pass, then rests off screen for 1.1 s. It is one shared value for
+  the whole screen; each bone draws its slice of the band offset by its own measured window x, so
+  every bone lights up in step, as one light crossing the page. It is parked off screen when
+  nothing loads, and off with Reduce Motion.
+- **Handover in place.** Each card mounts over its own skeleton, which stays solid underneath;
+  the content fades in on top (240 ms, 70 ms stagger) while only the bones fade out, so shells and
+  chrome never dip. Cached content and quick replies skip the bones.
+- **Timing rules.** A tab's first load draws nothing for 150 ms, so a quick reply never flashes
+  bones; once drawn they stay at least 400 ms.
+- **Dials > Skeleton:** latency per section, **Hold loading** (inspect the bones for as long as you
+  like) and **Replay cold start**.
 
 ## Performance
 
@@ -155,7 +183,10 @@ Nothing else moves. The header, carousel and cards are static by design.
 ## Tests
 
 `npm test` runs unit tests for the formatters (worklet-safe, no `Intl`), the sparkline geometry,
-the mock data (determinism, per-tab subsets, Figma values on the first card) and the nav geometry.
+the mock data (determinism, per-tab subsets, Figma values on the first card) and the nav geometry,
+plus the loading skeleton: the mock api and its hold switch, the resource store's timing (cold
+start, cache hit, show delay, minimum time, reveal window, clear) with fake timers, the bone maths,
+and that each skeleton region is announced once as busy.
 
 ## Trade-offs and honest notes
 
@@ -178,14 +209,15 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
   Deposit gradient (white 32→64% at 32%) with a rim and a 1 pt top highlight, and the `#22242A` 80%
   bar over an iOS blur (a denser fill on Android) with a hairline rim and a 12% white lens lit by inset white shadows. The
   native-glass version is in git history (`88badf4`) if a future iOS-only build wants it.
-- **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
+- **Tabs filter the same mock set**, served through a simulated async API so the loading state is
+  real; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
 
 ## What I would do next
 
 1. Record on a real iPhone and Android phone and tune spring constants by feel.
-2. Add Sell-side sparkline colouring and a loading skeleton, and virtualise the carousel with
-   FlashList if the data set grows.
+2. Add Sell-side sparkline colouring, and virtualise the carousel with FlashList if the data set
+   grows.
 3. Replace the hand-drawn SVG badges and logos with the Figma vector exports once the file can be
    exported.
 4. Add gesture-driven dismissal of the nav bar and a pull-to-refresh that reuses the mascot.

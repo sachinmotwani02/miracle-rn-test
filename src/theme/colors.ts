@@ -14,6 +14,9 @@ export const colors = {
   sellPillBg: 'rgba(229,72,77,0.16)',
   red: '#E5484D',
   noteBg: '#F3F8FF',
+  /** Loading bones: ink on white and glass cards, white on the sky. */
+  boneInk: 'rgba(34,36,42,0.07)',
+  boneSky: 'rgba(255,255,255,0.3)',
   card: '#FFFFFF',
   carouselCard: 'rgba(255,255,255,0.92)',
   feedBg: '#E9EEF6',

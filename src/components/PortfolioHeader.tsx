@@ -4,21 +4,30 @@ import { Portfolio } from '../data/types';
 import { colors, layout, text } from '../theme';
 import { formatMoney, formatPct, formatSignedMoney } from '../utils/format';
 import { DepositButton } from './DepositButton';
+import { PortfolioBones } from './skeleton/PortfolioBones';
+import { Reveal } from './skeleton/Reveal';
 
-export function PortfolioHeader({ portfolio }: { portfolio: Portfolio }) {
+/** Until the portfolio arrives the value and delta are bones; the label and Deposit stay real. */
+export function PortfolioHeader({ portfolio, reveal = false }: { portfolio?: Portfolio; reveal?: boolean }) {
   return (
     <View style={styles.row}>
       <View style={styles.left}>
         <Text style={[text.portfolioLabel, styles.label]} maxFontSizeMultiplier={1.3}>
           Your portfolio
         </Text>
-        <Text style={[text.portfolioValue, styles.value]} maxFontSizeMultiplier={1.2}>
-          {formatMoney(portfolio.valueUsd)}
-        </Text>
-        <Text style={[text.delta, styles.delta]} maxFontSizeMultiplier={1.3}>
-          <Text style={[text.delta, styles.deltaStrong]}>{formatSignedMoney(portfolio.deltaUsd)}</Text>
-          <Text style={[text.deltaMuted, styles.deltaMuted]}>{` · ${formatPct(portfolio.deltaPct)} 24h`}</Text>
-        </Text>
+        {portfolio ? (
+          <Reveal active={reveal} bones={<PortfolioBones />}>
+            <Text style={[text.portfolioValue, styles.value]} maxFontSizeMultiplier={1.2}>
+              {formatMoney(portfolio.valueUsd)}
+            </Text>
+            <Text style={[text.delta, styles.delta]} maxFontSizeMultiplier={1.3}>
+              <Text style={[text.delta, styles.deltaStrong]}>{formatSignedMoney(portfolio.deltaUsd)}</Text>
+              <Text style={[text.deltaMuted, styles.deltaMuted]}>{` · ${formatPct(portfolio.deltaPct)} 24h`}</Text>
+            </Text>
+          </Reveal>
+        ) : (
+          <PortfolioBones />
+        )}
       </View>
       <DepositButton />
     </View>
