@@ -9,6 +9,7 @@ import { useLivePortfolio } from '../data/live';
 import { clearResources, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
+import { useFeedLanding } from '../hooks/useFeedLanding';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { SKELETON } from '../utils/skeleton';
@@ -91,8 +92,6 @@ function Discover({ latency }: { latency: Latency }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [menuOpen, setMenuOpen] = useState(false);
   const listRef = useRef<FlashListRef<FeedItem>>(null);
-  /** Set when a feed is picked from the sky bar: land on its first card once it renders. */
-  const landOnFeed = useRef(false);
   const scrollY = useSharedValue(0);
   const bar = useSkyBar(scrollY, insets.top);
 
@@ -138,23 +137,17 @@ function Discover({ latency }: { latency: Latency }) {
     listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: true });
     setMenuOpen(true);
   }, [bar.feedTop]);
+  // A feed picked from the sky bar opens on its first card, right under the bar.
+  const landOn = useFeedLanding(listRef, shown.tab, feed.phase, bar.feedTop);
   const onPickFeed = useCallback(
     (next: TabKey) => {
       setMenuOpen(false);
       if (next === selection.tab) return;
-      landOnFeed.current = true;
+      landOn(next);
       onTab(next);
     },
-    [selection.tab, onTab],
+    [selection.tab, onTab, landOn],
   );
-
-  useEffect(() => {
-    if (!landOnFeed.current) return;
-    landOnFeed.current = false;
-    // The new cards render first (in the deferred render); then the list lands on the first one,
-    // right under the bar.
-    requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
-  }, [shown.tab, bar.feedTop]);
 
   // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
   // scrolls to the top while it is open).
@@ -233,6 +226,9 @@ function Discover({ latency }: { latency: Latency }) {
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;
+  // A feed with no cards yet still fills the screen under the sky bar, so the list can hold the
+  // first card's place right under the bar while one loads (shorter, it clamps up into the header).
+  const emptyFeed = { minHeight: Math.max(0, height - insets.top - SKY_BAR.height - navClearance) };
   const feedLabel = TABS.find(t => t.key === selection.tab)?.label ?? '';
 
   return (
@@ -249,7 +245,7 @@ function Discover({ latency }: { latency: Latency }) {
             keyExtractor={keyExtractor}
             extraData={expanded}
             ListHeaderComponent={header}
-            ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
+            ListEmptyComponent={<View style={emptyFeed}>{feed.phase === 'skeleton' ? <FeedSkeleton /> : null}</View>}
             ItemSeparatorComponent={Separator}
             contentContainerStyle={{ paddingBottom: navClearance }}
             showsVerticalScrollIndicator={false}
