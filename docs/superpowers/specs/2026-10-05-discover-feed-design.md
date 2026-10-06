@@ -16,7 +16,7 @@ Mock data only. Runs on iOS and Android with safe areas and no layout breakage.
 An editable copy of the file was later available. The Feed frame was copied as SVG and parsed, and
 every text layer's Typography panel was read. Corrections over the first pass:
 
-- Typeface is SF Pro Rounded (shipped as Nunito, see README). Sizes/line heights: label 12/16 600,
+- Typeface is SF Pro Rounded (`ui-rounded` system font on iOS, Nunito elsewhere; see README). Sizes/line heights: label 12/16 600,
   value 24/28 700 white 88% (-3% tracking), delta 12/16 600 (white / white 64%), Deposit 15/20 700,
   section title 15/20 600, names 15/20 600, meta 12/16 600 at 64% (48% for "Bought … at"/"at"),
   Buy 11/14 700, asset 19/22 600, price 12/16 600, note 13/16 500, Read more 13/20 600, tabs 15/20 600
@@ -73,7 +73,7 @@ Soft white clouds concentrated top-right and in a band around y 280–320.
 
 Portfolio header (left margin 20):
 - "Your portfolio" 11 pt medium, white; cap top 74.
-- "$12,057.70" 22 pt bold, white; cap top 97 (counts up on mount).
+- "$12,057.70" 22 pt bold, white; cap top 97.
 - "+$64.20" 12 pt semibold white, then " · 0.54% 24h" 12 pt white 70%; cap top 129.
 - Deposit button: 86 × 36 pill at x 291, y 89 (right margin 16). Fill white 20%,
   1 pt border white 35%, text "Deposit" 14 pt semibold white.
@@ -124,7 +124,7 @@ src/
   data/            types.ts, mock.ts (deterministic generator, 4 tab subsets)
   utils/           format.ts (money/percent), sparkline.ts (points → path, markers)
   components/
-    SkyBackground, PortfolioHeader, AnimatedNumber, DepositButton,
+    SkyBackground, PortfolioHeader, DepositButton,
     TopTradesCarousel, TopTradeCard, FeedTabs, TradeCard, TradeCardHeader,
     AssetRow, Sparkline, NoteBox, Avatar, VerifiedBadge, CoinLogo, BuyBadge,
     FloatingNavBar, NavIcon(s), Mascot, BottomFade
@@ -147,15 +147,13 @@ Nav bar — "the mascot is paying attention":
    eyes glance toward the chosen tab (eye group translateX ±3), returning to centre after
    ~600 ms. Tapping the mascot itself makes it jump with squash-and-stretch and fires a
    light haptic.
-3. Press feedback: the pressed icon scales to 0.9 and a soft white bloom expands and fades
-   behind it; released icon springs back.
+3. Press feedback: the pressed icon scales to 0.9; released icon springs back.
 4. Scroll-linked: when scrolling down quickly the bar sinks 12 pt and shrinks to 0.97,
    springing back as soon as scrolling slows or reverses.
 
 Elsewhere (deliberately limited):
 - Sparkline draw-in (stroke dash offset, 700 ms ease-out) with markers popping in as the
   line reaches them; runs once per item id, not on list recycling.
-- Portfolio value counts up on mount (TextInput `animatedProps`), 900 ms.
 - First five cards enter with a staggered fade + 12 pt rise.
 - Tab switch: active label crossfades; the list content fades/slides 8 pt on tab change.
 - Note box expands/collapses with a spring on height.

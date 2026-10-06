@@ -26,7 +26,7 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no de
 | Area | Implementation |
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
-| Portfolio header | Label, value (counts up on mount), delta line, glass Deposit pill (the Figma's white gradient, rim and top highlight). |
+| Portfolio header | Label, value, delta line, glass Deposit pill (the Figma's white gradient, rim and top highlight). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
 | Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
@@ -42,23 +42,25 @@ the spec lists them. The avatar photos were cropped from the capture; the sky ex
 SVG are the designer's files.
 
 Typeface: the Figma is set in **SF Pro Rounded** (Semibold almost everywhere; Bold 24 for the
-portfolio value, Bold 15 for Deposit, Bold 11 for the Buy pill, Medium 13 for the note). Apple does
-not expose the rounded design through React Native's `fontFamily` and its licence is Apple-only, so
-the app ships **Nunito** (OFL), the closest rounded match, on every platform via
-`@expo-google-fonts/nunito`. Nunito is one step lighter and ~3% wider than SF Pro Rounded at the
-same nominal weight (checked against the Figma at 6× zoom), so each Figma weight maps one step up
-(Medium→SemiBold, SemiBold→Bold, Bold→ExtraBold) and tracking is pulled in by 1%. To use the real thing on iOS: put Apple's `SF-Pro-Rounded-*.otf` files
-in `assets/fonts`, load them in `App.tsx`, and point the `family` map in `src/theme/typography.ts`
-at them.
+portfolio value, Bold 15 for Deposit, Bold 11 for the Buy pill, Medium 13 for the note). On iOS
+the app uses the real thing: it is a system font there, reached with `fontFamily: 'ui-rounded'`
+(UIFontDescriptorSystemDesignRounded), so nothing is bundled and the Figma weights and tracking apply
+unchanged. Apple's licence forbids shipping the font files, so Android and web use **Nunito** (OFL),
+the closest rounded match, via `@expo-google-fonts/nunito`. Nunito is one step lighter and ~3% wider
+than SF Pro Rounded at the same nominal weight (checked against the Figma at 6× zoom), so there each
+Figma weight maps one step up (Medium→SemiBold, SemiBold→Bold, Bold→ExtraBold) and tracking is
+pulled in by 1%. Both live in the `family` map in `src/theme/typography.ts`.
 
 ## Animation: the nav bar
 
 The idea: **the mascot is paying attention.**
 
-1. The active pill is a spring-driven 56×48 lens that slides to the tapped slot. While it is far from
-   its target it stretches along the direction of travel (scaleX up to 1.28, scaleY compensates) and
-   settles with a small overshoot. It is the Figma's 12% white capsule with a hairline rim so it
-   reads as a lifted lens.
+1. The active pill is a spring-driven 56×48 lens that slides to the tapped slot on a quick,
+   critically damped spring (250 ms perceptual, no overshoot). It stretches along the direction of
+   travel (scaleX up to 1.23, scaleY compensates), growing in over its first pill width of travel and
+   letting go over the last 0.65, smoothstepped so the shape never snaps. It is the Figma's
+   12% white capsule, with its Glass effect faked by inset white shadows (a top catch-light, a
+   fainter bottom one and a soft inner glow).
 2. The ghost in the centre is a toy, not a tab: tapping it never moves the pill. It has a life of
    its own (`src/components/Mascot.tsx`, maths in `src/utils/mascotMotion.ts`):
    - **Breathing** runs on a UI-thread clock (`useFrameCallback`): about 3.8 s a breath (in for 40%,
@@ -87,23 +89,39 @@ The idea: **the mascot is paying attention.**
      and as it lands they burst outward like a small firework while four little twinkles pop
      round it. (It began as hold-to-charge, but a finger holding the ghost hides it, so the
      charge-up could not be seen.)
-3. Press feedback: the pressed icon scales to 0.88 on a stiff spring and a soft white bloom expands
-   and fades behind it.
-4. Scroll-linked: while the feed is being scrolled downward the bar sinks 12 pt and shrinks to 0.97,
-   springing back as soon as the scroll pauses or reverses.
+3. Press feedback: the pressed icon squeezes to 0.88 and back on a quick, critically damped spring
+   (150 ms perceptual, no overshoot).
+4. Scroll-linked: the bar sinks 12 pt and shrinks to 0.9 on a scroll down, and rises and grows
+   back as soon as the scroll turns upward (or at the top). A pause leaves it as it is, so it never
+   bobs while you read, and 6 pt of travel is needed to flip it so a pixel of jitter doesn't. The
+   rule is a pure worklet (`src/utils/navShrink.ts`, tested); one critically damped 350 ms spring
+   drives both.
 
 Everything above is a Reanimated worklet (`useAnimatedStyle`, `withSpring`, `withSequence`,
 `useAnimatedScrollHandler`), so it runs on the UI thread and keeps running at 60 fps while the list
 scrolls.
+
+### Tuning the pill live
+
+The pill's spring, stretch and glass defaults live in `PILL` (`src/utils/pillMotion.ts`). With `SHOW_DIALS` on in `App.tsx`
+(off by default), a **Dials** chip sits top right in dev builds; it opens a DialKit-style panel (`src/dev/`, plain React Native, so it
+works on iOS, Android and web):
+
+- **Pill replay**: `Home ↔ Profile` (the longest jump) and `Next tab` replay the switch exactly as a
+  tap does, glance and haptic included; `Slow mo` stretches the spring up to 10× to inspect it.
+- **Pill**: spring duration and bounce, stretch amount, ease-in, reach and squash, and the glass fill and inset
+  lights. A tick marks each default; a changed value turns blue, and tapping it resets that dial.
+- **Copy** prints the panel's values in `PILL`'s shape (share sheet on a phone, clipboard on web), ready to
+  paste back over the constant. Release builds never mount the panel, so the defaults ship.
+
+Any other component can get a panel the same way: `useDials('Name', { size: [1, 0, 2], on: true,
+folder: { … }, replay: { type: 'action' } }, { onAction })`.
 
 ## Other motion, deliberately limited
 
 - Sparkline draws in once per card (stroke-dash offset through `animatedProps` on an SVG `Path`),
   entry markers pop as the line reaches them, the end dot lands last. A module-level set of ids makes
   sure recycled FlashList rows never replay it.
-- Portfolio value counts up over 900 ms. This is the one JS-driven animation: text content cannot
-  be set from the UI thread on the new architecture (the TextInput `text` animatedProps trick does
-  not apply there), so a single Text re-renders per frame for under a second on mount.
 - The first five cards enter with a staggered fade and 12 pt rise on the first mount only.
 - Tab switch remounts the list so the first cards replay their entrance; active label opacity animates.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
@@ -121,8 +139,7 @@ Nothing else moves. The header, carousel and cards are static by design.
   FlashList calls it as a function.)
 - Sparkline geometry (`src/utils/sparkline.ts`) is computed once per item with `useMemo` and
   rendered with `react-native-svg`, not images.
-- No per-frame JS work while scrolling: scroll, pill, mascot, bloom and draw-in are all worklets.
-  The only JS-driven motion is the 900 ms count-up on mount.
+- No per-frame JS work: scroll, pill, mascot and draw-in are all worklets.
 - Mock data is generated once at module load from a seeded PRNG, so renders are deterministic.
 
 ## Robustness
@@ -146,13 +163,12 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
   app was verified with the unit tests, `tsc`, and the Expo web build, where DOM measurements were
   compared against the exact Figma geometry (every measured box lands within 1 pt). The native-only paths
   (`BlurView`, `MaskedView`, haptics) follow the documented APIs. A later pass on an iPhone
-  confirmed the layout and caught two things: the count-up not applying on the new architecture
-  (now JS-driven) and native Liquid Glass drifting from the design (replaced by the faked glass
-  above). A real-device recording is still to do.
+  confirmed the layout and caught native Liquid Glass drifting from the design (replaced by the
+  faked glass above). A real-device recording is still to do.
 - **Assets.** The verified seal, swap badge, coin logos and nav icons are hand-drawn SVGs matched to
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
-- **Fonts.** The design's SF Pro Rounded is replaced by Nunito on every platform (see above);
-  letterforms are close but glyph widths differ by a few points, which shows most in the tab row.
+- **Fonts.** iOS renders the design's SF Pro Rounded; Android and web substitute Nunito (see
+  above), whose glyph widths differ by a few points, which shows most in the tab row.
 - **Glass effects.** The Figma uses Glass + inner-shadow effects on the carousel cards, the Deposit
   button and the nav bar. I tried native Liquid Glass (`expo-glass-effect`, iOS 26) first: it looks
   great but cannot be tuned to the design (Apple's material is brighter and more frosted, the dark
@@ -160,7 +176,7 @@ the mock data (determinism, per-tab subsets, Figma values on the first card) and
   Since the brief grades fidelity and parity on both platforms, the glass is faked from the Figma's
   own values and renders identically everywhere: the 92% white card body with a white hairline, the
   Deposit gradient (white 32→64% at 32%) with a rim and a 1 pt top highlight, and the `#22242A` 80%
-  bar over an iOS blur (a denser fill on Android) with a hairline rim and a 12% white lens. The
+  bar over an iOS blur (a denser fill on Android) with a hairline rim and a 12% white lens lit by inset white shadows. The
   native-glass version is in git history (`88badf4`) if a future iOS-only build wants it.
 - **Tabs filter the same mock set** rather than fetching anything; the brief asked for mock data only.
 - **Android blur.** A solid bar was chosen over `experimentalBlurMethod` to keep scrolling smooth.
