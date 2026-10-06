@@ -104,17 +104,26 @@ with end sparkles was picked.
   halfway and at full charge. Holding longer keeps it charged; it never fires on its own.
 - **Depth:** the ribbon is drawn twice: its near side over the cloud and its far side behind it
   (`silkBand` and `stripPaths` in `mascotMotion.ts`), so it winds round the ghost in 3D.
-- **Let go** with at least 30% charge (about 0.57 s of holding): medium haptic, a double turn
+- **Let go** once the ribbon has appeared, however briefly: medium haptic, a double turn
   (720°, `stiffness 60, damping 12.5, mass 1`), lift 9 pt, stretch 1.1 and squash 0.9 on landing,
   halo lifts 5 pt late and tilts 7°. The ribbon whips round at 1100°/s; the white trails stay off.
+  The ribbon showing is a promise: letting go never falls back to an ordinary turn.
 - **Landing (480 ms):** soft haptic; the ribbon unravels, stretching upward and fading over
   520 ms, and four four-point twinkles (gold, pink, sky blue, mint) pop round the cloud one after
   another (70 ms apart, 420 ms each, up to 3 pt radius), rising 6 pt and spinning 60° as they fade.
   The pattern is turned at random each time. Then happy eyes, a 1 s dizzy swirl, a blink and
-  quicker breathing; about 2 s in all. Taps during the big spin are ignored.
-- **Let go early** (under 30%): the ribbon fades and it is an ordinary turn. **Slide off**: the
-  ribbon fizzles out and the ghost relaxes.
+  quicker breathing; about 2 s in all. Presses are ignored only while it is in the air (700 ms);
+  after that a tap turns and a hold charges again.
+- **Holding during a turn:** a hold that starts while a turn (plain or big) is still in the air is
+  not dropped: it starts charging as soon as the ghost lands (450 ms after a tap's release, 700 ms
+  after a big spin's), winding a still-unravelling ribbon back in and cutting the dizzy swirl
+  short. The −15° wind-up is skipped mid-air so it never fights the turn.
+- **Slide off**: the ribbon fizzles out and the ghost relaxes. The press area reaches 40 pt past
+  the slot (`pressRetentionOffset`), so a thumb drifting during a long hold keeps its charge.
 - The swirl's clock only runs while the ribbon or sparkles are showing, so it costs nothing at rest.
+- The press sequences (long holds, holds back to back, a hold straight after a tap, taps mid-air,
+  drifting and sliding off) are tested through the real Pressability in
+  `src/__tests__/Mascot.test.tsx`.
 
 ## Reduce Motion
 

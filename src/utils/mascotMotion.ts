@@ -318,6 +318,31 @@ export function dizzyOffset(t: number): { x: number; y: number } {
   return { x: reach * Math.sin(angle), y: -0.75 * reach * Math.cos(angle) };
 }
 
+/**
+ * How long after a press the hold starts charging: the usual `hold` delay, or longer if the last
+ * turn is still in the air (it charges as soon as that lands, rather than ignoring the hold).
+ */
+export function chargeDelay(now: number, landedAt: number, hold: number): number {
+  return Math.max(hold, landedAt - now);
+}
+
+/**
+ * What letting go of the ghost does. A hold that has started charging always gets the big spin
+ * (the ribbon showing is a promise); a plain tap turns, up to `maxTurns` stacked in a burst;
+ * nothing happens while the big spin is still in the air.
+ */
+export function releaseAction(
+  charging: boolean,
+  now: number,
+  bigUntil: number,
+  queued: number,
+  maxTurns: number,
+): 'big' | 'turn' | 'ignore' {
+  if (now < bigUntil) return 'ignore';
+  if (charging) return 'big';
+  return queued >= maxTurns ? 'ignore' : 'turn';
+}
+
 /** A random number in [min, max). `rand` is injectable for tests. */
 export function randomBetween(min: number, max: number, rand: () => number = Math.random): number {
   'worklet';

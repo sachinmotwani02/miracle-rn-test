@@ -6,9 +6,11 @@ import {
   TRAIL,
   TURN,
   breathCurve,
+  chargeDelay,
   clamp,
   dizzyOffset,
   randomBetween,
+  releaseAction,
   silkBand,
   silkSpan,
   sparkle,
@@ -25,6 +27,41 @@ const ysOf = (d: string) => coords(d).filter((_, i) => i % 2 === 1);
 const mean = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
 /** Both depth halves of a ribbon, leaving out an empty half's "M0 0" placeholder. */
 const both = (p: { front: string; back: string }) => [p.front, p.back].filter(d => d !== 'M0 0').join(' ');
+
+describe('chargeDelay', () => {
+  it('starts charging after the usual hold when nothing else is playing', () => {
+    expect(chargeDelay(5000, 0, 300)).toBe(300);
+  });
+
+  it('waits for the last turn to land instead of ignoring the hold', () => {
+    expect(chargeDelay(5000, 5800, 300)).toBe(800);
+  });
+
+  it('never charges sooner than the usual hold', () => {
+    expect(chargeDelay(5000, 5100, 300)).toBe(300);
+  });
+});
+
+describe('releaseAction', () => {
+  const MAX = 3;
+
+  it('always rewards a hold that has started charging with the big spin, even right after other turns', () => {
+    expect(releaseAction(true, 5000, 0, 0, MAX)).toBe('big');
+    expect(releaseAction(true, 5000, 0, 2, MAX)).toBe('big');
+    expect(releaseAction(true, 5000, 0, MAX, MAX)).toBe('big');
+  });
+
+  it('turns on a plain tap, up to the stacking limit', () => {
+    expect(releaseAction(false, 5000, 0, 0, MAX)).toBe('turn');
+    expect(releaseAction(false, 5000, 0, MAX - 1, MAX)).toBe('turn');
+    expect(releaseAction(false, 5000, 0, MAX, MAX)).toBe('ignore');
+  });
+
+  it('ignores presses only while the big spin is still in the air', () => {
+    expect(releaseAction(false, 5000, 5300, 0, MAX)).toBe('ignore');
+    expect(releaseAction(false, 5400, 5300, 0, MAX)).toBe('turn');
+  });
+});
 
 describe('stripPaths', () => {
   const line = (front: (i: number) => boolean) =>
