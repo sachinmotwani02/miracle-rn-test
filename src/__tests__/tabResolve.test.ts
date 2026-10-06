@@ -3,12 +3,12 @@ import { TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
 
 describe('tab switch resolve', () => {
-  it('starts soft, slightly small and see-through', () => {
-    expect(resolveFrame(0)).toEqual({ opacity: 0.45, scale: 0.97, intensity: 12 });
+  it('starts soft and slightly small, without fading', () => {
+    expect(resolveFrame(0)).toEqual({ scale: 0.97, intensity: 12 });
   });
 
-  it('lands crisp, full size and opaque', () => {
-    expect(resolveFrame(1)).toEqual({ opacity: 1, scale: 1, intensity: 0 });
+  it('lands crisp and full size', () => {
+    expect(resolveFrame(1)).toEqual({ scale: 1, intensity: 0 });
   });
 
   it('never overshoots, even if the easing hands it a value past either end', () => {
