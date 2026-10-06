@@ -34,11 +34,12 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
   const lens = useSharedValue(indexOf(active) * ROW);
+  // Mounted while open and through the closing fade.
   const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
 
   useEffect(() => {
     if (open) {
-      setMounted(true);
       lens.set(indexOf(active) * ROW);
       progress.set(withSpring(1, SETTLE));
     } else {

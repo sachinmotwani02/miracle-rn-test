@@ -76,7 +76,7 @@ export function DiscoverScreen() {
         scrollDirection.value = withDelay(220, withTiming(0, { duration: 1 }));
       }
       lastY.value = y;
-      scrollY.value = y;
+      scrollY.set(y);
     },
     onEndDrag: () => {
       scrollDirection.value = 0;
@@ -111,10 +111,13 @@ export function DiscoverScreen() {
     requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
   }, [tab, bar.feedTop]);
 
-  // The menu hangs off the docked dropdown, so it closes if the bar leaves.
-  useEffect(() => {
+  // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
+  // scrolls to the top while it is open).
+  const [wasDocked, setWasDocked] = useState(bar.docked);
+  if (wasDocked !== bar.docked) {
+    setWasDocked(bar.docked);
     if (!bar.docked) setMenuOpen(false);
-  }, [bar.docked]);
+  }
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => (
