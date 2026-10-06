@@ -5,6 +5,7 @@ import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
+import { useLivePortfolio } from '../data/live';
 import { clearResources, useResource } from '../data/resources';
 import { FeedItem, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
@@ -12,6 +13,7 @@ import { colors, layout } from '../theme';
 import { SKELETON } from '../utils/skeleton';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
+import { useRollIn } from '../components/PortfolioTicker';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
@@ -75,6 +77,9 @@ function Discover({ latency }: { latency: Latency }) {
   // Cold start loads all three at once with bones from the first frame; a tab's first visit loads
   // its feed behind a short show delay; anything loaded before comes straight from the cache.
   const portfolio = useResource('portfolio', () => fetchPortfolio(latency.portfolio));
+  // Held here, above the cards, so a tab switch restarts neither; Replay remounts Discover and rolls again.
+  const livePortfolio = useLivePortfolio(portfolio.data);
+  const shownPortfolio = useRollIn(livePortfolio);
   const topTrades = useResource('topTrades', () => fetchTopTrades(latency.topTrades));
   const cold = tab === firstTab;
   const feed = useResource(`feed:${tab}`, () => fetchFeed(tab, cold ? latency.feed : latency.tabFeed), {
@@ -121,7 +126,7 @@ function Discover({ latency }: { latency: Latency }) {
     () => (
       // Figma (status bar 59pt): label 70, title 167, carousel 195, tabs 309, first card 347.
       <View style={{ paddingTop: insets.top + 11 }}>
-        <PortfolioHeader portfolio={portfolio.data} reveal={portfolio.revealing} />
+        <PortfolioHeader portfolio={livePortfolio} shown={shownPortfolio} reveal={portfolio.revealing} />
         <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades.data} reveal={topTrades.revealing} />
         <View style={{ height: 22 }} />
@@ -129,7 +134,7 @@ function Discover({ latency }: { latency: Latency }) {
         <View style={{ height: 18 }} />
       </View>
     ),
-    [insets.top, tab, portfolio.data, portfolio.revealing, topTrades.data, topTrades.revealing],
+    [insets.top, tab, livePortfolio, shownPortfolio, portfolio.revealing, topTrades.data, topTrades.revealing],
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;

@@ -2,13 +2,24 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Portfolio } from '../data/types';
 import { colors, layout, text } from '../theme';
-import { formatMoney, formatPct, formatSignedMoney } from '../utils/format';
 import { DepositButton } from './DepositButton';
+import { PortfolioTicker } from './PortfolioTicker';
 import { PortfolioBones } from './skeleton/PortfolioBones';
 import { Reveal } from './skeleton/Reveal';
 
-/** Until the portfolio arrives the value and delta are bones; the label and Deposit stay real. */
-export function PortfolioHeader({ portfolio, reveal = false }: { portfolio?: Portfolio; reveal?: boolean }) {
+/**
+ * Until the portfolio arrives the value and delta are bones; the label and Deposit stay real.
+ * `shown` is what the numbers draw while they roll in (see useRollIn); screen readers hear `portfolio`.
+ */
+export function PortfolioHeader({
+  portfolio,
+  shown,
+  reveal = false,
+}: {
+  portfolio?: Portfolio;
+  shown?: Portfolio;
+  reveal?: boolean;
+}) {
   return (
     <View style={styles.row}>
       <View style={styles.left}>
@@ -17,13 +28,7 @@ export function PortfolioHeader({ portfolio, reveal = false }: { portfolio?: Por
         </Text>
         {portfolio ? (
           <Reveal active={reveal} bones={<PortfolioBones />}>
-            <Text style={[text.portfolioValue, styles.value]} maxFontSizeMultiplier={1.2}>
-              {formatMoney(portfolio.valueUsd)}
-            </Text>
-            <Text style={[text.delta, styles.delta]} maxFontSizeMultiplier={1.3}>
-              <Text style={[text.delta, styles.deltaStrong]}>{formatSignedMoney(portfolio.deltaUsd)}</Text>
-              <Text style={[text.deltaMuted, styles.deltaMuted]}>{` · ${formatPct(portfolio.deltaPct)} 24h`}</Text>
-            </Text>
+            <PortfolioTicker portfolio={portfolio} shown={shown} />
           </Reveal>
         ) : (
           <PortfolioBones />
@@ -44,8 +49,4 @@ const styles = StyleSheet.create({
   },
   left: { flex: 1, paddingRight: 12 },
   label: { color: colors.white, marginBottom: 4 },
-  value: { color: colors.white88, height: 28 },
-  delta: { marginTop: 6 },
-  deltaStrong: { color: colors.white },
-  deltaMuted: { color: colors.white64 },
 });
