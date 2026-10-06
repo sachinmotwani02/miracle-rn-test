@@ -21,14 +21,15 @@ import { haptic } from '../utils/haptics';
 import { SwirlLayer, useSwirl } from './MascotSwirl';
 import {
   BREATH,
+  RARE_AFTER,
   SPARKLE_MS,
   TrailRing,
   breathCurve,
-  chargeDelay,
   clamp,
   dizzyOffset,
   randomBetween,
-  releaseAction,
+  rareAfter,
+  tapAction,
   trailPath,
   turnPose,
 } from '../utils/mascotMotion';
@@ -122,26 +123,25 @@ const HALO_WOBBLE = { stiffness: 140, damping: 5, mass: 1 };
 const TURN_MS = 1400;
 /** Turns a burst of taps can stack up. */
 const MAX_TURNS = 3;
+/** A plain turn has landed this long after release. */
+const TURN_LAND_MS = 450;
 
 /**
- * Holding the ghost charges a colourful swirl; letting go fires a bigger double spin. A quick
- * tap never charges: the swirl only starts once a press has lasted HOLD_MS, and once it shows,
- * letting go always fires the big spin.
+ * Every few taps (see `rareAfter`) the ghost does a rare spin instead. It starts once the finger
+ * has lifted, so it can be seen: the ghost winds up as a colourful silk ribbon wraps round it,
+ * then launches into a double spin.
  */
-const HOLD_MS = 300;
-const CHARGE_MS = 900;
-/** Swirl speeds, degrees per second: at full charge, and while the big spin plays. */
-const CHARGE_SPEED = 650;
+const RARE_WINDUP_MS = 240;
+/** Swirl speeds, degrees per second: as the ribbon winds in, and while the ghost spins. */
+const WINDUP_SPEED = 650;
 const SPIN_SPEED = 1100;
-const BIG_SPIN = { stiffness: 60, damping: 12.5, mass: 1 };
-/** How long the big spin's choreography runs. */
-const BIG_SPIN_MS = 2000;
-/** The big spin lands this long after release: the ribbon lets go and the twinkles pop. */
-const BIG_LAND_MS = 480;
-/** Presses do nothing while the big spin is in the air; a hold started then charges from here. */
-const BIG_AIR_MS = 700;
-/** A plain turn has landed this long after release; a hold started sooner charges from then. */
-const TURN_LAND_MS = 450;
+const RARE_SPIN = { stiffness: 60, damping: 12.5, mass: 1 };
+/** How long the rare spin's choreography runs from launch. */
+const RARE_SPIN_MS = 2000;
+/** It lands this long after launch: the ribbon lets go and the twinkles pop. */
+const RARE_LAND_MS = 480;
+/** Presses do nothing until this long after launch, while it is in the air. */
+const RARE_AIR_MS = 700;
 
 const blinkOnce = () => withSequence(withTiming(1, BLINK_CLOSE), withTiming(0, BLINK_OPEN));
 const blinkTwice = () =>
@@ -227,7 +227,8 @@ function useIdleFace(
 
 /**
  * The ghost in the nav bar. Not a tab but a toy: it breathes, blinks and looks around on its
- * own, glances toward tabs when the nav bar asks, and does a full turn when tapped.
+ * own, glances toward tabs when the nav bar asks, and does a full turn when tapped (every few
+ * taps, a rare double spin wrapped in a silk ribbon).
  */
 export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const reduceMotion = useReducedMotion();
@@ -257,44 +258,35 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const target = useRef(0);
   const queued = useRef(0);
   const handled = useRef(false);
-  const turnTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  // The hold has its own timers (start of charge, haptic ticks, fizzle) so ending a hold never
-  // cancels a turn that is still playing.
-  const holdTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  /** When the current charge began, or null when not charging. */
-  const chargeStart = useRef<number | null>(null);
-  /** A new hold charges no sooner than this, so it never fights a turn that is still in the air. */
+  /** This press began while the rare spin was busy, so nothing answers it. */
+  const ignored = useRef(false);
+  /** Plain turns since the last rare spin, and how many the next one waits for (two at first). */
+  const turns = useRef(0);
+  const rareDue = useRef<number>(RARE_AFTER.min);
+  /** The last turn has landed by then; the wind-up and the rare spin wait for it. */
   const landedAt = useRef(0);
-  /** Presses are ignored until this, while the big spin is in the air. */
-  const bigUntil = useRef(0);
+  /** Presses are ignored until then, while the rare spin winds up and is in the air. */
+  const rareUntil = useRef(0);
   const pressing = useRef(false);
   /** A turn's choreography (and its timers) is still running. */
   const turnPlaying = useRef(false);
   /** The swirl's clock is running and has to be stopped once the ribbon is gone. */
   const swirlRunning = useRef(false);
+  const turnTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   useEffect(() => {
     const timers = turnTimers.current;
-    const holds = holdTimers.current;
-    return () => {
-      timers.forEach(clearTimeout);
-      holds.forEach(clearTimeout);
-    };
+    return () => timers.forEach(clearTimeout);
   }, []);
-  const later = (set: Set<ReturnType<typeof setTimeout>>, ms: number, run: () => void) => {
+  const schedule = (ms: number, run: () => void) => {
     const id = setTimeout(() => {
-      set.delete(id);
+      turnTimers.current.delete(id);
       run();
     }, ms);
-    set.add(id);
+    turnTimers.current.add(id);
   };
-  const schedule = (ms: number, run: () => void) => later(turnTimers.current, ms, run);
   const clearTurnTimers = () => {
     turnTimers.current.forEach(clearTimeout);
     turnTimers.current.clear();
-  };
-  const clearHold = () => {
-    holdTimers.current.forEach(clearTimeout);
-    holdTimers.current.clear();
   };
 
   useImperativeHandle(
@@ -322,64 +314,24 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     if (!turnPlaying.current) busy.current = false;
   };
 
-  // Fades the swirl out and stops its clock once it is gone (unless a new charge has begun).
+  // Fades the swirl out and stops its clock once it is gone.
   const endSwirl = (ms: number) => {
     swirl.alpha.value = withTiming(0, { duration: ms });
     swirl.speed.value = withTiming(0, { duration: ms });
     schedule(ms + 60, () => {
-      if (chargeStart.current !== null) return;
       swirl.run(false);
       swirlRunning.current = false;
     });
   };
 
-  // Held long enough: the silk ribbon winds up round the ghost while it hunkers down.
-  const beginCharge = () => {
-    chargeStart.current = Date.now();
-    if (swirlRunning.current) {
-      // The last ribbon is still showing (unravelling after a big spin, or fading): wind it back in.
-      swirl.unravel.value = withTiming(0, { duration: 250 });
-    } else {
-      swirl.unravel.value = 0;
-      swirl.run(true);
-      swirlRunning.current = true;
-    }
-    swirl.alpha.value = withTiming(1, { duration: 250 });
-    swirl.speed.value = withTiming(CHARGE_SPEED, { duration: CHARGE_MS, easing: Easing.in(Easing.quad) });
-    squash.value = withTiming(0.84, { duration: CHARGE_MS, easing: Easing.out(Easing.quad) });
-    spin.value = withTiming(target.current - 32, { duration: CHARGE_MS, easing: Easing.inOut(Easing.quad) });
-    wide.value = withTiming(0.3, { duration: 300 });
-    happy.value = withTiming(0.55, { duration: 300 });
-    // A hold that waited for the last turn to land cuts its dizzy spell short.
-    dizzy.value = 0;
-    blink.value = 0;
-    // Three light ticks while it charges; the last one marks full charge.
-    haptic('selection');
-    later(holdTimers.current, CHARGE_MS / 2, () => haptic('selection'));
-    later(holdTimers.current, CHARGE_MS, () => haptic('selection'));
-  };
-
-  // The finger slid off mid-charge: let the swirl fizzle out.
-  const fizzle = () => {
-    chargeStart.current = null;
-    happy.value = withTiming(0, { duration: 200 });
-    endSwirl(200);
-  };
-
-  // Let go after charging: a double spin with the ribbon whipping round it; on landing it unravels
-  // upward and four twinkles pop round the ghost.
-  const bigSpin = () => {
-    const now = Date.now();
-    bigUntil.current = now + BIG_AIR_MS;
-    landedAt.current = now + BIG_AIR_MS;
-    queued.current = 0;
-    turnPlaying.current = true;
-    busy.current = true;
+  // The rare spin's launch: a double spin with the ribbon whipping round it; on landing the ribbon
+  // unravels upward and four twinkles pop round the ghost.
+  const launchRare = () => {
     target.current += 720;
     const to = target.current;
     haptic('medium');
-    spin.value = withSpring(to, BIG_SPIN);
-    trail.value = to; // the coloured swirl stands in for the white trails here
+    spin.value = withSpring(to, RARE_SPIN);
+    trail.value = to; // the silk ribbon stands in for the white trails here
     swirl.speed.value = withSequence(withTiming(SPIN_SPEED, { duration: 250 }), withDelay(250, withTiming(400, { duration: 500 })));
     lift.value = withSequence(withTiming(-9, { duration: 300, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
     haloLift.value = withSequence(
@@ -403,34 +355,57 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withTiming(1, { duration: 300 }),
       withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
-    clearTurnTimers();
     // Landing: the ribbon lets go, floating up as it fades, and the twinkles pop.
-    schedule(BIG_LAND_MS, () => {
+    schedule(RARE_LAND_MS, () => {
       haptic('soft');
       swirl.sparkleSeed.value = Math.random() * 360;
       swirl.unravel.value = withTiming(1, { duration: 520 });
       swirl.sparkleMs.value = 0;
       swirl.sparkleMs.value = withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear });
     });
-    schedule(BIG_LAND_MS + SPARKLE_MS + 60, () => {
-      if (chargeStart.current !== null) return;
+    schedule(RARE_LAND_MS + SPARKLE_MS + 60, () => {
       swirl.run(false);
       swirlRunning.current = false;
       swirl.alpha.value = 0;
       swirl.speed.value = 0;
     });
-    schedule(BIG_SPIN_MS, () => {
+    schedule(RARE_SPIN_MS, () => {
       turnPlaying.current = false;
       if (!pressing.current) busy.current = false;
     });
   };
 
+  // Every few taps: the rare spin. The finger has lifted, so it can be seen winding up: the ghost
+  // crouches and turns away, grinning, as the silk ribbon wraps round it, then it launches.
+  const rareSpin = () => {
+    turns.current = 0;
+    rareDue.current = rareAfter();
+    rareUntil.current = Date.now() + RARE_WINDUP_MS + RARE_AIR_MS;
+    landedAt.current = rareUntil.current;
+    queued.current = 0;
+    turnPlaying.current = true;
+    busy.current = true;
+    clearTurnTimers();
+    swirl.run(true);
+    swirlRunning.current = true;
+    swirl.unravel.value = 0;
+    swirl.alpha.value = withTiming(1, { duration: 160 });
+    swirl.speed.value = withTiming(WINDUP_SPEED, { duration: RARE_WINDUP_MS, easing: Easing.in(Easing.quad) });
+    squash.value = withTiming(0.84, { duration: RARE_WINDUP_MS, easing: Easing.out(Easing.quad) });
+    spin.value = withTiming(target.current - 35, { duration: RARE_WINDUP_MS, easing: Easing.inOut(Easing.quad) });
+    wide.value = withTiming(0.3, { duration: 160 });
+    happy.value = withTiming(0.55, { duration: 160 });
+    // The last turn's dizzy spell and blink are cut short.
+    dizzy.value = 0;
+    blink.value = 0;
+    schedule(RARE_WINDUP_MS, launchRare);
+  };
+
   const onPressIn = () => {
     handled.current = false;
     pressing.current = true;
-    if (reduceMotion) return;
-    // A finger that slid off and straight back on keeps its charge.
-    clearHold();
+    ignored.current = Date.now() < rareUntil.current;
+    if (reduceMotion || ignored.current) return;
     busy.current = true;
     haptic('light');
     // Wind-up: squash, eyes wide, and turn a little the other way once the last turn has landed.
@@ -438,28 +413,21 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     wide.value = withTiming(1, { duration: 120 });
     gazeX.value = withSpring(0, DART);
     gazeY.value = withSpring(0, DART);
-    const now = Date.now();
-    if (now >= landedAt.current) spin.value = withSpring(target.current - 15, PRESS);
-    // A hold that starts while a turn is still in the air charges as soon as it lands.
-    later(holdTimers.current, chargeDelay(now, landedAt.current, HOLD_MS), beginCharge);
+    if (Date.now() >= landedAt.current) spin.value = withSpring(target.current - 15, PRESS);
   };
 
   // On a quick tap Pressability fires onPress first and holds onPressOut back to 130 ms. On a
-  // longer press onPressOut comes first, so a charge only fizzles if no onPress follows.
+  // longer press onPressOut comes first and onPress follows at once (or never, if the finger slid off).
   const onPressOut = () => {
     pressing.current = false;
-    if (reduceMotion || handled.current) return;
-    clearHold();
+    if (reduceMotion || handled.current || ignored.current) return;
     relax();
-    if (chargeStart.current !== null) later(holdTimers.current, 80, fizzle);
   };
 
   const onPress = () => {
     handled.current = true;
     pressing.current = false;
-    clearHold();
-    const charging = chargeStart.current !== null;
-    chargeStart.current = null;
+    if (ignored.current) return;
     if (reduceMotion) {
       // No movement: a moment of the happy face is the whole reaction.
       happy.value = 1;
@@ -468,15 +436,17 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       });
       return;
     }
-    const action = releaseAction(charging, Date.now(), bigUntil.current, queued.current, MAX_TURNS);
-    if (action === 'big') {
-      bigSpin();
+    const landed = Date.now() >= landedAt.current;
+    const action = tapAction(turns.current, rareDue.current, landed, queued.current, MAX_TURNS);
+    if (action === 'rare') {
+      rareSpin();
       return;
     }
     if (action === 'ignore') {
       relax();
       return;
     }
+    turns.current += 1;
     queued.current += 1;
     // On presses over 130 ms Pressability fires onPressOut (relax, which frees the idle face)
     // before onPress, so claim the face again here or an idle blink can cut into the turn.
@@ -517,7 +487,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
     clearTurnTimers();
-    // A ribbon still showing (unravelling after a big spin, or fizzling out): fade it out and stop its clock.
+    // A ribbon still unravelling after a rare spin: fade it out and stop its clock.
     if (swirlRunning.current) endSwirl(150);
     schedule(450, () => haptic('soft'));
     schedule(TURN_MS, () => {
@@ -599,12 +569,12 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Ghost"
-      accessibilityHint="Spins the ghost. Hold, then let go, for a big spin."
+      accessibilityHint="Spins the ghost."
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
       hitSlop={6}
-      // A finger drifting during a long hold should not slide off and drop the charge.
+      // A finger that drifts a little before lifting still counts as a tap.
       pressRetentionOffset={40}
       style={styles.press}
     >

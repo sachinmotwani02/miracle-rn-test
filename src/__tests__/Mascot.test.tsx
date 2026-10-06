@@ -12,8 +12,8 @@ jest.mock('react-native-reanimated', () => ({
 }));
 jest.mock('../utils/haptics', () => ({ haptic: jest.fn() }));
 
-// The haptics mark each beat: 'selection' when the ribbon starts charging, 'medium' when the big
-// spin fires, 'soft' when a turn (plain or big) lands.
+// The haptics mark each beat: 'light' on a press the ghost answers, 'medium' when the rare spin
+// launches, 'soft' when a turn (plain or rare) lands.
 const haptics = haptic as jest.MockedFunction<typeof haptic>;
 const count = (style: Parameters<typeof haptic>[0]) => haptics.mock.calls.filter(([s]) => s === style).length;
 
@@ -24,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 // A finger at `pageX` on the ghost's 60 x 64 slot, which sits at (100, 700) on screen.
@@ -49,87 +50,102 @@ async function ghost() {
   const user = userEvent.setup();
   await render(<Mascot />);
   const target = screen.getByRole('button', { name: 'Ghost' });
+  const wait = (ms: number) => act(async () => jest.advanceTimersByTime(ms));
   return {
-    hold: (ms: number) => user.longPress(target, { duration: ms }),
     tap: () => user.press(target),
-    wait: (ms: number) => act(async () => jest.advanceTimersByTime(ms)),
+    /** A tap, then long enough for its turn (plain or rare) to play out. */
+    tapAndWatch: async () => {
+      await user.press(target);
+      await wait(2500);
+    },
+    hold: (ms: number) => user.longPress(target, { duration: ms }),
+    wait,
     down: (x: number) => fireEvent(target, 'responderGrant', touch(x)),
     move: (x: number) => fireEvent(target, 'responderMove', touch(x)),
     up: (x: number) => fireEvent(target, 'responderRelease', touch(x)),
   };
 }
 
-describe('holding the ghost', () => {
-  it('fires the big spin on a long hold', async () => {
+describe('tapping the ghost', () => {
+  it('plays the rare spin on the third tap the first time', async () => {
     const g = await ghost();
-    await g.hold(1000);
-    expect(count('selection')).toBeGreaterThan(0);
-    expect(count('medium')).toBe(1);
-  });
-
-  it('fires the big spin as soon as the ribbon has appeared', async () => {
-    const g = await ghost();
-    await g.hold(400);
-    expect(count('medium')).toBe(1);
-  });
-
-  it('fires the big spin on every hold, even one started while the last is still landing', async () => {
-    const g = await ghost();
-    for (let i = 0; i < 4; i++) {
-      await g.hold(900);
-      await g.wait(200);
-    }
-    expect(count('medium')).toBe(4);
-  });
-
-  it('charges a hold that starts while a tap is still turning, once the ghost lands', async () => {
-    const g = await ghost();
-    await g.tap();
-    await g.hold(800);
-    expect(count('medium')).toBe(1);
-  });
-
-  it('keeps the charge when the finger drifts a little off the ghost', async () => {
-    const g = await ghost();
-    await g.down(130);
-    await g.wait(600);
-    await g.move(190); // 30 pt past the slot's right edge
-    await g.up(190);
-    expect(count('medium')).toBe(1);
-  });
-
-  it('lets the ribbon fizzle out when the finger slides right off, and still charges next time', async () => {
-    const g = await ghost();
-    await g.down(130);
-    await g.wait(600);
-    await g.move(400);
-    await g.wait(200);
-    await g.up(400);
-    await g.wait(2000);
-    expect(count('selection')).toBeGreaterThan(0);
+    await g.tapAndWatch();
+    await g.tapAndWatch();
+    expect(count('soft')).toBe(2);
     expect(count('medium')).toBe(0);
-    await g.hold(800);
+    await g.tapAndWatch();
     expect(count('medium')).toBe(1);
   });
 
-  it('only turns on a tap, without charging', async () => {
+  it.each([
+    [0, 2],
+    [0.99, 3],
+  ])('then plays it again after two or three plain turns, at random (random %p: %p)', async (random, plain) => {
+    jest.spyOn(Math, 'random').mockReturnValue(random);
     const g = await ghost();
-    await g.tap();
-    await g.wait(2000);
+    for (let i = 0; i < 3; i++) await g.tapAndWatch();
+    expect(count('medium')).toBe(1);
+    for (let i = 0; i < plain; i++) await g.tapAndWatch();
+    expect(count('medium')).toBe(1);
+    await g.tapAndWatch();
+    expect(count('medium')).toBe(2);
+  });
+
+  it('saves the rare spin for a tap once the ghost has landed, so a fast burst just stacks turns', async () => {
+    const g = await ghost();
+    for (let i = 0; i < 4; i++) await g.tap();
+    await g.wait(1500);
+    expect(count('medium')).toBe(0);
+    await g.tapAndWatch();
+    expect(count('medium')).toBe(1);
+  });
+
+  it('ignores presses while the rare spin winds up and is in the air, then turns again', async () => {
+    const g = await ghost();
+    await g.tapAndWatch();
+    await g.tapAndWatch();
+    await g.tap(); // the rare spin
+    await g.wait(100);
+    await g.tap(); // still winding up
+    await g.wait(300);
+    await g.tap(); // in the air
+    expect(count('light')).toBe(3); // only the presses it answered
+    await g.wait(3000);
+    expect(count('soft')).toBe(3); // two plain landings and the rare one's
+    await g.tapAndWatch();
+    expect(count('soft')).toBe(4);
+    expect(count('medium')).toBe(1);
+  });
+
+  it('treats a long press as a tap: nothing charges, and it turns on release', async () => {
+    const g = await ghost();
+    await g.hold(1200);
+    await g.wait(1500);
     expect(count('selection')).toBe(0);
     expect(count('medium')).toBe(0);
     expect(count('soft')).toBe(1);
   });
 
-  it('ignores a tap while the big spin is in the air, and turns again once it has landed', async () => {
+  it('still turns when the finger drifts a little off the ghost', async () => {
     const g = await ghost();
-    await g.hold(1000);
-    await g.tap();
-    await g.wait(3000);
-    expect(count('soft')).toBe(1); // the big spin's landing only
-    await g.tap();
-    await g.wait(2000);
-    expect(count('soft')).toBe(2);
-    expect(count('medium')).toBe(1);
+    await g.down(130);
+    await g.wait(300);
+    await g.move(190); // 30 pt past the slot's right edge
+    await g.up(190);
+    await g.wait(1500);
+    expect(count('soft')).toBe(1);
+  });
+
+  it('does nothing, and counts nothing, when the finger slides right off', async () => {
+    const g = await ghost();
+    await g.down(130);
+    await g.wait(300);
+    await g.move(400);
+    await g.up(400);
+    await g.wait(1500);
+    expect(count('soft')).toBe(0);
+    await g.tapAndWatch();
+    await g.tapAndWatch();
+    expect(count('medium')).toBe(0);
   });
 });

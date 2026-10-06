@@ -8,7 +8,7 @@ import { silkBand, sparkle, starPath } from '../utils/mascotMotion';
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 /**
- * The swirl the ghost charges up when held: one silk ribbon in five colour bands wound round it,
+ * The swirl round the ghost's rare spin: one silk ribbon in five colour bands wound round it,
  * and four twinkles when it lets go. Halo gold and sky blue come from the palette; the pink,
  * violet and mint are only used here.
  */

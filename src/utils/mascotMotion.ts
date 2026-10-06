@@ -318,28 +318,28 @@ export function dizzyOffset(t: number): { x: number; y: number } {
   return { x: reach * Math.sin(angle), y: -0.75 * reach * Math.cos(angle) };
 }
 
-/**
- * How long after a press the hold starts charging: the usual `hold` delay, or longer if the last
- * turn is still in the air (it charges as soon as that lands, rather than ignoring the hold).
- */
-export function chargeDelay(now: number, landedAt: number, hold: number): number {
-  return Math.max(hold, landedAt - now);
+/** The rare spin comes after this many plain turns, picked afresh after each one. */
+export const RARE_AFTER = { min: 2, max: 3 } as const;
+
+/** How many plain turns the next rare spin waits for. `rand` is injectable for tests. */
+export function rareAfter(rand: () => number = Math.random): number {
+  const span = RARE_AFTER.max - RARE_AFTER.min + 1;
+  return Math.min(RARE_AFTER.max, RARE_AFTER.min + Math.floor(rand() * span));
 }
 
 /**
- * What letting go of the ghost does. A hold that has started charging always gets the big spin
- * (the ribbon showing is a promise); a plain tap turns, up to `maxTurns` stacked in a burst;
- * nothing happens while the big spin is still in the air.
+ * What a tap does: the rare spin once `due` plain turns have played since the last one and the
+ * ghost has landed (so a fast burst just stacks turns), otherwise a plain turn, up to `maxTurns`
+ * stacked in a burst.
  */
-export function releaseAction(
-  charging: boolean,
-  now: number,
-  bigUntil: number,
+export function tapAction(
+  turns: number,
+  due: number,
+  landed: boolean,
   queued: number,
   maxTurns: number,
-): 'big' | 'turn' | 'ignore' {
-  if (now < bigUntil) return 'ignore';
-  if (charging) return 'big';
+): 'rare' | 'turn' | 'ignore' {
+  if (turns >= due && landed) return 'rare';
   return queued >= maxTurns ? 'ignore' : 'turn';
 }
 

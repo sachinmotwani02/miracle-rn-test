@@ -89,41 +89,42 @@ the first build spun it in the plane and was corrected after review on device.
   stacks up to three turns.
 - The idle blink and glance scheduler pauses while a turn is playing.
 
-## Hold: silk ribbon and big spin (added after review)
+## Every few taps: the rare spin (added after review)
 
-Hold only; quick taps are unchanged and three quick taps still just stack turns. Three swirl
-styles were prototyped side by side (orbit rings, silk ribbon, sparkle comets); the silk ribbon
-with end sparkles was picked.
+At first it was hold-to-charge: holding the ghost wound the ribbon up, letting go fired the spin.
+On a phone the finger covers the ghost while it holds, so the charge-up could not be seen; it is
+now a plain tap that, every few taps, turns out to be the rare one. Three swirl styles were
+prototyped side by side (orbit rings, silk ribbon, sparkle comets); the silk ribbon with end
+sparkles was picked.
 
-- **Charge:** once a press has lasted 300 ms, one silk ribbon in five colour bands (halo gold,
-  pink `#FF5FA2`, violet `#9B6BFF`, sky blue, mint `#3DDC97`) fades in, wound round the cloud on a
-  helix (radius 20 pt, loops 5 pt deep seen from slightly above) that climbs 18 pt from its tail to
-  its head and tapers at both ends (2.4 pt at its widest). The swirl speeds up to 650°/s over
-  900 ms and the ribbon wraps further round as it does (260° → up to 420°). The ghost hunkers down
-  (squash 0.84), grins (happy 0.55) and turns away to −32°. Three selection ticks: at the start,
-  halfway and at full charge. Holding longer keeps it charged; it never fires on its own.
+- **When:** the first rare spin comes on the third tap; after that each one waits for two or
+  three plain turns, picked at random (`rareAfter`, `tapAction` in `mascotMotion.ts`). It only
+  starts once the ghost has landed (450 ms after a tap), so a fast burst just stacks plain turns
+  and the rare spin comes on the next tap after it. A long press is simply a tap.
+- **Wind-up (240 ms, after release, so it can be seen):** one silk ribbon in five colour bands
+  (halo gold, pink `#FF5FA2`, violet `#9B6BFF`, sky blue, mint `#3DDC97`) fades in over 160 ms,
+  wound round the cloud on a helix (radius 20 pt, loops 5 pt deep seen from slightly above) that
+  climbs 18 pt from its tail to its head and tapers at both ends (2.4 pt at its widest). The swirl
+  speeds up toward 650°/s and the ribbon wraps further round as it does (260° → up to 420°). The
+  ghost crouches (squash 0.84), grins (happy 0.55) and turns away to −35°.
 - **Depth:** the ribbon is drawn twice: its near side over the cloud and its far side behind it
   (`silkBand` and `stripPaths` in `mascotMotion.ts`), so it winds round the ghost in 3D.
-- **Let go** once the ribbon has appeared, however briefly: medium haptic, a double turn
-  (720°, `stiffness 60, damping 12.5, mass 1`), lift 9 pt, stretch 1.1 and squash 0.9 on landing,
-  halo lifts 5 pt late and tilts 7°. The ribbon whips round at 1100°/s; the white trails stay off.
-  The ribbon showing is a promise: letting go never falls back to an ordinary turn.
-- **Landing (480 ms):** soft haptic; the ribbon unravels, stretching upward and fading over
-  520 ms, and four four-point twinkles (gold, pink, sky blue, mint) pop round the cloud one after
-  another (70 ms apart, 420 ms each, up to 3 pt radius), rising 6 pt and spinning 60° as they fade.
-  The pattern is turned at random each time. Then happy eyes, a 1 s dizzy swirl, a blink and
-  quicker breathing; about 2 s in all. Presses are ignored only while it is in the air (700 ms);
-  after that a tap turns and a hold charges again.
-- **Holding during a turn:** a hold that starts while a turn (plain or big) is still in the air is
-  not dropped: it starts charging as soon as the ghost lands (450 ms after a tap's release, 700 ms
-  after a big spin's), winding a still-unravelling ribbon back in and cutting the dizzy swirl
-  short. The −15° wind-up is skipped mid-air so it never fights the turn.
-- **Slide off**: the ribbon fizzles out and the ghost relaxes. The press area reaches 40 pt past
-  the slot (`pressRetentionOffset`), so a thumb drifting during a long hold keeps its charge.
+- **Launch:** medium haptic, a double turn (720°, `stiffness 60, damping 12.5, mass 1`), lift 9 pt,
+  stretch 1.1 and squash 0.9 on landing, halo lifts 5 pt late and tilts 7°. The ribbon whips round
+  at 1100°/s; the white trails stay off.
+- **Landing (480 ms after launch):** soft haptic; the ribbon unravels, stretching upward and
+  fading over 520 ms, and four four-point twinkles (gold, pink, sky blue, mint) pop round the cloud
+  one after another (70 ms apart, 420 ms each, up to 3 pt radius), rising 6 pt and spinning 60° as
+  they fade. The pattern is turned at random each time. Then happy eyes, a 1 s dizzy swirl, a
+  blink and quicker breathing; about 2.2 s in all. Presses that start during the wind-up or while
+  it is in the air (until 700 ms after launch) get no answer, not even a haptic; after that a tap
+  turns again.
+- The press area reaches 40 pt past the slot (`pressRetentionOffset`), so a finger that drifts a
+  little before lifting still taps; one that slides right off does nothing and is not counted.
 - The swirl's clock only runs while the ribbon or sparkles are showing, so it costs nothing at rest.
-- The press sequences (long holds, holds back to back, a hold straight after a tap, taps mid-air,
-  drifting and sliding off) are tested through the real Pressability in
-  `src/__tests__/Mascot.test.tsx`.
+- The tap sequences (the third tap, two or three plain turns after that, fast bursts, presses
+  during the rare spin, long presses, drifting and sliding off) are tested through the real
+  Pressability in `src/__tests__/Mascot.test.tsx`.
 
 ## Reduce Motion
 
