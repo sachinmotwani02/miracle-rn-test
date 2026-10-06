@@ -54,7 +54,7 @@ interface ButtonProps {
   index: number;
   active: boolean;
   onPress: (index: number) => void;
-  children: React.ReactNode;
+  Icon: React.ComponentType<{ scale: SharedValue<number> }>;
   label: string;
 }
 
@@ -67,11 +67,12 @@ const NAV_SCROLLED_SCALE = 0.9;
 const NAV_SCROLLED_SINK = 12;
 
 
-function NavButton({ index, active, onPress, children, label }: ButtonProps) {
+function NavButton({ index, active, onPress, Icon, label }: ButtonProps) {
   const pressed = useSharedValue(0);
+  // Critically damped like the pill: squeezes and springs back without overshooting. The icon
+  // scales its own vectors (see NavIcons): a view transform here left the glyph jaggy on iOS.
+  const squeeze = useDerivedValue<number>(() => withSpring(pressed.value ? 0.88 : 1, { duration: 150, dampingRatio: 1 }));
   const iconStyle = useAnimatedStyle(() => ({
-    // Critically damped like the pill: squeezes and springs back without overshooting.
-    transform: [{ scale: withSpring(pressed.value ? 0.88 : 1, { duration: 150, dampingRatio: 1 }) }],
     // Figma keeps every icon full white; the pill alone marks the active slot.
     opacity: withTiming(active ? 1 : 0.96, { duration: 200 }),
   }));
@@ -90,7 +91,9 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
       onPress={() => onPress(index)}
       hitSlop={6}
     >
-      <Animated.View style={iconStyle}>{children}</Animated.View>
+      <Animated.View style={iconStyle}>
+        <Icon scale={squeeze} />
+      </Animated.View>
     </Pressable>
   );
 }
@@ -182,21 +185,13 @@ export const FloatingNavBar = React.memo(function FloatingNavBar({ active, onCha
           <View style={styles.rim} />
           <Animated.View style={[styles.pill, pillGlass(pill.glass), pillStyle]} />
           <View style={styles.slots}>
-            <NavButton index={0} active={active === 0} onPress={onPress} label="Home">
-              <HomeIcon />
-            </NavButton>
-            <NavButton index={1} active={active === 1} onPress={onPress} label="Explore">
-              <CompassIcon />
-            </NavButton>
+            <NavButton index={0} active={active === 0} onPress={onPress} Icon={HomeIcon} label="Home" />
+            <NavButton index={1} active={active === 1} onPress={onPress} Icon={CompassIcon} label="Explore" />
             <View style={[styles.slot, { left: navSlotCenter(MASCOT_INDEX) - SLOT_W / 2 }]}>
               <Mascot ref={mascot} />
             </View>
-            <NavButton index={3} active={active === 3} onPress={onPress} label="Stats">
-              <BarsIcon />
-            </NavButton>
-            <NavButton index={4} active={active === 4} onPress={onPress} label="Profile">
-              <PersonIcon />
-            </NavButton>
+            <NavButton index={3} active={active === 3} onPress={onPress} Icon={BarsIcon} label="Stats" />
+            <NavButton index={4} active={active === 4} onPress={onPress} Icon={PersonIcon} label="Profile" />
           </View>
         </View>
       </View>
