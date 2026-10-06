@@ -21,14 +21,12 @@ import { haptic } from '../utils/haptics';
 import { SwirlLayer, useSwirl } from './MascotSwirl';
 import {
   BREATH,
-  RARE_AFTER,
   SPARKLE_MS,
   TrailRing,
   breathCurve,
   clamp,
   dizzyOffset,
   randomBetween,
-  rareAfter,
   tapAction,
   trailPath,
   turnPose,
@@ -127,7 +125,7 @@ const MAX_TURNS = 3;
 const TURN_LAND_MS = 450;
 
 /**
- * Every few taps (see `rareAfter`) the ghost does a rare spin instead. It starts once the finger
+ * Every fourth tap (see `tapAction`) the ghost does a rare spin instead. It starts once the finger
  * has lifted, so it can be seen: the ghost winds up as a colourful silk ribbon wraps round it,
  * then launches into a double spin.
  */
@@ -227,8 +225,8 @@ function useIdleFace(
 
 /**
  * The ghost in the nav bar. Not a tab but a toy: it breathes, blinks and looks around on its
- * own, glances toward tabs when the nav bar asks, and does a full turn when tapped (every few
- * taps, a rare double spin wrapped in a silk ribbon).
+ * own, glances toward tabs when the nav bar asks, and does a full turn when tapped (every fourth
+ * tap, a rare double spin wrapped in a silk ribbon).
  */
 export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const reduceMotion = useReducedMotion();
@@ -260,9 +258,8 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const handled = useRef(false);
   /** This press began while the rare spin was busy, so nothing answers it. */
   const ignored = useRef(false);
-  /** Plain turns since the last rare spin, and how many the next one waits for (two at first). */
+  /** Plain turns since the last rare spin. */
   const turns = useRef(0);
-  const rareDue = useRef<number>(RARE_AFTER.min);
   /** The last turn has landed by then; the wind-up and the rare spin wait for it. */
   const landedAt = useRef(0);
   /** Presses are ignored until then, while the rare spin winds up and is in the air. */
@@ -375,11 +372,10 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     });
   };
 
-  // Every few taps: the rare spin. The finger has lifted, so it can be seen winding up: the ghost
+  // Every fourth tap: the rare spin. The finger has lifted, so it can be seen winding up: the ghost
   // crouches and turns away, grinning, as the silk ribbon wraps round it, then it launches.
   const rareSpin = () => {
     turns.current = 0;
-    rareDue.current = rareAfter();
     rareUntil.current = Date.now() + RARE_WINDUP_MS + RARE_AIR_MS;
     landedAt.current = rareUntil.current;
     queued.current = 0;
@@ -437,7 +433,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       return;
     }
     const landed = Date.now() >= landedAt.current;
-    const action = tapAction(turns.current, rareDue.current, landed, queued.current, MAX_TURNS);
+    const action = tapAction(turns.current, landed, queued.current, MAX_TURNS);
     if (action === 'rare') {
       rareSpin();
       return;

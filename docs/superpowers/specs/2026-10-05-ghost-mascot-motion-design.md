@@ -89,18 +89,19 @@ the first build spun it in the plane and was corrected after review on device.
   stacks up to three turns.
 - The idle blink and glance scheduler pauses while a turn is playing.
 
-## Every few taps: the rare spin (added after review)
+## Every fourth tap: the rare spin (added after review)
 
 At first it was hold-to-charge: holding the ghost wound the ribbon up, letting go fired the spin.
 On a phone the finger covers the ghost while it holds, so the charge-up could not be seen; it is
-now a plain tap that, every few taps, turns out to be the rare one. Three swirl styles were
+now a plain tap that, every fourth time, turns out to be the rare one. Three swirl styles were
 prototyped side by side (orbit rings, silk ribbon, sparkle comets); the silk ribbon with end
 sparkles was picked.
 
-- **When:** the first rare spin comes on the third tap; after that each one waits for two or
-  three plain turns, picked at random (`rareAfter`, `tapAction` in `mascotMotion.ts`). It only
-  starts once the ghost has landed (450 ms after a tap), so a fast burst just stacks plain turns
-  and the rare spin comes on the next tap after it. A long press is simply a tap.
+- **When:** three plain turns, then the rare spin on the fourth tap, every time (`RARE_AFTER`,
+  `tapAction` in `mascotMotion.ts`; a random two or three plain turns came first and was fixed at
+  three after review). It only starts once the ghost has landed (450 ms after a tap), so a fast
+  burst just stacks plain turns and the rare spin comes on the next tap after it. A long press is
+  simply a tap.
 - **Wind-up (240 ms, after release, so it can be seen):** one silk ribbon in five colour bands
   (halo gold, pink `#FF5FA2`, violet `#9B6BFF`, sky blue, mint `#3DDC97`) fades in over 160 ms,
   wound round the cloud on a helix (radius 20 pt, loops 5 pt deep seen from slightly above) that
@@ -122,9 +123,9 @@ sparkles was picked.
 - The press area reaches 40 pt past the slot (`pressRetentionOffset`), so a finger that drifts a
   little before lifting still taps; one that slides right off does nothing and is not counted.
 - The swirl's clock only runs while the ribbon or sparkles are showing, so it costs nothing at rest.
-- The tap sequences (the third tap, two or three plain turns after that, fast bursts, presses
-  during the rare spin, long presses, drifting and sliding off) are tested through the real
-  Pressability in `src/__tests__/Mascot.test.tsx`.
+- The tap sequences (every fourth tap, fast bursts, presses during the rare spin, long presses,
+  drifting and sliding off) are tested through the real Pressability in
+  `src/__tests__/Mascot.test.tsx`.
 
 ## Reduce Motion
 

@@ -24,7 +24,6 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
-  jest.restoreAllMocks();
 });
 
 // A finger at `pageX` on the ghost's 60 x 64 slot, which sits at (100, 700) on screen.
@@ -67,25 +66,14 @@ async function ghost() {
 }
 
 describe('tapping the ghost', () => {
-  it('plays the rare spin on the third tap the first time', async () => {
+  it('plays the rare spin on every fourth tap', async () => {
     const g = await ghost();
-    await g.tapAndWatch();
-    await g.tapAndWatch();
-    expect(count('soft')).toBe(2);
+    for (let i = 0; i < 3; i++) await g.tapAndWatch();
+    expect(count('soft')).toBe(3);
     expect(count('medium')).toBe(0);
     await g.tapAndWatch();
     expect(count('medium')).toBe(1);
-  });
-
-  it.each([
-    [0, 2],
-    [0.99, 3],
-  ])('then plays it again after two or three plain turns, at random (random %p: %p)', async (random, plain) => {
-    jest.spyOn(Math, 'random').mockReturnValue(random);
-    const g = await ghost();
     for (let i = 0; i < 3; i++) await g.tapAndWatch();
-    expect(count('medium')).toBe(1);
-    for (let i = 0; i < plain; i++) await g.tapAndWatch();
     expect(count('medium')).toBe(1);
     await g.tapAndWatch();
     expect(count('medium')).toBe(2);
@@ -102,18 +90,17 @@ describe('tapping the ghost', () => {
 
   it('ignores presses while the rare spin winds up and is in the air, then turns again', async () => {
     const g = await ghost();
-    await g.tapAndWatch();
-    await g.tapAndWatch();
+    for (let i = 0; i < 3; i++) await g.tapAndWatch();
     await g.tap(); // the rare spin
     await g.wait(100);
     await g.tap(); // still winding up
     await g.wait(300);
     await g.tap(); // in the air
-    expect(count('light')).toBe(3); // only the presses it answered
+    expect(count('light')).toBe(4); // only the presses it answered
     await g.wait(3000);
-    expect(count('soft')).toBe(3); // two plain landings and the rare one's
+    expect(count('soft')).toBe(4); // three plain landings and the rare one's
     await g.tapAndWatch();
-    expect(count('soft')).toBe(4);
+    expect(count('soft')).toBe(5);
     expect(count('medium')).toBe(1);
   });
 
@@ -144,8 +131,7 @@ describe('tapping the ghost', () => {
     await g.up(400);
     await g.wait(1500);
     expect(count('soft')).toBe(0);
-    await g.tapAndWatch();
-    await g.tapAndWatch();
+    for (let i = 0; i < 3; i++) await g.tapAndWatch();
     expect(count('medium')).toBe(0);
   });
 });

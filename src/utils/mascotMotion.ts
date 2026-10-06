@@ -318,28 +318,21 @@ export function dizzyOffset(t: number): { x: number; y: number } {
   return { x: reach * Math.sin(angle), y: -0.75 * reach * Math.cos(angle) };
 }
 
-/** The rare spin comes after this many plain turns, picked afresh after each one. */
-export const RARE_AFTER = { min: 2, max: 3 } as const;
-
-/** How many plain turns the next rare spin waits for. `rand` is injectable for tests. */
-export function rareAfter(rand: () => number = Math.random): number {
-  const span = RARE_AFTER.max - RARE_AFTER.min + 1;
-  return Math.min(RARE_AFTER.max, RARE_AFTER.min + Math.floor(rand() * span));
-}
+/** Plain turns before each rare spin, so every fourth tap is the rare one. */
+export const RARE_AFTER = 3;
 
 /**
- * What a tap does: the rare spin once `due` plain turns have played since the last one and the
- * ghost has landed (so a fast burst just stacks turns), otherwise a plain turn, up to `maxTurns`
- * stacked in a burst.
+ * What a tap does: the rare spin once RARE_AFTER plain turns have played since the last one and
+ * the ghost has landed (so a fast burst just stacks turns), otherwise a plain turn, up to
+ * `maxTurns` stacked in a burst.
  */
 export function tapAction(
   turns: number,
-  due: number,
   landed: boolean,
   queued: number,
   maxTurns: number,
 ): 'rare' | 'turn' | 'ignore' {
-  if (turns >= due && landed) return 'rare';
+  if (turns >= RARE_AFTER && landed) return 'rare';
   return queued >= maxTurns ? 'ignore' : 'turn';
 }
 

@@ -10,7 +10,6 @@ import {
   clamp,
   dizzyOffset,
   randomBetween,
-  rareAfter,
   silkBand,
   silkSpan,
   sparkle,
@@ -29,41 +28,28 @@ const mean = (v: number[]) => v.reduce((a, b) => a + b, 0) / v.length;
 /** Both depth halves of a ribbon, leaving out an empty half's "M0 0" placeholder. */
 const both = (p: { front: string; back: string }) => [p.front, p.back].filter(d => d !== 'M0 0').join(' ');
 
-describe('rareAfter', () => {
-  it('asks for two or three plain turns before the next rare spin', () => {
-    expect(rareAfter(() => 0)).toBe(RARE_AFTER.min);
-    expect(rareAfter(() => 0.49)).toBe(2);
-    expect(rareAfter(() => 0.5)).toBe(3);
-    expect(rareAfter(() => 0.999)).toBe(RARE_AFTER.max);
-    expect(rareAfter(() => 1)).toBe(RARE_AFTER.max);
-    for (let i = 0; i < 50; i++) {
-      const n = rareAfter();
-      expect([2, 3]).toContain(n);
-    }
-  });
-});
-
 describe('tapAction', () => {
   const MAX = 3;
 
-  it('turns until enough plain turns have played, then plays the rare spin', () => {
-    expect(tapAction(0, 2, true, 0, MAX)).toBe('turn');
-    expect(tapAction(1, 2, true, 0, MAX)).toBe('turn');
-    expect(tapAction(2, 2, true, 0, MAX)).toBe('rare');
-    expect(tapAction(2, 3, true, 0, MAX)).toBe('turn');
-    expect(tapAction(3, 3, true, 1, MAX)).toBe('rare');
+  it('turns three times, then plays the rare spin on the fourth tap', () => {
+    expect(RARE_AFTER).toBe(3);
+    expect(tapAction(0, true, 0, MAX)).toBe('turn');
+    expect(tapAction(1, true, 0, MAX)).toBe('turn');
+    expect(tapAction(2, true, 0, MAX)).toBe('turn');
+    expect(tapAction(3, true, 0, MAX)).toBe('rare');
+    expect(tapAction(3, true, 1, MAX)).toBe('rare');
   });
 
   it('saves the rare spin for a tap once the ghost has landed, so a fast burst just stacks turns', () => {
-    expect(tapAction(2, 2, false, 1, MAX)).toBe('turn');
-    expect(tapAction(4, 2, false, MAX, MAX)).toBe('ignore');
-    expect(tapAction(4, 2, true, MAX, MAX)).toBe('rare');
+    expect(tapAction(3, false, 1, MAX)).toBe('turn');
+    expect(tapAction(4, false, MAX, MAX)).toBe('ignore');
+    expect(tapAction(4, true, MAX, MAX)).toBe('rare');
   });
 
   it('stacks plain turns up to the burst limit', () => {
-    expect(tapAction(0, 2, false, MAX - 1, MAX)).toBe('turn');
-    expect(tapAction(0, 2, false, MAX, MAX)).toBe('ignore');
-    expect(tapAction(0, 2, true, MAX, MAX)).toBe('ignore');
+    expect(tapAction(0, false, MAX - 1, MAX)).toBe('turn');
+    expect(tapAction(0, false, MAX, MAX)).toBe('ignore');
+    expect(tapAction(0, true, MAX, MAX)).toBe('ignore');
   });
 });
 
