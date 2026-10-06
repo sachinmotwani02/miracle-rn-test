@@ -2,8 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Portfolio } from '../data/types';
 import { colors, layout, text } from '../theme';
-import { formatPct, formatSignedMoney } from '../utils/format';
-import { AnimatedNumber } from './AnimatedNumber';
+import { formatMoney, formatPct, formatSignedMoney } from '../utils/format';
 import { DepositButton } from './DepositButton';
 
 export function PortfolioHeader({ portfolio }: { portfolio: Portfolio }) {
@@ -13,7 +12,9 @@ export function PortfolioHeader({ portfolio }: { portfolio: Portfolio }) {
         <Text style={[text.portfolioLabel, styles.label]} maxFontSizeMultiplier={1.3}>
           Your portfolio
         </Text>
-        <AnimatedNumber value={portfolio.valueUsd} style={[text.portfolioValue, styles.value]} />
+        <Text style={[text.portfolioValue, styles.value]} maxFontSizeMultiplier={1.2}>
+          {formatMoney(portfolio.valueUsd)}
+        </Text>
         <Text style={[text.delta, styles.delta]} maxFontSizeMultiplier={1.3}>
           <Text style={[text.delta, styles.deltaStrong]}>{formatSignedMoney(portfolio.deltaUsd)}</Text>
           <Text style={[text.deltaMuted, styles.deltaMuted]}>{` · ${formatPct(portfolio.deltaPct)} 24h`}</Text>
