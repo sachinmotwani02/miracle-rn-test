@@ -38,21 +38,16 @@ export const TRAIL = {
   samples: 14,
 } as const;
 
-export const SILK = {
-  /** The ribbon winds round the cloud on a helix this wide, seen slightly from above (pt). */
-  radius: 20,
-  depth: 5,
-  /** Height it climbs from tail to head, pt. */
-  climb: 18,
-  /** Thickness at its widest, pt; it tapers to both ends. */
-  width: 2.4,
-  /** Degrees of helix: it wraps further round the faster the swirl runs. */
-  minSpan: 260,
-  maxSpan: 420,
-  spanPerSpeed: 0.12,
-  /** Colour bands along it, tail to head, and points per band. */
-  bands: 5,
-  samples: 12,
+export const RIBBON = {
+  /** Shortest and longest ribbon, degrees of arc; length grows with the swirl's speed. */
+  minArc: 40,
+  maxArc: 200,
+  /** Degrees of extra length per degree-per-second of swirl speed. */
+  arcPerSpeed: 0.14,
+  /** Thickness at the head, pt. */
+  width: 1.6,
+  /** Points along each ribbon. */
+  samples: 18,
 } as const;
 
 export const SPARKLE = {
@@ -70,8 +65,16 @@ export const SPARKLE = {
   spin: 60,
 } as const;
 
-/** From the ribbon letting go to the last sparkle fading, ms. */
+/** From the rings bursting to the last sparkle fading, ms. */
 export const SPARKLE_MS = SPARKLE.delay + (SPARKLE.count - 1) * SPARKLE.stagger + SPARKLE.life;
+
+/** A ribbon's orbit round the cloud: a flat ellipse seen slightly from above, tilted in the picture. */
+export interface Orbit {
+  rx: number;
+  ry: number;
+  /** In-plane tilt of the orbit, so the ribbons cross like rings round a planet. */
+  tilt: number;
+}
 
 /** A point on a ribbon's centre line: half-width `w`, and whether it is in front of the ghost. */
 export interface StripPoint {
@@ -233,30 +236,36 @@ export function stripPaths(pts: StripPoint[]): { front: string; back: string } {
   return { front: front || 'M0 0', back: back || 'M0 0' };
 }
 
-/** Degrees of helix the silk ribbon wraps at a swirl speed (degrees per second). */
-export function silkSpan(speed: number): number {
+/** Degrees of arc a ribbon covers at a swirl speed (degrees per second). */
+export function ribbonArc(speed: number): number {
   'worklet';
-  return clamp(SILK.minSpan + SILK.spanPerSpeed * speed, SILK.minSpan, SILK.maxSpan);
+  return clamp(RIBBON.minArc + RIBBON.arcPerSpeed * speed, RIBBON.minArc, RIBBON.maxArc);
 }
 
 /**
- * One colour band of the silk ribbon (band 0 is the tail), wound round the cloud on a helix that
- * climbs from tail to head, with its head at `angle` (degrees, 0 = nearest the viewer). `lift`
- * (0..1) is the unravel at the end: the helix stretches upward and floats off.
+ * One ribbon riding its orbit, its head at `head` degrees (0 = nearest the viewer) and its tail
+ * `arc` degrees behind; full width at the head, it tapers to a point at the tail. The near half of
+ * the orbit (its lower half, seen from slightly above) goes in front of the ghost. `spread` scales
+ * the orbit for the burst at the end.
  */
-export function silkBand(band: number, angle: number, speed: number, lift: number, cx: number, cy: number): { front: string; back: string } {
+export function ribbonPaths(head: number, arc: number, orbit: Orbit, spread: number, cx: number, cy: number): { front: string; back: string } {
   'worklet';
-  const span = silkSpan(speed);
-  const n = SILK.samples;
+  const len = Math.min(arc, RIBBON.maxArc);
+  if (len <= 0.5) return { front: 'M0 0', back: 'M0 0' };
+  const tilt = (orbit.tilt * Math.PI) / 180;
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+  const n = RIBBON.samples;
   const pts: StripPoint[] = [];
   for (let i = 0; i <= n; i++) {
-    const u = (band + i / n) / SILK.bands;
-    const a = ((angle - span * (1 - u)) * Math.PI) / 180;
-    const h = (SILK.climb / 2 - SILK.climb * u) * (1 + 1.2 * lift) - 12 * lift;
+    const s = i / n;
+    const a = ((head - len + len * s) * Math.PI) / 180;
+    const lx = orbit.rx * spread * Math.sin(a);
+    const ly = orbit.ry * spread * Math.cos(a);
     pts.push({
-      x: cx + SILK.radius * Math.sin(a),
-      y: cy + h + SILK.depth * Math.cos(a),
-      w: (SILK.width / 2) * Math.pow(Math.sin(Math.PI * u), 0.6) + 0.05,
+      x: cx + lx * ct - ly * st,
+      y: cy + lx * st + ly * ct,
+      w: (RIBBON.width / 2) * Math.pow(s, 0.7),
       front: Math.cos(a) >= 0,
     });
   }
@@ -264,7 +273,7 @@ export function silkBand(band: number, angle: number, speed: number, lift: numbe
 }
 
 /**
- * Sparkle `i` at `ms` after the ribbon lets go: where it is, how big and how visible. They pop one
+ * Sparkle `i` at `ms` after the rings burst: where it is, how big and how visible. They pop one
  * after another round the cloud, rise a little and spin as they twinkle out; `seed` (degrees) turns
  * the whole pattern so each burst lands differently.
  */

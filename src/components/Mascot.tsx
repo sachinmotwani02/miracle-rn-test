@@ -126,18 +126,21 @@ const TURN_LAND_MS = 450;
 
 /**
  * Every fourth tap (see `tapAction`) the ghost does a rare spin instead. It starts once the finger
- * has lifted, so it can be seen: the ghost winds up as a colourful silk ribbon wraps round it,
+ * has lifted, so it can be seen: the ghost winds up as five colourful rings start to orbit it,
  * then launches into a double spin.
  */
 const RARE_WINDUP_MS = 240;
-/** Swirl speeds, degrees per second: as the ribbon winds in, and while the ghost spins. */
+/** Swirl speeds, degrees per second: as the rings wind up, and while the ghost spins. */
 const WINDUP_SPEED = 650;
 const SPIN_SPEED = 1100;
 const RARE_SPIN = { stiffness: 60, damping: 12.5, mass: 1 };
 /** How long the rare spin's choreography runs from launch. */
 const RARE_SPIN_MS = 2000;
-/** It lands this long after launch: the ribbon lets go and the twinkles pop. */
+/** It lands this long after launch: the rings burst and the twinkles pop. */
 const RARE_LAND_MS = 480;
+/** The burst: the rings grow to this size while fading out over BURST_MS, like a small firework. */
+const BURST_SPREAD = 1.45;
+const BURST_MS = 420;
 /** Presses do nothing until this long after launch, while it is in the air. */
 const RARE_AIR_MS = 700;
 
@@ -226,7 +229,7 @@ function useIdleFace(
 /**
  * The ghost in the nav bar. Not a tab but a toy: it breathes, blinks and looks around on its
  * own, glances toward tabs when the nav bar asks, and does a full turn when tapped (every fourth
- * tap, a rare double spin wrapped in a silk ribbon).
+ * tap, a rare double spin inside colourful orbiting rings).
  */
 export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const reduceMotion = useReducedMotion();
@@ -267,7 +270,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const pressing = useRef(false);
   /** A turn's choreography (and its timers) is still running. */
   const turnPlaying = useRef(false);
-  /** The swirl's clock is running and has to be stopped once the ribbon is gone. */
+  /** The swirl's clock is running and has to be stopped once the rings are gone. */
   const swirlRunning = useRef(false);
   const turnTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   useEffect(() => {
@@ -321,14 +324,14 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     });
   };
 
-  // The rare spin's launch: a double spin with the ribbon whipping round it; on landing the ribbon
-  // unravels upward and four twinkles pop round the ghost.
+  // The rare spin's launch: a double spin with the rings whipping round it; on landing they burst
+  // outward and four twinkles pop round the ghost.
   const launchRare = () => {
     target.current += 720;
     const to = target.current;
     haptic('medium');
     spin.value = withSpring(to, RARE_SPIN);
-    trail.value = to; // the silk ribbon stands in for the white trails here
+    trail.value = to; // the coloured rings stand in for the white trails here
     swirl.speed.value = withSequence(withTiming(SPIN_SPEED, { duration: 250 }), withDelay(250, withTiming(400, { duration: 500 })));
     lift.value = withSequence(withTiming(-9, { duration: 300, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
     haloLift.value = withSequence(
@@ -352,11 +355,12 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withTiming(1, { duration: 300 }),
       withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
-    // Landing: the ribbon lets go, floating up as it fades, and the twinkles pop.
+    // Landing: the rings burst outward and fade like a small firework, and the twinkles pop.
     schedule(RARE_LAND_MS, () => {
       haptic('soft');
+      swirl.spread.value = withTiming(BURST_SPREAD, { duration: BURST_MS, easing: Easing.out(Easing.quad) });
+      swirl.alpha.value = withTiming(0, { duration: BURST_MS, easing: Easing.in(Easing.quad) });
       swirl.sparkleSeed.value = Math.random() * 360;
-      swirl.unravel.value = withTiming(1, { duration: 520 });
       swirl.sparkleMs.value = 0;
       swirl.sparkleMs.value = withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear });
     });
@@ -365,6 +369,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       swirlRunning.current = false;
       swirl.alpha.value = 0;
       swirl.speed.value = 0;
+      swirl.spread.value = 1;
     });
     schedule(RARE_SPIN_MS, () => {
       turnPlaying.current = false;
@@ -373,7 +378,8 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   };
 
   // Every fourth tap: the rare spin. The finger has lifted, so it can be seen winding up: the ghost
-  // crouches and turns away, grinning, as the silk ribbon wraps round it, then it launches.
+  // crouches and turns away, grinning, as the rings fade in round it and pick up speed, then it
+  // launches.
   const rareSpin = () => {
     turns.current = 0;
     rareUntil.current = Date.now() + RARE_WINDUP_MS + RARE_AIR_MS;
@@ -384,7 +390,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     clearTurnTimers();
     swirl.run(true);
     swirlRunning.current = true;
-    swirl.unravel.value = 0;
+    swirl.spread.value = 1;
     swirl.alpha.value = withTiming(1, { duration: 160 });
     swirl.speed.value = withTiming(WINDUP_SPEED, { duration: RARE_WINDUP_MS, easing: Easing.in(Easing.quad) });
     squash.value = withTiming(0.84, { duration: RARE_WINDUP_MS, easing: Easing.out(Easing.quad) });
@@ -483,7 +489,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
     clearTurnTimers();
-    // A ribbon still unravelling after a rare spin: fade it out and stop its clock.
+    // Rings still bursting after a rare spin: fade them out and stop their clock.
     if (swirlRunning.current) endSwirl(150);
     schedule(450, () => haptic('soft'));
     schedule(TURN_MS, () => {

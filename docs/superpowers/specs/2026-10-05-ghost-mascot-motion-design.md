@@ -91,38 +91,42 @@ the first build spun it in the plane and was corrected after review on device.
 
 ## Every fourth tap: the rare spin (added after review)
 
-At first it was hold-to-charge: holding the ghost wound the ribbon up, letting go fired the spin.
+At first it was hold-to-charge: holding the ghost wound the swirl up, letting go fired the spin.
 On a phone the finger covers the ghost while it holds, so the charge-up could not be seen; it is
 now a plain tap that, every fourth time, turns out to be the rare one. Three swirl styles were
-prototyped side by side (orbit rings, silk ribbon, sparkle comets); the silk ribbon with end
-sparkles was picked.
+prototyped side by side (orbit rings, silk ribbon, sparkle comets). The silk ribbon with end
+sparkles shipped first; once the rare spin moved to a tap, the orbit rings were compared with it
+again in that flow and won, with the same sparkles added.
 
 - **When:** three plain turns, then the rare spin on the fourth tap, every time (`RARE_AFTER`,
   `tapAction` in `mascotMotion.ts`; a random two or three plain turns came first and was fixed at
   three after review). It only starts once the ghost has landed (450 ms after a tap), so a fast
   burst just stacks plain turns and the rare spin comes on the next tap after it. A long press is
   simply a tap.
-- **Wind-up (240 ms, after release, so it can be seen):** one silk ribbon in five colour bands
-  (halo gold, pink `#FF5FA2`, violet `#9B6BFF`, sky blue, mint `#3DDC97`) fades in over 160 ms,
-  wound round the cloud on a helix (radius 20 pt, loops 5 pt deep seen from slightly above) that
-  climbs 18 pt from its tail to its head and tapers at both ends (2.4 pt at its widest). The swirl
-  speeds up toward 650°/s and the ribbon wraps further round as it does (260° → up to 420°). The
-  ghost crouches (squash 0.84), grins (happy 0.55) and turns away to −35°.
-- **Depth:** the ribbon is drawn twice: its near side over the cloud and its far side behind it
-  (`silkBand` and `stripPaths` in `mascotMotion.ts`), so it winds round the ghost in 3D.
+- **Wind-up (240 ms, after release, so it can be seen):** five ribbons in halo gold, pink
+  `#FF5FA2`, violet `#9B6BFF`, sky blue and mint `#3DDC97` fade in over 160 ms, each riding its own
+  orbit round the cloud: a flat ellipse (rx 19–23 pt, ry 4.5–6.5 pt, seen slightly from above)
+  tilted in the picture between −55° and 52°, so they cross like rings round a planet or a
+  gyroscope. Each runs at its own rate (0.9–1.25× the swirl's clock) from its own phase. A ribbon
+  is 1.6 pt thick at its head and tapers to a point at its tail; it grows from 40° of arc toward
+  200° as the swirl speeds up toward 650°/s. The ghost crouches (squash 0.84), grins (happy 0.55)
+  and turns away to −35°.
+- **Depth:** each ribbon is drawn twice: the near half of its orbit over the cloud and the far
+  half behind it (`ribbonPaths` and `stripPaths` in `mascotMotion.ts`), so the rings pass round
+  the ghost in 3D.
 - **Launch:** medium haptic, a double turn (720°, `stiffness 60, damping 12.5, mass 1`), lift 9 pt,
-  stretch 1.1 and squash 0.9 on landing, halo lifts 5 pt late and tilts 7°. The ribbon whips round
+  stretch 1.1 and squash 0.9 on landing, halo lifts 5 pt late and tilts 7°. The rings whip round
   at 1100°/s; the white trails stay off.
-- **Landing (480 ms after launch):** soft haptic; the ribbon unravels, stretching upward and
-  fading over 520 ms, and four four-point twinkles (gold, pink, sky blue, mint) pop round the cloud
-  one after another (70 ms apart, 420 ms each, up to 3 pt radius), rising 6 pt and spinning 60° as
-  they fade. The pattern is turned at random each time. Then happy eyes, a 1 s dizzy swirl, a
-  blink and quicker breathing; about 2.2 s in all. Presses that start during the wind-up or while
-  it is in the air (until 700 ms after launch) get no answer, not even a haptic; after that a tap
-  turns again.
+- **Landing (480 ms after launch):** soft haptic; the rings burst outward to 1.45× (420 ms,
+  ease-out) while fading (ease-in), like a small firework, and four four-point twinkles (gold,
+  pink, sky blue, mint) pop round the cloud one after another (70 ms apart, 420 ms each, up to
+  3 pt radius), rising 6 pt and spinning 60° as they fade. The pattern is turned at random each
+  time. Then happy eyes, a 1 s dizzy swirl, a blink and quicker breathing; about 2.2 s in all.
+  Presses that start during the wind-up or while it is in the air (until 700 ms after launch) get
+  no answer, not even a haptic; after that a tap turns again.
 - The press area reaches 40 pt past the slot (`pressRetentionOffset`), so a finger that drifts a
   little before lifting still taps; one that slides right off does nothing and is not counted.
-- The swirl's clock only runs while the ribbon or sparkles are showing, so it costs nothing at rest.
+- The swirl's clock only runs while the rings or sparkles are showing, so it costs nothing at rest.
 - The tap sequences (every fourth tap, fast bursts, presses during the rare spin, long presses,
   drifting and sliding off) are tested through the real Pressability in
   `src/__tests__/Mascot.test.tsx`.

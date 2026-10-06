@@ -1,7 +1,7 @@
 import {
   BREATH,
   RARE_AFTER,
-  SILK,
+  RIBBON,
   SPARKLE,
   SPARKLE_MS,
   TRAIL,
@@ -10,8 +10,8 @@ import {
   clamp,
   dizzyOffset,
   randomBetween,
-  silkBand,
-  silkSpan,
+  ribbonArc,
+  ribbonPaths,
   sparkle,
   starPath,
   stripPaths,
@@ -72,29 +72,52 @@ describe('stripPaths', () => {
   });
 });
 
-describe('silkBand', () => {
+describe('ribbonPaths', () => {
+  const orbit = { rx: 20, ry: 5, tilt: 0 };
   const cx = 40;
-  const cy = 40;
-  // Averaged over a full turn of the swirl, so the loops' up-and-down wobble cancels out.
-  const bandYs = (band: number, unravel = 0) =>
-    Array.from({ length: 36 }, (_, k) => ysOf(both(silkBand(band, k * 10, 400, unravel, cx, cy)))).flat();
+  const cy = 30;
+  const pad = RIBBON.width;
 
-  it('winds the ribbon round the cloud, climbing from its tail to its head', () => {
-    expect(mean(bandYs(0))).toBeGreaterThan(mean(bandYs(SILK.bands - 1)) + SILK.climb / 2);
-    for (let band = 0; band < SILK.bands; band++) {
-      const p = silkBand(band, 30, 400, 0, cx, cy);
-      for (const x of xsOf(both(p))) expect(Math.abs(x - cx)).toBeLessThanOrEqual(SILK.radius + SILK.width);
-    }
+  it('draws nothing for a ribbon with no length', () => {
+    expect(ribbonPaths(90, 0, orbit, 1, cx, cy)).toEqual({ front: 'M0 0', back: 'M0 0' });
   });
 
-  it('lifts off and stretches upward as it unravels', () => {
-    expect(mean(bandYs(SILK.bands - 1, 1))).toBeLessThan(mean(bandYs(SILK.bands - 1, 0)) - 10);
+  it('puts the near half of the orbit in front of the ghost and the far half behind it', () => {
+    // Seen from slightly above, the near side of a flat orbit is its lower half.
+    const nearOnly = ribbonPaths(40, 70, orbit, 1, cx, cy); // -30..40 deg: all on the near side
+    expect(nearOnly.back).toBe('M0 0');
+    for (const y of ysOf(nearOnly.front)) expect(y).toBeGreaterThanOrEqual(cy - pad);
+    const farOnly = ribbonPaths(220, 70, orbit, 1, cx, cy); // 150..220 deg: all on the far side
+    expect(farOnly.front).toBe('M0 0');
+    for (const y of ysOf(farOnly.back)) expect(y).toBeLessThanOrEqual(cy + pad);
   });
 
-  it('wraps further round the faster the swirl runs, within limits', () => {
-    expect(silkSpan(0)).toBe(SILK.minSpan);
-    expect(silkSpan(800)).toBeGreaterThan(silkSpan(200));
-    expect(silkSpan(1e6)).toBe(SILK.maxSpan);
+  it('splits a ribbon that wraps round the side into a front piece and a back piece', () => {
+    const p = ribbonPaths(130, 100, orbit, 1, cx, cy); // 30..130 deg crosses 90
+    expect(p.front).not.toBe('M0 0');
+    expect(p.back).not.toBe('M0 0');
+  });
+
+  it('tilts the orbit and grows it with the spread for the burst', () => {
+    const flat = ribbonPaths(200, 200, orbit, 1, cx, cy);
+    const tilted = ribbonPaths(200, 200, { ...orbit, tilt: 45 }, 1, cx, cy);
+    const span = (d: string) => Math.max(...ysOf(d)) - Math.min(...ysOf(d));
+    expect(span(both(tilted))).toBeGreaterThan(span(both(flat)) + 5);
+    const wide = ribbonPaths(200, 200, orbit, 1.45, cx, cy);
+    for (const x of xsOf(both(wide))) expect(Math.abs(x - cx)).toBeLessThanOrEqual(orbit.rx * 1.45 + pad);
+    expect(Math.max(...xsOf(both(wide)))).toBeGreaterThan(cx + orbit.rx * 1.2);
+  });
+
+  it('never draws more than the longest ribbon', () => {
+    expect(ribbonPaths(300, 999, orbit, 1, cx, cy)).toEqual(ribbonPaths(300, RIBBON.maxArc, orbit, 1, cx, cy));
+  });
+});
+
+describe('ribbonArc', () => {
+  it('gets longer the faster the swirl runs, within limits', () => {
+    expect(ribbonArc(0)).toBe(RIBBON.minArc);
+    expect(ribbonArc(600)).toBeGreaterThan(ribbonArc(200));
+    expect(ribbonArc(100000)).toBe(RIBBON.maxArc);
   });
 });
 
