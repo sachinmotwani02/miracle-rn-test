@@ -27,8 +27,8 @@ interface Props {
 const indexOf = (tab: TabKey) => Math.max(0, TABS.findIndex(t => t.key === tab));
 
 /**
- * The sky bar's feed menu: a dark glass card in the nav bar's material with the nav bar's lens on
- * the current feed. It grows from its top-left corner; tapping outside closes it.
+ * The sky bar's feed menu: a frosted light card, like the cards it opens over, with a lens on the
+ * current feed. It grows from its top-left corner; tapping outside closes it.
  */
 export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
   const reduceMotion = useReducedMotion();
@@ -72,9 +72,9 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
       ) : null}
       <Animated.View style={[styles.shadow, { top }, card]}>
         <View style={styles.card} accessibilityRole="menu">
-          {Platform.OS === 'ios' ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
+          {Platform.OS === 'ios' ? <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} /> : null}
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: Platform.OS === 'ios' ? colors.navBar : colors.navBarAndroid }]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: Platform.OS === 'ios' ? colors.menu : colors.menuSolid }]}
           />
           <View style={styles.rim} />
           <Animated.View style={[styles.lens, lensStyle]} />
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     left: 10,
     width: WIDTH,
     borderRadius: 24,
-    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.18)',
+    boxShadow: '0 8px 24px rgba(34, 36, 42, 0.14)',
     transformOrigin: 'left top',
   },
   card: { borderRadius: 24, overflow: 'hidden', padding: PAD },
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
+    borderColor: colors.menuRim,
     pointerEvents: 'none',
   },
   lens: {
@@ -122,8 +122,8 @@ const styles = StyleSheet.create({
     width: WIDTH - PAD * 2,
     height: ROW,
     borderRadius: ROW / 2,
-    backgroundColor: colors.navPill,
+    backgroundColor: colors.menuLens,
   },
   row: { height: ROW, justifyContent: 'center', paddingLeft: 16 },
-  label: { color: colors.white },
+  label: { color: colors.textPrimary },
 });

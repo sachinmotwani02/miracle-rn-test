@@ -95,9 +95,11 @@ the menu.
 
 ## Feed menu
 
-- A dark glass card in the nav bar's material: `#22242A` at 80% over an iOS blur, denser on
-  Android. It is anchored 4 pt under the bar at x 10, 180 wide, with four 40 pt rows.
-- The nav bar's 12% white lens sits behind the current feed.
+- A frosted light card, like the cards it opens over: white at 72% over a light iOS blur, solid white
+  on Android and web (no blur there, so text behind would show), a hairline ink rim at 8% and a soft
+  ink shadow. It is anchored 4 pt under the bar at x 10, 180 wide, with four 40 pt rows in ink.
+  (It began as a dark glass card in the nav bar's material, the one dark surface on a light screen.)
+- A 6% ink lens sits behind the current feed.
 - It opens with a fade and a scale from 0.92 at its top-left on a quick, critically damped spring;
   Reduce Motion fades only. Tapping outside closes it.
 - Picking a feed fires a selection haptic, slides the lens to the pick, closes the menu, switches the

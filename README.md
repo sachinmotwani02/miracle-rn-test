@@ -134,8 +134,8 @@ bar text disappear. Now the top of the screen is always sky:
    of the bar and unfolds into the four tabs (the other tabs slide out of the active one and fade in,
    the chevron fades), and at 24 pt Deposit drops back into the portfolio row. Scrolling down from
    there plays it in reverse: the tabs fold into the dropdown as they rise into the bar.
-4. **The dropdown** opens a menu in the nav bar's dark glass, with the nav bar's lens on the current
-   feed. Picking a feed switches it and lands on its first card with the bar still docked.
+4. **The dropdown** opens a frosted light menu, like the cards it opens over, with a soft lens on the
+   current feed. Picking a feed switches it and lands on its first card with the bar still docked.
 
 How: every layer of the bar is a window onto the background sky (`SkyWindow`), so it shows exactly
 the pixels behind it and cannot be seen until content slides under it; no colours are matched. The

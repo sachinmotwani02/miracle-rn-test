@@ -25,6 +25,11 @@ export const colors = {
   navBarAndroid: 'rgba(34,36,42,0.92)',
   navPill: 'rgba(255,255,255,0.12)',
   navIcon: '#FFFFFF',
+  /** The sky bar's feed menu: frosted white over a light blur on iOS, solid where there is no blur (text behind would show). */
+  menu: 'rgba(255,255,255,0.72)',
+  menuSolid: '#FFFFFF',
+  menuRim: 'rgba(34,36,42,0.08)',
+  menuLens: 'rgba(34,36,42,0.06)',
   white: '#FFFFFF',
   white88: 'rgba(255,255,255,0.88)',
   white64: 'rgba(255,255,255,0.64)',
