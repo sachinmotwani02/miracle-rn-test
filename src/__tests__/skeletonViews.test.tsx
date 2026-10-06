@@ -15,7 +15,9 @@ describe('skeleton views', () => {
   ])('announce "%s" once, as busy', async (label, element) => {
     const screen = await render(element);
     const region = screen.getByLabelText(label);
-    expect(region.props.accessibilityState).toEqual({ busy: true });
+    // Set as aria-busy, which also reaches the web (react-native-web ignores accessibilityState).
+    expect(region.props['aria-busy']).toBe(true);
+    expect(region).toBeBusy();
     expect(screen.getAllByLabelText(label)).toHaveLength(1);
   });
 });

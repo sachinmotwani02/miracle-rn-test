@@ -83,12 +83,12 @@ describe('switching feed tabs', () => {
     await render(<DiscoverScreen />);
     await settle();
     // candlefox's $18.4K SOL buy heads both feeds.
-    const card = screen.getAllByText('$18.4K')[0];
+    const card = screen.getAllByText('$18.4K at $148.60')[0];
 
     await press('Following');
 
     // Compared by identity: a rebuilt card is a new host view (and diffing two views takes minutes).
-    const sameView = screen.getAllByText('$18.4K')[0] === card;
+    const sameView = screen.getAllByText('$18.4K at $148.60')[0] === card;
     expect(sameView).toBe(true);
   });
 
@@ -120,14 +120,14 @@ describe('switching feed tabs', () => {
     await settle();
     await press('Discover');
     await settle();
-    const card = screen.getAllByText('$18.4K')[0];
+    const card = screen.getAllByText('$18.4K at $148.60')[0];
 
     await press('Following');
     await act(() => jest.advanceTimersByTimeAsync(50));
 
     expect(resolving()).toBeGreaterThan(0);
     expect(resolving()).toBeLessThanOrEqual(5);
-    expect(screen.getAllByText('$18.4K')[0] === card).toBe(true);
+    expect(screen.getAllByText('$18.4K at $148.60')[0] === card).toBe(true);
 
     await settle();
     expect(resolving()).toBe(0);

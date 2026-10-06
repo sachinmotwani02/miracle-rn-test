@@ -1,10 +1,11 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
-import { GestureResponderEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { BackHandler, GestureResponderEvent, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { BlurView } from 'expo-blur';
 import { TABS, TabKey } from '../data/types';
 import { colors, text } from '../theme';
+import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { haptic } from '../utils/haptics';
 
 const ROW = 40;
@@ -41,14 +42,38 @@ const indexOf = (tab: TabKey) => Math.max(0, TABS.findIndex(t => t.key === tab))
  * current feed. It grows from its top-left corner; tapping outside closes it. A finger can also
  * drag over the rows: the lens follows it row by row with a selection tick, and lifting on a row
  * picks it. Lifting off the rows puts the lens back on the current feed and leaves the menu open.
+ * The screen hides everything else from screen readers while it is open.
  */
 export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
   const reduceMotion = useReducedMotion();
   const progress = useSharedValue(0);
   const lens = useSharedValue(indexOf(active) * ROW);
+  const current = useRef<View>(null);
   // Mounted while open and through the closing fade.
   const [mounted, setMounted] = useState(open);
   if (open && !mounted) setMounted(true);
+
+  // Opening puts the screen reader on the current feed (closing hands it back to the dropdown, in
+  // the screen). The platform's way back closes the menu: the escape gesture on iOS
+  // (onAccessibilityEscape below), the back button on Android, Escape on the web.
+  useEffect(() => {
+    if (!open) return;
+    moveAccessibilityFocus(current.current);
+    if (Platform.OS === 'android') {
+      const back = BackHandler.addEventListener('hardwareBackPress', () => {
+        onClose();
+        return true;
+      });
+      return () => back.remove();
+    }
+    if (Platform.OS === 'web') {
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+      };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }
+  }, [open, onClose]);
 
   // Before paint, so the menu's first frame is already on its way in.
   useLayoutEffect(() => {
@@ -106,7 +131,7 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onAccessibilityEscape={open ? onClose : undefined}>
       {open ? (
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close the feed menu" />
       ) : null}
@@ -133,8 +158,9 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
           {TABS.map(t => (
             <Pressable
               key={t.key}
+              ref={t.key === active ? current : undefined}
               accessibilityRole="menuitem"
-              accessibilityState={{ selected: t.key === active }}
+              aria-selected={t.key === active}
               onPress={() => pick(t.key)}
               style={styles.row}
             >

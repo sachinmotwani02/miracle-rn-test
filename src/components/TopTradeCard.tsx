@@ -54,20 +54,22 @@ export const TopTradeCard = React.memo(function TopTradeCard({ trade, index = 0,
 const styles = StyleSheet.create({
   // Figma: white 92% with Glass + inner-shadow effects. Over the static sky a blur is
   // invisible, so the fill plus a white hairline (the inner highlight) reproduces it
-  // identically on both platforms.
+  // identically on both platforms. 92 pt is exactly its contents at the Figma's text size; a
+  // larger system text size grows it, keeping the bottom inset.
   card: {
     width: layout.carouselCardWidth,
-    height: layout.carouselCardHeight,
+    minHeight: layout.carouselCardHeight,
     borderRadius: layout.cardRadius,
     backgroundColor: colors.carouselCard,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.9)',
     paddingHorizontal: 11,
     paddingTop: 11,
+    paddingBottom: 10,
     overflow: 'hidden',
   },
   // Figma: photo at (12,12) with a 1pt ring outside it; name box starts at x 40.
-  header: { flexDirection: 'row', alignItems: 'center', gap: 7, height: 22 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 22 },
   name: { color: colors.textPrimary },
   body: { flexDirection: 'row', alignItems: 'center', marginTop: 11, gap: 10, marginLeft: 1 },
   texts: { flex: 1 },

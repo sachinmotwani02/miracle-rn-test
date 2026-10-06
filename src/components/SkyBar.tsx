@@ -15,6 +15,8 @@ interface Props {
   feedLabel: string;
   menuOpen: boolean;
   onOpenMenu: () => void;
+  /** The dropdown, for handing the screen reader back to it when the menu closes. */
+  dropdownRef?: React.Ref<View>;
 }
 
 /**
@@ -25,7 +27,7 @@ interface Props {
  * as the first card rises through it, uncovering a light fade; in the feed the bar brings its own sky
  * back down from the top of the screen as one sheet with a crisp edge.
  */
-export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
+export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu, dropdownRef }: Props) {
   const { width } = useWindowDimensions();
   const { scrollY, presence, geometry, sky, top } = bar;
   const screenTop = useSharedValue(0);
@@ -57,13 +59,19 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
         <SkyWindow offset={offset} top={screenTop} left={0} width={width} height={top} />
       </Animated.View>
       <SkyWindow offset={offset} top={bandTop} left={0} width={width} height={barHeight} blocksTouches />
-      {/* The controls slide out from under the status bar, so none of them shows above it. */}
+      {/* The controls slide out from under the status bar, so none of them shows above it. Each is
+          a copy of one in the header, so it is hidden from screen readers whenever it is hidden from
+          sight; the header hides its own copy the rest of the time. */}
       <View style={[styles.controls, { top }]}>
-        <Animated.View style={[styles.dropdown, dropdown, { pointerEvents: bar.docked ? 'auto' : 'none' }]}>
+        <Animated.View
+          style={[styles.dropdown, dropdown, { pointerEvents: bar.docked ? 'auto' : 'none' }]}
+          aria-hidden={!bar.docked}
+        >
           <Pressable
+            ref={dropdownRef}
             accessibilityRole="button"
             accessibilityLabel={`Feed: ${feedLabel}`}
-            accessibilityState={{ expanded: menuOpen }}
+            aria-expanded={menuOpen}
             onPress={onOpenMenu}
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 12 }}
             style={styles.dropdownRow}
@@ -89,6 +97,7 @@ export function SkyBar({ bar, feedLabel, menuOpen, onOpenMenu }: Props) {
         </Animated.View>
         <Animated.View
           style={[styles.deposit, { left: depositLeft }, deposit, { pointerEvents: bar.pinned ? 'box-none' : 'none' }]}
+          aria-hidden={!bar.pinned}
         >
           <DepositButton />
         </Animated.View>
@@ -104,6 +113,6 @@ const styles = StyleSheet.create({
   layer: { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' },
   deposit: { position: 'absolute', top: 0 },
   dropdown: { position: 'absolute', top: 0, left: layout.screenPadding },
-  dropdownRow: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20 },
+  dropdownRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 20 },
   dropdownLabel: { color: colors.white },
 });

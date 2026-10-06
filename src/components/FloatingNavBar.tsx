@@ -80,7 +80,8 @@ function NavButton({ index, active, onPress, Icon, label }: ButtonProps) {
     <Pressable
       accessibilityRole="tab"
       accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
+      // aria-* rather than accessibilityState, which react-native-web ignores.
+      aria-selected={active}
       style={[styles.slot, { left: navSlotCenter(index) - SLOT_W / 2 }]}
       onPressIn={() => {
         pressed.set(1);

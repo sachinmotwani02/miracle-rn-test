@@ -1,16 +1,19 @@
 import React from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
+import { useFonts } from 'expo-font';
 import { DialPanel } from './src/dev/DialPanel';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
+import { FONTS } from './src/theme/fonts';
 
 /** Flip to true to bring back the Dials chip for tuning animations. */
 const SHOW_DIALS = false;
 
 export default function App() {
-  const [loaded] = useFonts({ Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold });
-  if (!loaded) return null;
+  // iOS has no fonts to load, so it renders on the first frame. If loading fails, the text falls
+  // back to the system font rather than leaving the screen blank.
+  const [loaded, error] = useFonts(FONTS);
+  if (!loaded && !error) return null;
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
