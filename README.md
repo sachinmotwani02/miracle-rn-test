@@ -27,6 +27,7 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), and the 
 | Area | Implementation |
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
+| Sky bar | A strip of that sky under the status bar that the header scrolls under; on scroll up in the feed it brings a feed dropdown and Deposit (see below). |
 | Portfolio header | Label, value and 24h change (bones until the portfolio loads; then they roll up from the 24h-ago figures, and to a fresh value when you come back to the app), glass Deposit pill (the Figma's white gradient, rim and top highlight). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
@@ -118,6 +119,33 @@ works on iOS, Android and web):
 Any other component can get a panel the same way: `useDials('Name', { size: [1, 0, 2], on: true,
 folder: { … }, replay: { type: 'action' } }, { onAction })`.
 
+## Animation: the sky bar
+
+The header lives in the list, so without help it scrolled straight under a transparent status bar:
+"Your portfolio" and Deposit collided with the clock, and the white cards then made the white status
+bar text disappear. Now the top of the screen is always sky:
+
+1. **Scrolling down from the top, nothing sticks.** The portfolio block, Deposit, the carousel and the
+   tabs scroll away under a strip of the sky behind the status bar, which stays light.
+2. **In the feed, a scroll up brings the bar.** A 44 pt sky bar slides down from under the status bar
+   holding a "Discover ⌄" feed dropdown and the Deposit pill. It follows the finger: 44 pt of scroll
+   up shows it, 44 pt down hides it, and stopping halfway snaps it to the nearer end.
+3. **Heading back to the top, it hands its controls back.** Over the last 40 pt the dropdown drops out
+   of the bar and unfolds into the four tabs (the other tabs slide out of the active one and fade in,
+   the chevron fades), and at 24 pt Deposit drops back into the portfolio row. Scrolling down from
+   there plays it in reverse: the tabs fold into the dropdown as they rise into the bar.
+4. **The dropdown** opens a menu in the nav bar's dark glass, with the nav bar's lens on the current
+   feed. Picking a feed switches it and lands on its first card with the bar still docked.
+
+How: every layer of the bar is a window onto the background sky (`SkyWindow`), so it shows exactly
+the pixels behind it and cannot be seen until content slides under it; no colours are matched. The
+bar's sky follows the 0.3× parallax until the tabs dock, then holds, so it stays blue however far
+down you are. The edge is a flat, crisp line: no gradient and no rounding. Every threshold comes
+from worklet maths in
+`src/utils/skyBar.ts` (unit-tested) fed by measured header positions, so Dynamic Type and other
+insets move it with the layout. It all runs on the UI thread; JS only hears threshold crossings, for
+touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-header-design.md`.
+
 ## Other motion, deliberately limited
 
 - Sparkline draws in once per card (stroke-dash offset through `animatedProps` on an SVG `Path`),
@@ -135,13 +163,14 @@ folder: { … }, replay: { type: 'action' } }, { onAction })`.
   neither replays the roll nor drops a refresh (Replay cold start remounts the screen and rolls again).
 - Cards that replace the loading bones crossfade in place (below); cards that arrive without bones
   (a tab already loaded) enter with a staggered fade and 12 pt rise, the first five only.
-- Tab switch remounts the list so the first cards replay their entrance; active label opacity animates.
+- A tab switch remounts just the cards (keyed by tab) so the first ones replay their entrance, while
+  the list keeps its scroll position for the sky bar; active label opacity animates.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
   text provides the target so the spring has a real end value).
 - Deposit button and nav icons scale on press; sky parallax at 0.3×.
 
-Nothing else moves. Apart from those two moments for the numbers, the header, carousel and cards are
-static by design.
+Nothing else moves. Apart from those two moments for the numbers and the sky bar's scroll-linked
+motion, the header, carousel and cards are static by design.
 
 ## Loading skeleton
 
@@ -179,7 +208,7 @@ and are cached for the session by a small store that also owns the loading timin
   FlashList calls it as a function.)
 - Sparkline geometry (`src/utils/sparkline.ts`) is computed once per item with `useMemo` and
   rendered with `react-native-svg`, not images.
-- No per-frame JS work: scroll, pill, mascot, draw-in and the digit rolls are all worklets.
+- No per-frame JS work: scroll, sky bar, pill, mascot, draw-in and the digit rolls are all worklets.
   The portfolio figures re-render the list header only when they change: once as the portfolio
   loads and rolls in, and once per return to the app.
 - Mock data is generated once at module load from a seeded PRNG, so renders are deterministic.
@@ -198,8 +227,9 @@ and are cached for the session by a small store that also owns the loading timin
 ## Tests
 
 `npm test` runs unit tests for the formatters (worklet-safe, no `Intl`), the sparkline geometry,
-the mock data (determinism, per-tab subsets, Figma values on the first card) and the nav geometry,
-plus the loading skeleton: the mock api and its hold switch, the resource store's timing (cold
+the mock data (determinism, per-tab subsets, Figma values on the first card), the nav geometry and
+the sky bar's scroll maths (thresholds from the Figma, presence, band edge, fold), plus the loading
+skeleton: the mock api and its hold switch, the resource store's timing (cold
 start, cache hit, show delay, minimum time, reveal window, clear) with fake timers, the bone maths,
 and that each skeleton region is announced once as busy. The portfolio numbers are covered too: the
 random walk (whole cents, step sizes, pull back to the start, how far it gets for the time away), the

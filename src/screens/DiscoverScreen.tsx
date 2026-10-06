@@ -1,16 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
-import Animated, { useAnimatedScrollHandler, useSharedValue } from 'react-native-reanimated';
+import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
+import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { useLivePortfolio } from '../data/live';
 import { clearResources, useResource } from '../data/resources';
-import { FeedItem, TabKey } from '../data/types';
+import { FeedItem, TABS, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
+import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { SKELETON } from '../utils/skeleton';
+import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
 import { useRollIn } from '../components/PortfolioTicker';
@@ -19,6 +21,8 @@ import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
 import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
+import { SkyBar } from '../components/SkyBar';
+import { FeedMenu } from '../components/FeedMenu';
 import { FeedSkeleton, TradeCardSkeleton } from '../components/skeleton/FeedSkeleton';
 import { Reveal } from '../components/skeleton/Reveal';
 import { SkeletonSweep } from '../components/skeleton/Sweep';
@@ -48,7 +52,17 @@ interface Latency {
 // the underlying scroll view, so scroll-linked animations never touch the JS thread.
 const AnimatedFlashList = Animated.createAnimatedComponent(
   FlashList as unknown as React.ComponentClass<FlashListProps<FeedItem>>,
-) as unknown as React.ComponentType<FlashListProps<FeedItem> & { onScroll?: unknown }>;
+) as unknown as React.ComponentType<
+  FlashListProps<FeedItem> & { onScroll?: unknown; ref?: React.Ref<FlashListRef<FeedItem>> }
+>;
+
+/** Hidden from screen readers while the sky bar holds the live copy. */
+function a11yHidden(hidden: boolean) {
+  return {
+    accessibilityElementsHidden: hidden,
+    importantForAccessibility: hidden ? ('no-hide-descendants' as const) : ('auto' as const),
+  };
+}
 
 /** Owns the loading dials. Replay forgets every load and remounts the screen as a cold start. */
 export function DiscoverScreen() {
@@ -72,7 +86,12 @@ function Discover({ latency }: { latency: Latency }) {
   const [firstTab] = useState(tab);
   const [nav, setNav] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const listRef = useRef<FlashListRef<FeedItem>>(null);
+  /** Set when a feed is picked from the sky bar: land on its first card once it renders. */
+  const landOnFeed = useRef(false);
   const scrollY = useSharedValue(0);
+  const bar = useSkyBar(scrollY, insets.top);
 
   // Cold start loads all three at once with bones from the first frame; a tab's first visit loads
   // its feed behind a short show delay; anything loaded before comes straight from the cache.
@@ -95,15 +114,49 @@ function Discover({ latency }: { latency: Latency }) {
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: e => {
-      scrollY.value = e.contentOffset.y;
+      scrollY.set(e.contentOffset.y);
     },
   });
+  const onScroll = useComposedEventHandler([scrollHandler, bar.scrollHandler]);
+
+  const openMenu = useCallback(() => setMenuOpen(true), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  // Tapping the row while it folds takes it the rest of the way into the bar and opens the menu.
+  const openMenuFromTabs = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: true });
+    setMenuOpen(true);
+  }, [bar.feedTop]);
+  const onPickFeed = useCallback(
+    (next: TabKey) => {
+      setMenuOpen(false);
+      if (next === tab) return;
+      landOnFeed.current = true;
+      setTab(next);
+    },
+    [tab],
+  );
+
+  useEffect(() => {
+    if (!landOnFeed.current) return;
+    landOnFeed.current = false;
+    // The new cards render first; then the list lands on the first one, right under the bar.
+    requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
+  }, [tab, bar.feedTop]);
+
+  // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
+  // scrolls to the top while it is open).
+  const [wasDocked, setWasDocked] = useState(bar.docked);
+  if (wasDocked !== bar.docked) {
+    setWasDocked(bar.docked);
+    if (!bar.docked) setMenuOpen(false);
+  }
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => (
-      // Keyed by tab so a switch remounts just the cards while the header above stays mounted.
-      // The cards that replace the feed's bones crossfade from them (the skeleton card stays
-      // underneath until the real one covers it); otherwise the first cards play their entrance.
+      // Keyed by tab so a switch remounts just the cards while the list and its header stay mounted
+      // (keeping the scroll offset the sky bar reads). The cards that replace the feed's bones
+      // crossfade from them (the skeleton card stays underneath until the real one covers it);
+      // otherwise the first cards play their entrance.
       <Reveal
         key={tab}
         active={revealing && index < SKELETON.feedFade.length}
@@ -125,19 +178,47 @@ function Discover({ latency }: { latency: Latency }) {
   const header = useMemo(
     () => (
       // Figma (status bar 59pt): label 70, title 167, carousel 195, tabs 309, first card 347.
-      <View style={{ paddingTop: insets.top + 11 }}>
-        <PortfolioHeader portfolio={livePortfolio} shown={shownPortfolio} reveal={portfolio.revealing} />
+      // The sky bar measures where Deposit, the tabs and the first card sit.
+      <View style={{ paddingTop: insets.top + 11 }} onLayout={bar.onHeaderLayout}>
+        <View onLayout={bar.onPortfolioLayout} {...a11yHidden(bar.pinned)}>
+          <PortfolioHeader portfolio={livePortfolio} shown={shownPortfolio} reveal={portfolio.revealing} />
+        </View>
         <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades.data} reveal={topTrades.revealing} />
         <View style={{ height: 22 }} />
-        <FeedTabs active={tab} onChange={setTab} />
+        <View onLayout={bar.onTabsLayout} {...a11yHidden(bar.docked)}>
+          <FeedTabs
+            active={tab}
+            onChange={setTab}
+            fold={bar.fold}
+            folded={bar.folded}
+            onOpenMenu={openMenuFromTabs}
+          />
+        </View>
         <View style={{ height: 18 }} />
       </View>
     ),
-    [insets.top, tab, livePortfolio, shownPortfolio, portfolio.revealing, topTrades.data, topTrades.revealing],
+    [
+      insets.top,
+      tab,
+      livePortfolio,
+      shownPortfolio,
+      portfolio.revealing,
+      topTrades.data,
+      topTrades.revealing,
+      bar.onHeaderLayout,
+      bar.onPortfolioLayout,
+      bar.onTabsLayout,
+      bar.pinned,
+      bar.docked,
+      bar.fold,
+      bar.folded,
+      openMenuFromTabs,
+    ],
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;
+  const feedLabel = TABS.find(t => t.key === tab)?.label ?? '';
 
   return (
     // One subtle light sweep crosses every bone while anything is loading.
@@ -147,6 +228,7 @@ function Discover({ latency }: { latency: Latency }) {
         <SkyBackground scrollY={scrollY} />
         <View style={styles.list}>
           <AnimatedFlashList
+            ref={listRef}
             data={items}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
@@ -156,7 +238,7 @@ function Discover({ latency }: { latency: Latency }) {
             ItemSeparatorComponent={Separator}
             contentContainerStyle={{ paddingBottom: navClearance }}
             showsVerticalScrollIndicator={false}
-            onScroll={scrollHandler}
+            onScroll={onScroll}
             scrollEventThrottle={16}
             drawDistance={height}
             // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
@@ -164,8 +246,16 @@ function Discover({ latency }: { latency: Latency }) {
             maintainVisibleContentPosition={MVCP_OFF}
           />
         </View>
+        <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} />
         <BottomFade height={navClearance + 20} />
         <FloatingNavBar active={nav} onChange={setNav} scrollY={scrollY} />
+        <FeedMenu
+          open={menuOpen}
+          active={tab}
+          top={insets.top + SKY_BAR.height + 4}
+          onSelect={onPickFeed}
+          onClose={closeMenu}
+        />
       </View>
     </SkeletonSweep>
   );
