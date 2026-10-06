@@ -23,19 +23,24 @@ export const ROLL_IN_DELAY = 400;
  * change +$0.00), and a beat later `live`, so the first motion says how the day went; then every
  * fresh value as it lands. With Reduce Motion on it opens on `live`. Call it where the portfolio
  * outlives remounts (the screen): the list remounts the header on every tab switch, and neither the
- * roll-in nor the live value may restart there.
+ * roll-in nor the live value may restart there. While the portfolio is still loading (`undefined`)
+ * there is nothing to draw, and the beat starts when it arrives, not when the screen mounts.
  */
-export function useRollIn(live: Portfolio): Portfolio {
+export function useRollIn(live: Portfolio): Portfolio;
+export function useRollIn(live: Portfolio | undefined): Portfolio | undefined;
+export function useRollIn(live: Portfolio | undefined): Portfolio | undefined {
   const reduceMotion = useReducedMotion();
   const [rolled, setRolled] = useState(reduceMotion);
+  const arrived = live !== undefined;
 
   useEffect(() => {
-    if (rolled) return;
+    if (rolled || !arrived) return;
     const timer = setTimeout(() => setRolled(true), ROLL_IN_DELAY);
     return () => clearTimeout(timer);
-  }, [rolled]);
+  }, [rolled, arrived]);
 
   const dayAgo = useMemo(() => {
+    if (!live) return undefined;
     const opening = openingValue(live);
     return portfolioAt(opening, opening);
   }, [live]);

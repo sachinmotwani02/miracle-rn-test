@@ -9,12 +9,16 @@ import { Portfolio } from './types';
  * walked on for as long as the app was away (see utils/ticker). The 24h change follows the value.
  * A trip to `inactive` that never reached the background (Control Center, a call banner) is no return.
  * `rand` must keep its identity across renders (tests pass a seeded one); a new one restarts the walk.
+ * While the portfolio is still loading (`undefined`) there is nothing to walk, so nothing listens.
  */
-export function useLivePortfolio(start: Portfolio, rand: () => number = Math.random): Portfolio {
+export function useLivePortfolio(start: Portfolio, rand?: () => number): Portfolio;
+export function useLivePortfolio(start: Portfolio | undefined, rand?: () => number): Portfolio | undefined;
+export function useLivePortfolio(start: Portfolio | undefined, rand: () => number = Math.random): Portfolio | undefined {
   // Each refresh remembers the start it walked from, so a new `start` shows at once.
   const [latest, setLatest] = useState({ from: start, live: start });
 
   useEffect(() => {
+    if (!start) return;
     const opening = openingValue(start);
     let value = start.valueUsd;
     // When the app left, until a refresh lands; leaving again before then keeps the first time.

@@ -115,4 +115,18 @@ describe('useLivePortfolio', () => {
     expect(rand).not.toHaveBeenCalled();
     expect(subscription.remove).toHaveBeenCalled();
   });
+
+  it('is empty while the portfolio loads, then shows it and starts listening once it arrives', async () => {
+    const rand = mulberry32(8);
+    const { result, rerender } = await renderHook(
+      (s: typeof start | undefined) => useLivePortfolio(s, rand),
+      { initialProps: undefined as typeof start | undefined },
+    );
+    expect(result.current).toBeUndefined();
+    // Nothing to refresh yet, so nothing listens for returns from the background.
+    expect(addListener).not.toHaveBeenCalled();
+    await rerender(start);
+    expect(result.current).toBe(start);
+    expect(addListener).toHaveBeenCalledTimes(1);
+  });
 });

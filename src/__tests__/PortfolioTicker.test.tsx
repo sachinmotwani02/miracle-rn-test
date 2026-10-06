@@ -80,4 +80,25 @@ describe('useRollIn', () => {
     const { result } = await renderHook(() => useRollIn(start));
     expect(result.current).toBe(start);
   });
+
+  it('waits for a portfolio that is still loading, then rolls a beat after it arrives', async () => {
+    const { result, rerender } = await renderHook((live: typeof start | undefined) => useRollIn(live), {
+      initialProps: undefined as typeof start | undefined,
+    });
+    expect(result.current).toBeUndefined();
+    await act(async () => {
+      jest.advanceTimersByTime(5000); // loading takes longer than the beat
+    });
+    expect(result.current).toBeUndefined();
+    await rerender(start);
+    expect(result.current).toEqual(dayAgo);
+    await act(async () => {
+      jest.advanceTimersByTime(ROLL_IN_DELAY - 1);
+    });
+    expect(result.current).toEqual(dayAgo);
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+    expect(result.current).toBe(start);
+  });
 });
