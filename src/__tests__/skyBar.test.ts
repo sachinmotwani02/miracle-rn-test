@@ -19,12 +19,12 @@ const T = 59;
 const g = barGeometry(T, figmaHeader(T));
 
 describe('sky bar geometry', () => {
-  it('reads the Figma frame: Deposit pins at 24, the tabs rise from 198 and dock at 238', () => {
+  it('reads the Figma frame: Deposit pins at 24, the tabs rise from 190 and dock at 238', () => {
     expect(g.pin).toBe(24);
-    expect(g.riseStart).toBe(198);
+    expect(g.riseStart).toBe(190);
     expect(g.dock).toBe(238);
-    expect(g.feed).toBe(282);
-    expect(g.feedTop).toBe(244);
+    expect(g.feed).toBe(290);
+    expect(g.feedTop).toBe(236);
   });
 
   it('keeps the same offsets for a taller status bar, since the header moves down with it', () => {
@@ -47,10 +47,10 @@ describe('presence', () => {
     expect(nextPresence(0, 260, 280, g)).toBe(0);
   });
 
-  it('follows the finger in the feed: 44 pt up shows it, 44 pt down hides it', () => {
-    expect(nextPresence(0, 678, 700, g)).toBeCloseTo(0.5);
+  it('follows the finger in the feed: 52 pt up shows it, 52 pt down hides it', () => {
+    expect(nextPresence(0, 674, 700, g)).toBeCloseTo(0.5);
     expect(nextPresence(0, 600, 700, g)).toBe(1);
-    expect(nextPresence(1, 722, 700, g)).toBeCloseTo(0.5);
+    expect(nextPresence(1, 726, 700, g)).toBeCloseTo(0.5);
     expect(nextPresence(1, 800, 700, g)).toBe(0);
   });
 
@@ -75,28 +75,28 @@ describe('band edge', () => {
   });
 
   it('slides down over the first 60 pt with the bar shown', () => {
-    expect(bandEdge(30, 1, g)).toBe(T + 22);
-    expect(bandEdge(60, 1, g)).toBe(T + 44);
-    expect(bandEdge(150, 1, g)).toBe(T + 44);
+    expect(bandEdge(30, 1, g)).toBe(T + SKY_BAR.height / 2);
+    expect(bandEdge(60, 1, g)).toBe(T + SKY_BAR.height);
+    expect(bandEdge(150, 1, g)).toBe(T + SKY_BAR.height);
   });
 
   it('rides 8 pt above the rising tab row, without a jump where the ride starts', () => {
-    expect(bandEdge(g.riseStart, 1, g)).toBe(T + 44);
+    expect(bandEdge(g.riseStart, 1, g)).toBe(T + SKY_BAR.height);
     expect(bandEdge(218, 1, g)).toBe(309 - 218 - 8);
   });
 
   it('sits under the docked row, and slides with presence in the feed', () => {
-    expect(bandEdge(g.dock, 1, g)).toBe(T + 44);
-    expect(bandEdge(600, 0.5, g)).toBe(T + 22);
+    expect(bandEdge(g.dock, 1, g)).toBe(T + SKY_BAR.height);
+    expect(bandEdge(600, 0.5, g)).toBe(T + SKY_BAR.height / 2);
   });
 });
 
 describe('fold', () => {
-  it('runs over the 40 pt rise, and only with the bar shown', () => {
+  it('runs over the 48 pt rise, and only with the bar shown', () => {
     expect(foldProgress(g.riseStart, 1, g)).toBe(0);
-    expect(foldProgress(218, 1, g)).toBeCloseTo(0.5);
+    expect(foldProgress(214, 1, g)).toBeCloseTo(0.5);
     expect(foldProgress(g.dock, 1, g)).toBe(1);
-    expect(foldProgress(218, 0, g)).toBe(0);
+    expect(foldProgress(214, 0, g)).toBe(0);
   });
 
   it('slides every tab to the start; only the active one stays solid', () => {

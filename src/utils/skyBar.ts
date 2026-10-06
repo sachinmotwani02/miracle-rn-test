@@ -9,12 +9,16 @@
 
 export const SKY_BAR = {
   /** The bar's row under the status bar, pt. */
-  height: 44,
-  /** The 36 pt Deposit pill and the 20 pt tab row sit centred in the row. */
+  height: 52,
+  /** Where the 36 pt Deposit pill and the 20 pt tab row sit from the row's top; the rest is room below. */
   depositInset: 4,
   tabsInset: 12,
-  /** The tab row rises its last 40 pt into the bar, folding into the dropdown on the way. */
-  rise: 40,
+  /**
+   * The tab row rises its last 48 pt into the bar, folding into the dropdown on the way. It is the
+   * row's way from the bar's edge (with the ride gap) up to its slot: height - tabsInset + rideGap,
+   * so the edge riding above the row starts exactly where the shown bar's edge already is.
+   */
+  rise: 48,
   /** While the row rises, the bar's edge rides this far above it so the row stays in view. */
   rideGap: 8,
   /** Over the first 60 pt of scroll the edge slides down from under the status bar. */
@@ -88,7 +92,7 @@ export function barGeometry(top: number, header: HeaderLayout): BarGeometry {
 /**
  * The bar's presence (0 hidden, 1 shown) after the list scrolls from `prevY` to `y`: hidden at the
  * very top, held through the header so the hand-back runs with a settled bar, and following the
- * finger in the feed (44 pt of scroll up shows it fully, 44 pt down hides it).
+ * finger in the feed (52 pt of scroll up shows it fully, 52 pt down hides it).
  */
 export function nextPresence(h: number, y: number, prevY: number, g: BarGeometry): number {
   'worklet';

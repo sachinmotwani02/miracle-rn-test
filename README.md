@@ -128,10 +128,10 @@ bar text disappear. Now the top of the screen is always sky:
 
 1. **Scrolling down from the top, nothing sticks.** The portfolio block, Deposit, the carousel and the
    tabs scroll away under a strip of the sky behind the status bar, which stays light.
-2. **In the feed, a scroll up brings the bar.** A 44 pt sky bar slides down from under the status bar
-   holding a "Discover ⌄" feed dropdown and the Deposit pill. It follows the finger: 44 pt of scroll
-   up shows it, 44 pt down hides it, and stopping halfway snaps it to the nearer end.
-3. **Heading back to the top, it hands its controls back.** Over the last 40 pt the dropdown drops out
+2. **In the feed, a scroll up brings the bar.** A 52 pt sky bar slides down from under the status bar
+   holding a "Discover ⌄" feed dropdown and the Deposit pill. It follows the finger: 52 pt of scroll
+   up shows it, 52 pt down hides it, and stopping halfway snaps it to the nearer end.
+3. **Heading back to the top, it hands its controls back.** Over the last 48 pt the dropdown drops out
    of the bar and unfolds into the four tabs (the other tabs slide out of the active one and fade in,
    the chevron fades), and at 24 pt Deposit drops back into the portfolio row. Scrolling down from
    there plays it in reverse: the tabs fold into the dropdown as they rise into the bar.
