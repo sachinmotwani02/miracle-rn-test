@@ -233,7 +233,7 @@ function Discover({ latency }: { latency: Latency }) {
     // One subtle light sweep crosses every bone while anything is loading.
     <SkeletonSweep active={loading}>
       <View style={styles.root}>
-        <StatusBar style="light" />
+        <StatusBar style={bar.darkStatus ? 'dark' : 'light'} animated />
         <SkyBackground scrollY={scrollY} />
         <View style={styles.list}>
           <AnimatedFlashList

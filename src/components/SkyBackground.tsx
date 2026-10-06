@@ -33,6 +33,8 @@ interface WindowProps {
   offset: SharedValue<number>;
   /** The window's top on screen; it may move every frame. */
   top: SharedValue<number>;
+  /** Screen y of the view the window sits in, when that is not the top of the screen. */
+  parentTop?: number;
   left: number;
   width: number;
   height: number;
@@ -45,10 +47,19 @@ interface WindowProps {
  * A window onto the background sky: it shows exactly what SkyBackground draws at the same place on
  * screen, so it cannot be seen until something scrolls under it. The sky bar is built from these.
  */
-export function SkyWindow({ offset, top, left, width, height, radius = 0, blocksTouches = false }: WindowProps) {
+export function SkyWindow({
+  offset,
+  top,
+  parentTop = 0,
+  left,
+  width,
+  height,
+  radius = 0,
+  blocksTouches = false,
+}: WindowProps) {
   const { width: screen } = useWindowDimensions();
   const skyH = skyHeight(screen);
-  const frame = useAnimatedStyle(() => ({ transform: [{ translateY: top.value }] }));
+  const frame = useAnimatedStyle(() => ({ transform: [{ translateY: top.value - parentTop }] }));
   const sky = useAnimatedStyle(() => ({ transform: [{ translateY: -(offset.value + top.value) }] }));
   return (
     <Animated.View

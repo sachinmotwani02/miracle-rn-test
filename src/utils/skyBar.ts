@@ -52,6 +52,8 @@ export interface BarGeometry {
   feedTop: number;
   /** The tab row's top in content coordinates, for the edge that rides above it. */
   tabsTop: number;
+  /** The first card's top reaches the status bar; the sky behind it fades out from here. */
+  under: number;
 }
 
 /** The header as laid out from the Figma, for a status bar `top` pt tall (59 in the Figma frame). */
@@ -82,18 +84,31 @@ export function barGeometry(top: number, header: HeaderLayout): BarGeometry {
     feed: dock + SKY_BAR.height,
     feedTop: header.feedTop - (top + SKY_BAR.height),
     tabsTop: header.tabsTop,
+    under: header.feedTop - top,
   };
+}
+
+/**
+ * The header's strip of sky behind the status bar (opacity, 1 sky, 0 the light fade): it stays
+ * through the header and fades out as the first card rises through the status bar. The bar brings
+ * its own sky in the feed (`bandEdge`). With no status bar there is no strip to fade.
+ */
+export function statusSky(s: number, g: BarGeometry): number {
+  'worklet';
+  if (g.top <= 0) return 1;
+  return 1 - clamp01((s - g.under) / g.top);
 }
 
 /**
  * The bar's presence (0 hidden, 1 shown) after the list scrolls from `prevY` to `y`: hidden at the
  * very top, held through the header so the hand-back runs with a settled bar, and following the
- * finger in the feed (44 pt of scroll up shows it fully, 44 pt down hides it).
+ * finger 1:1 in the feed: the band is the status bar plus the 44 pt row tall, and it slides that
+ * far as the list scrolls that far.
  */
 export function nextPresence(h: number, y: number, prevY: number, g: BarGeometry): number {
   'worklet';
   if (y <= 0) return 0;
-  if (y >= g.feed) return clamp01(h - (y - prevY) / SKY_BAR.height);
+  if (y >= g.feed) return clamp01(h - (y - prevY) / (g.top + SKY_BAR.height));
   return h;
 }
 
@@ -112,15 +127,22 @@ export function settleTarget(h: number): number {
 /**
  * Screen y of the bar's bottom edge. With the bar shown it slides down from under the status bar
  * over the first 60 pt, rides 8 pt above the tab row while the row rises in, and sits under the row
- * once it docks; presence scales the whole thing back up under the status bar.
+ * once it docks; presence scales that back up under the status bar. From the dock on, the bar is one
+ * sheet of sky (status bar and row) that presence slides down from the top of the screen, so the
+ * status bar changes colour where its edge crosses it. Above `UNDER` the header's strip
+ * (`statusSky`) still covers the status bar, so the sheet's top part reads as that strip.
  */
 export function bandEdge(s: number, h: number, g: BarGeometry): number {
   'worklet';
-  let full: number;
-  if (s >= g.dock) full = g.top + SKY_BAR.height;
-  else if (s >= g.riseStart) full = g.tabsTop - s - SKY_BAR.rideGap;
-  else full = g.top + SKY_BAR.height * clamp01(s / SKY_BAR.descent);
+  if (s >= g.dock) return (g.top + SKY_BAR.height) * h;
+  const full = s >= g.riseStart ? g.tabsTop - s - SKY_BAR.rideGap : g.top + SKY_BAR.height * clamp01(s / SKY_BAR.descent);
   return g.top + (full - g.top) * h;
+}
+
+/** Dark status bar icons once the sky covers less than half the status bar. */
+export function statusDark(s: number, h: number, g: BarGeometry): boolean {
+  'worklet';
+  return g.top > 0 && statusSky(s, g) < 0.5 && bandEdge(s, h, g) < g.top / 2;
 }
 
 /** How far the tab row has folded into the dropdown (0..1), only while the bar is there to take it. */
@@ -135,10 +157,13 @@ export function skyOffset(s: number, g: BarGeometry): number {
   return SKY_BAR.parallax * Math.min(Math.max(s, 0), Math.max(g.dock, 0));
 }
 
-/** How far above their slots the bar's controls sit: they slide out under the status bar. */
-export function barLift(h: number): number {
+/**
+ * How far above their slots the bar's controls sit. They slide out from under the status bar, and
+ * from the dock on ride the sheet's edge (which starts at the top of the screen, so further up).
+ */
+export function barLift(s: number, h: number, g: BarGeometry): number {
   'worklet';
-  return (1 - h) * SKY_BAR.height;
+  return (1 - h) * (s >= g.dock ? g.top + SKY_BAR.height : SKY_BAR.height);
 }
 
 export function depositPinned(s: number, h: number, g: BarGeometry): boolean {

@@ -22,6 +22,8 @@ import {
   foldProgress,
   nextPresence,
   settleTarget,
+  statusDark,
+  statusSky,
   tabsDocked,
 } from '../utils/skyBar';
 
@@ -32,12 +34,16 @@ export interface SkyBarState {
   geometry: SharedValue<BarGeometry>;
   /** 0..1 as the tab row folds into the dropdown. */
   fold: SharedValue<number>;
+  /** The header's strip of sky behind the status bar: 1 sky, 0 faded out over the feed. */
+  sky: SharedValue<number>;
   /** Status bar height. */
   top: number;
-  /** Threshold flags for touch and accessibility, flipped from the UI thread. */
+  /** Threshold flags for touch, accessibility and the status bar, flipped from the UI thread. */
   pinned: boolean;
   docked: boolean;
   folded: boolean;
+  /** The sky covers less than half the status bar, so its icons go dark over the light fade. */
+  darkStatus: boolean;
   /** Scroll offset that puts the first card right under the bar. */
   feedTop: number;
   scrollHandler: ReturnType<typeof useAnimatedScrollHandler>;
@@ -49,6 +55,7 @@ export interface SkyBarState {
 const PINNED = 1;
 const DOCKED = 2;
 const FOLDED = 4;
+const DARK_STATUS = 8;
 
 /**
  * State for the sky bar (src/components/SkyBar.tsx). `scrollY` is the screen's scroll offset;
@@ -89,6 +96,7 @@ export function useSkyBar(scrollY: SharedValue<number>, top: number): SkyBarStat
   });
 
   const fold = useDerivedValue(() => foldProgress(scrollY.value, presence.value, geometry.value));
+  const sky = useDerivedValue(() => statusSky(scrollY.value, geometry.value));
 
   const [flags, setFlags] = useState(0);
   useAnimatedReaction(
@@ -97,7 +105,10 @@ export function useSkyBar(scrollY: SharedValue<number>, top: number): SkyBarStat
       const h = presence.value;
       const geo = geometry.value;
       return (
-        (depositPinned(s, h, geo) ? PINNED : 0) | (tabsDocked(s, h, geo) ? DOCKED : 0) | (fold.value >= 0.5 ? FOLDED : 0)
+        (depositPinned(s, h, geo) ? PINNED : 0) |
+        (tabsDocked(s, h, geo) ? DOCKED : 0) |
+        (fold.value >= 0.5 ? FOLDED : 0) |
+        (statusDark(s, h, geo) ? DARK_STATUS : 0)
       );
     },
     (next, prev) => {
@@ -125,10 +136,12 @@ export function useSkyBar(scrollY: SharedValue<number>, top: number): SkyBarStat
     presence,
     geometry,
     fold,
+    sky,
     top,
     pinned: (flags & PINNED) !== 0,
     docked: (flags & DOCKED) !== 0,
     folded: (flags & FOLDED) !== 0,
+    darkStatus: (flags & DARK_STATUS) !== 0,
     feedTop: g.feedTop,
     scrollHandler,
     onHeaderLayout,

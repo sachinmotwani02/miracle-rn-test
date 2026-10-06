@@ -12,6 +12,8 @@ import {
   nextPresence,
   settleTarget,
   skyOffset,
+  statusDark,
+  statusSky,
   tabsDocked,
 } from '../utils/skyBar';
 
@@ -25,6 +27,7 @@ describe('sky bar geometry', () => {
     expect(g.dock).toBe(238);
     expect(g.feed).toBe(282);
     expect(g.feedTop).toBe(244);
+    expect(g.under).toBe(288);
   });
 
   it('keeps the same offsets for a taller status bar, since the header moves down with it', () => {
@@ -32,6 +35,7 @@ describe('sky bar geometry', () => {
     expect(tall.pin).toBe(g.pin);
     expect(tall.dock).toBe(g.dock);
     expect(tall.feedTop).toBe(g.feedTop);
+    expect(tall.under).toBe(g.under);
   });
 });
 
@@ -47,11 +51,12 @@ describe('presence', () => {
     expect(nextPresence(0, 260, 280, g)).toBe(0);
   });
 
-  it('follows the finger in the feed: 44 pt up shows it, 44 pt down hides it', () => {
-    expect(nextPresence(0, 678, 700, g)).toBeCloseTo(0.5);
-    expect(nextPresence(0, 600, 700, g)).toBe(1);
-    expect(nextPresence(1, 722, 700, g)).toBeCloseTo(0.5);
-    expect(nextPresence(1, 800, 700, g)).toBe(0);
+  it('follows the finger 1:1 in the feed: the full band height (T + 44 pt) shows or hides it', () => {
+    const full = T + SKY_BAR.height;
+    expect(nextPresence(0, 700 - full / 2, 700, g)).toBeCloseTo(0.5);
+    expect(nextPresence(0, 700 - full, 700, g)).toBe(1);
+    expect(nextPresence(1, 700 + full / 2, 700, g)).toBeCloseTo(0.5);
+    expect(nextPresence(1, 700 + full, 700, g)).toBe(0);
   });
 
   it('finishes sliding in when the list crosses back into the header partway', () => {
@@ -68,10 +73,14 @@ describe('presence', () => {
 });
 
 describe('band edge', () => {
-  it('sits under the status bar at rest and whenever the bar is hidden', () => {
+  it('sits under the status bar at rest and through the header with the bar hidden', () => {
     expect(bandEdge(0, 1, g)).toBe(T);
     expect(bandEdge(150, 0, g)).toBe(T);
-    expect(bandEdge(600, 0, g)).toBe(T);
+  });
+
+  it('is off the top of the screen from the dock on with the bar hidden', () => {
+    expect(bandEdge(g.dock, 0, g)).toBe(0);
+    expect(bandEdge(900, 0, g)).toBe(0);
   });
 
   it('slides down over the first 60 pt with the bar shown', () => {
@@ -85,9 +94,17 @@ describe('band edge', () => {
     expect(bandEdge(218, 1, g)).toBe(309 - 218 - 8);
   });
 
-  it('sits under the docked row, and slides with presence in the feed', () => {
+  it('sits under the docked row, and slides in from the top of the screen in the feed', () => {
     expect(bandEdge(g.dock, 1, g)).toBe(T + 44);
-    expect(bandEdge(600, 0.5, g)).toBe(T + 22);
+    expect(bandEdge(900, 0.5, g)).toBe((T + 44) / 2);
+    expect(bandEdge(900, 1, g)).toBe(T + 44);
+  });
+
+  it('has no jump at the first card: the fade and the bar are separate layers', () => {
+    for (const h of [0, 0.3, 0.7, 1]) {
+      expect(bandEdge(g.under + 1e-9, h, g)).toBeCloseTo(bandEdge(g.under, h, g));
+      expect(bandEdge(g.under + T - 1e-9, h, g)).toBeCloseTo(bandEdge(g.under + T, h, g));
+    }
   });
 });
 
@@ -128,9 +145,13 @@ describe('sky and visibility', () => {
     expect(skyOffset(-40, g)).toBe(0);
   });
 
-  it('lifts the controls under the status bar as the bar hides', () => {
-    expect(barLift(1)).toBe(0);
-    expect(barLift(0)).toBe(SKY_BAR.height);
+  it('lifts the controls under the status bar as the bar hides, keeping them on its edge', () => {
+    expect(barLift(150, 1, g)).toBe(0);
+    expect(barLift(150, 0, g)).toBe(SKY_BAR.height);
+    for (const [s, h] of [[900, 0.5], [g.under + 20, 0.3], [g.dock, 0.6], [g.dock, 1]]) {
+      // The controls' row bottom (T + 44 - lift) sits on the band's bottom edge.
+      expect(T + SKY_BAR.height - barLift(s, h, g)).toBeCloseTo(bandEdge(s, h, g));
+    }
   });
 
   it('pins Deposit and docks the tabs only with the bar shown', () => {
@@ -140,5 +161,31 @@ describe('sky and visibility', () => {
     expect(tabsDocked(237, 1, g)).toBe(false);
     expect(tabsDocked(238, 1, g)).toBe(true);
     expect(tabsDocked(600, 0, g)).toBe(false);
+  });
+});
+
+describe('behind the status bar', () => {
+  it('keeps the header sky until the first card reaches the status bar, then fades it out', () => {
+    expect(statusSky(0, g)).toBe(1);
+    expect(statusSky(g.under, g)).toBe(1);
+    expect(statusSky(g.under + T / 2, g)).toBeCloseTo(0.5);
+    expect(statusSky(g.under + T, g)).toBe(0);
+    expect(statusSky(900, g)).toBe(0);
+  });
+
+  it('turns the icons dark once neither the header sky nor the bar covers half the status bar', () => {
+    expect(statusDark(0, 0, g)).toBe(false);
+    expect(statusDark(g.under + T / 2 - 1, 0, g)).toBe(false);
+    expect(statusDark(g.under + T / 2 + 1, 0, g)).toBe(true);
+    expect(statusDark(900, 0, g)).toBe(true);
+    // In the feed the edge of the bar has to come down past the middle of the status bar.
+    const half = T / 2 / (T + SKY_BAR.height);
+    expect(statusDark(900, half - 0.01, g)).toBe(true);
+    expect(statusDark(900, half + 0.01, g)).toBe(false);
+  });
+
+  it('keeps light icons without a status bar', () => {
+    expect(statusDark(900, 0, barGeometry(0, figmaHeader(0)))).toBe(false);
+    expect(statusSky(900, barGeometry(0, figmaHeader(0)))).toBe(1);
   });
 });

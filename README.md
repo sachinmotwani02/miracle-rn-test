@@ -27,7 +27,7 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no de
 | Area | Implementation |
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
-| Sky bar | A strip of that sky under the status bar that the header scrolls under; on scroll up in the feed it brings a feed dropdown and Deposit (see below). |
+| Sky bar | That sky behind the status bar while the header scrolls under it, and a light fade there over the feed; on scroll up in the feed it brings a feed dropdown and Deposit (see below). |
 | Portfolio header | Label, value and 24h change (bones until the portfolio loads, then the loaded figures, which hold still), glass Deposit pill (the Figma's white gradient with its drop shadow and inner glow). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, a 100 ms crossfade; it folds into the sky bar's feed dropdown on scroll. Each tab shows a different slice of the mock feed. |
@@ -123,13 +123,16 @@ folder: { … }, replay: { type: 'action' } }, { onAction })`.
 
 The header lives in the list, so without help it scrolled straight under a transparent status bar:
 "Your portfolio" and Deposit collided with the clock, and the white cards then made the white status
-bar text disappear. Now the top of the screen is always sky:
+bar text disappear. Now the status bar sits on sky over the header and on a light fade over the feed:
 
 1. **Scrolling down from the top, nothing sticks.** The portfolio block, Deposit, the carousel and the
-   tabs scroll away under a strip of the sky behind the status bar, which stays light.
-2. **In the feed, a scroll up brings the bar.** A 44 pt sky bar slides down from under the status bar
-   holding a "Discover ⌄" feed dropdown and the Deposit pill. It follows the finger: 44 pt of scroll
-   up shows it, 44 pt down hides it, and stopping halfway snaps it to the nearer end.
+   tabs scroll away under the sky behind the status bar. As the first card reaches the top, that sky
+   fades into a light fade like the one above the nav bar, and the status bar icons turn dark.
+2. **In the feed, a scroll up brings the bar.** One sheet of sky slides down from the top of the
+   screen, covering the status bar and then a 44 pt row holding a "Discover ⌄" feed dropdown and the
+   Deposit pill, which ride its bottom edge. It follows the finger 1:1 (the icons turn light after
+   ~30 pt, not on a nudge), the same scroll down pushes it back off, and stopping halfway snaps it to
+   the nearer end.
 3. **Heading back to the top, it hands its controls back.** Over the last 40 pt the dropdown drops out
    of the bar and unfolds into the four tabs (the other tabs slide out of the active one and fade in,
    the chevron fades), and at 24 pt Deposit drops back into the portfolio row. Scrolling down from
