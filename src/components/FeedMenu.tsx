@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { BlurView } from 'expo-blur';
 import { TABS, TabKey } from '../data/types';
@@ -10,10 +10,16 @@ import { haptic } from '../utils/haptics';
 const ROW = 40;
 const PAD = 8;
 const WIDTH = 180;
-/** Quick and critically damped (ratio 1), like the nav pill: it lands without overshoot. */
-const SETTLE = { mass: 1, stiffness: 400, damping: 40 } as const;
-/** The lens reaches the pick before the menu closes and the feed switches, ms. */
-const PICK_DELAY = 140;
+/**
+ * Quick, with no tail: a strong ease-out (quint) puts most of each move in its first frames and
+ * stops dead, where the earlier critically damped spring spent 300-400 ms settling.
+ */
+const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
+const OPEN = { duration: 160, easing: EASE_OUT };
+const CLOSE = { duration: 100, easing: EASE_OUT };
+const LENS = { duration: 150, easing: EASE_OUT };
+/** The lens is nearly on the pick (90% by ~60 ms) when the menu closes and the feed switches, ms. */
+const PICK_DELAY = 80;
 
 interface Props {
   open: boolean;
@@ -38,13 +44,14 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
   const [mounted, setMounted] = useState(open);
   if (open && !mounted) setMounted(true);
 
-  useEffect(() => {
+  // Before paint, so the menu's first frame is already on its way in.
+  useLayoutEffect(() => {
     if (open) {
       lens.set(indexOf(active) * ROW);
-      progress.set(withSpring(1, SETTLE));
+      progress.set(withTiming(1, OPEN));
     } else {
       progress.set(
-        withTiming(0, { duration: 140 }, done => {
+        withTiming(0, CLOSE, done => {
           if (done) scheduleOnRN(setMounted, false);
         }),
       );
@@ -53,7 +60,7 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
 
   const card = useAnimatedStyle(() => ({
     opacity: Math.min(1, progress.value * 1.5),
-    transform: [{ scale: reduceMotion ? 1 : 0.92 + 0.08 * progress.value }],
+    transform: [{ scale: reduceMotion ? 1 : 0.94 + 0.06 * progress.value }],
   }));
   const lensStyle = useAnimatedStyle(() => ({ transform: [{ translateY: lens.value }] }));
 
@@ -61,7 +68,7 @@ export function FeedMenu({ open, active, top, onSelect, onClose }: Props) {
 
   const pick = (tab: TabKey) => {
     haptic('selection');
-    lens.set(withSpring(indexOf(tab) * ROW, SETTLE));
+    lens.set(withTiming(indexOf(tab) * ROW, LENS));
     setTimeout(() => onSelect(tab), PICK_DELAY);
   };
 
