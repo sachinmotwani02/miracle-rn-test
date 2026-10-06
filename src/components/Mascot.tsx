@@ -309,6 +309,9 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       return;
     }
     queued.current += 1;
+    // On presses over 130 ms Pressability fires onPressOut (relax, which frees the idle face)
+    // before onPress, so claim the face again here or an idle blink can cut into the turn.
+    busy.current = true;
     target.current += 360;
     const to = target.current;
     // The turn, about the vertical axis: a spring that overshoots and swings back to face us.
