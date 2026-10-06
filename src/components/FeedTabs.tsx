@@ -111,7 +111,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: layout.tabGap,
     paddingHorizontal: layout.screenPadding,
-    height: 20,
+    // Grows with a larger system text size; the sky bar measures where it ends up.
+    minHeight: 20,
   },
   // Folding tabs shrink toward their left edge, where the dropdown's label starts.
   tab: { transformOrigin: 'left center' },

@@ -92,6 +92,6 @@ const styles = StyleSheet.create({
   layer: { position: 'absolute', top: 0, left: 0, pointerEvents: 'none' },
   deposit: { position: 'absolute', top: 0 },
   dropdown: { position: 'absolute', top: 0, left: layout.screenPadding },
-  dropdownRow: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 20 },
+  dropdownRow: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 20 },
   dropdownLabel: { color: colors.white },
 });

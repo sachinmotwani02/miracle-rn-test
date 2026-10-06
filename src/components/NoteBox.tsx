@@ -1,10 +1,21 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated';
 import { colors, layout, text } from '../theme';
 
 const LINE = 16;
-const COLLAPSED = LINE * 2;
+/** The note follows the system text size up to this much. */
+const MAX_SCALE = 1.2;
+
+/**
+ * The two-line clamp's height. Line height scales with the text, so at 1.2x two lines need 38.4 pt
+ * and a fixed 32 cut into the second. Rounded up: the clamp draws only two lines, so a spare
+ * fraction of a point shows nothing more.
+ */
+export function collapsedHeight(fontScale: number): number {
+  return Math.ceil(LINE * 2 * Math.min(fontScale, MAX_SCALE));
+}
+
 // A strong ease-out rather than a spring: the box glides to its new height and stops dead, no bounce.
 export const REVEAL = { duration: 320, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
@@ -24,10 +35,12 @@ interface Props {
  * Figma: 12pt padding, 2pt gap, 20pt "Read more" line, 8pt bottom padding, radius 20.
  */
 export function NoteBox({ note, expanded, onToggle }: Props) {
-  const [fullHeight, setFullHeight] = useState(COLLAPSED);
+  const collapsed = collapsedHeight(useWindowDimensions().fontScale);
+  const [measured, setMeasured] = useState(0);
+  const fullHeight = Math.max(collapsed, measured);
   const measureRef = useRef<Text>(null);
   const applyHeight = useCallback((height: number) => {
-    setFullHeight(Math.max(COLLAPSED, Math.round(height)));
+    setMeasured(Math.round(height));
   }, []);
   useLayoutEffect(() => {
     const height = measureRef.current?.getBoundingClientRect?.().height;
@@ -36,17 +49,21 @@ export function NoteBox({ note, expanded, onToggle }: Props) {
   // Still listens for later changes (width, font scale); an unchanged height does not re-render.
   const onMeasure = useCallback((e: LayoutChangeEvent) => applyHeight(e.nativeEvent.layout.height), [applyHeight]);
   const target = useDerivedValue(
-    () => withTiming(expanded ? fullHeight : COLLAPSED, REVEAL),
-    [expanded, fullHeight],
+    () => withTiming(expanded ? fullHeight : collapsed, REVEAL),
+    [expanded, fullHeight, collapsed],
   );
   const style = useAnimatedStyle(() => ({ height: target.value }));
-  const needsToggle = fullHeight > COLLAPSED;
+  const needsToggle = fullHeight > collapsed;
 
   return (
     <View style={styles.box}>
       <Animated.View style={[styles.clip, style]}>
         {/* Collapsed: a real two-line clamp so the second line ends in "…" as in the Figma. */}
-        <Text style={[text.note, styles.note]} numberOfLines={expanded ? undefined : 2} maxFontSizeMultiplier={1.2}>
+        <Text
+          style={[text.note, styles.note]}
+          numberOfLines={expanded ? undefined : 2}
+          maxFontSizeMultiplier={MAX_SCALE}
+        >
           {note}
         </Text>
       </Animated.View>
@@ -54,7 +71,7 @@ export function NoteBox({ note, expanded, onToggle }: Props) {
         ref={measureRef}
         onLayout={onMeasure}
         style={[text.note, styles.note, styles.measure]}
-        maxFontSizeMultiplier={1.2}
+        maxFontSizeMultiplier={MAX_SCALE}
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
@@ -62,7 +79,7 @@ export function NoteBox({ note, expanded, onToggle }: Props) {
       </Text>
       {needsToggle && (
         <Pressable onPress={onToggle} hitSlop={8} accessibilityRole="button" style={styles.more}>
-          <Text style={[text.link, styles.link]} maxFontSizeMultiplier={1.2}>
+          <Text style={[text.link, styles.link]} maxFontSizeMultiplier={MAX_SCALE}>
             {expanded ? 'Show less' : 'Read more'}
           </Text>
         </Pressable>

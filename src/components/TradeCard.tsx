@@ -108,15 +108,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.noteInset,
     paddingBottom: layout.noteInset,
   },
-  // Figma: 40pt text column (name 20 + 4 + stats 16) with the 36pt avatar centred on it.
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: INNER, height: 40 },
+  // Figma: 40pt text column (name 20 + 4 + stats 16) with the 36pt avatar centred on it. Rows that
+  // hold text take their Figma heights as minimums, so they grow with a larger system text size.
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: INNER, minHeight: 40 },
   avatar: { marginTop: 2 },
   headerText: { flex: 1, gap: 4 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', height: 20 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', minHeight: 20 },
   name: { color: colors.textPrimary, flexShrink: 1 },
-  pill: { height: 16, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 3 },
+  pill: { minHeight: 16, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginLeft: 3 },
   age: { marginLeft: 6 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', height: 16 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', minHeight: 16 },
   meta: { color: colors.textSecondary },
   dot: { width: 2, height: 2, borderRadius: 1, backgroundColor: colors.dot, marginHorizontal: 4 },
   thread: {
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: INNER,
   },
   assetText: { flex: 1 },
-  assetName: { color: colors.textPrimary, height: 22 },
+  assetName: { color: colors.textPrimary, minHeight: 22 },
   // On a narrow phone the change drops to a line of its own and the row grows to fit it, so the
   // note below never covers it. A column gap rather than a margin, so the wrapped line is not indented.
   priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 5, minHeight: 16 },
