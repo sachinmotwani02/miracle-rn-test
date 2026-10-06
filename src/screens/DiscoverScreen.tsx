@@ -5,7 +5,6 @@ import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedV
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
-import { useLivePortfolio } from '../data/live';
 import { clearResources, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
@@ -15,7 +14,6 @@ import { SKELETON } from '../utils/skeleton';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
-import { useRollIn } from '../components/PortfolioTicker';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
@@ -99,9 +97,6 @@ function Discover({ latency }: { latency: Latency }) {
   // Cold start loads all three at once with bones from the first frame; a tab's first visit loads
   // its feed behind a short show delay; anything loaded before comes straight from the cache.
   const portfolio = useResource('portfolio', () => fetchPortfolio(latency.portfolio));
-  // Held here, above the cards, so a tab switch restarts neither; Replay remounts Discover and rolls again.
-  const livePortfolio = useLivePortfolio(portfolio.data);
-  const shownPortfolio = useRollIn(livePortfolio);
   const topTrades = useResource('topTrades', () => fetchTopTrades(latency.topTrades));
   // The feed follows the deferred tab, so a tap repaints its label before the cards change.
   const cold = shown.tab === firstTab;
@@ -195,7 +190,7 @@ function Discover({ latency }: { latency: Latency }) {
       // The sky bar measures where Deposit, the tabs and the first card sit.
       <View style={{ paddingTop: insets.top + 11 }} onLayout={bar.onHeaderLayout}>
         <View onLayout={bar.onPortfolioLayout} {...a11yHidden(bar.pinned)}>
-          <PortfolioHeader portfolio={livePortfolio} shown={shownPortfolio} reveal={portfolio.revealing} />
+          <PortfolioHeader portfolio={portfolio.data} reveal={portfolio.revealing} />
         </View>
         <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades.data} reveal={topTrades.revealing} />
@@ -216,8 +211,7 @@ function Discover({ latency }: { latency: Latency }) {
       insets.top,
       selection.tab,
       onTab,
-      livePortfolio,
-      shownPortfolio,
+      portfolio.data,
       portfolio.revealing,
       topTrades.data,
       topTrades.revealing,

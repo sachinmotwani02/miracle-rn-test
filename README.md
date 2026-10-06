@@ -11,7 +11,7 @@ TypeScript), with UI-thread animation and a floating nav bar that has an idea be
 ## Running it
 
 ```bash
-npm install               # also applies patches/ (patch-package, see Trade-offs)
+npm install
 npx expo start            # scan with Expo Go (iOS or Android), or press i / a for a simulator
 npx expo start --web      # browser preview (used for the fidelity pass below)
 npm test                  # jest unit tests
@@ -20,8 +20,7 @@ npm run lint              # expo lint (ESLint 9, eslint-config-expo)
 ```
 
 Every native dependency is in Expo Go's module list (Reanimated 4, Gesture Handler, SVG, Blur, Linear
-Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), and the one addition,
-`number-flow-react-native`, is plain JavaScript on Reanimated, so no dev build is needed.
+Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), so no dev build is needed.
 
 ## What is on the screen
 
@@ -29,7 +28,7 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), and the 
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
 | Sky bar | A strip of that sky under the status bar that the header scrolls under; on scroll up in the feed it brings a feed dropdown and Deposit (see below). |
-| Portfolio header | Label, value and 24h change (bones until the portfolio loads; then they roll up from the 24h-ago figures, and to a fresh value when you come back to the app), glass Deposit pill (the Figma's white gradient with its drop shadow and inner glow). |
+| Portfolio header | Label, value and 24h change (bones until the portfolio loads, then the loaded figures, which hold still), glass Deposit pill (the Figma's white gradient with its drop shadow and inner glow). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
 | Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, a 100 ms crossfade; it folds into the sky bar's feed dropdown on scroll. Each tab shows a different slice of the mock feed. |
 | Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
@@ -152,16 +151,11 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
 - Sparkline draws in once per card (stroke-dash offset through `animatedProps` on an SVG `Path`),
   entry markers pop as the line reaches them, the end dot lands last. A module-level set of ids makes
   sure recycled FlashList rows never replay it.
-- The portfolio numbers move only when their data does. When the portfolio loads (its bones hand
-  over) they start where it stood 24 hours ago ($11,993.50, +$0.00) and a beat later roll up to now,
-  so the first motion says how the day went. When you come back to the app, a fresh value lands
-  400 ms later: a simulated market (`src/data/live.ts`, maths in `src/utils/ticker.ts`) has walked on
-  for as long as you were away, pulled back toward where it started so it never strays far, and the
-  24h change is recomputed against the value 24 hours ago so the two lines always agree.
-  `number-flow-react-native` rolls only the digits that changed (900 ms, on the UI thread), upward
-  when the value rises. Screen readers always hear the current figures; with Reduce Motion on the
-  numbers open on them. Both hooks live in the screen rather than the header, so a tab change
-  neither replays the roll nor drops a refresh (Replay cold start remounts the screen and rolls again).
+- The portfolio numbers are plain text: the bones hand over to the loaded figures and they hold
+  still. A rolling-digit version (`number-flow-react-native`) was tried, rolling up from the 24h-ago
+  figures on open and to a simulated fresh value on return to the app. On a phone the opening roll ran
+  while the bones were still crossfading into the carousel and cards, and two arrivals at once read as
+  a mess; with mock data no fresh value ever really arrives, so the library and its patch went too.
 - Cards that replace the loading bones crossfade in place (below); cards that arrive without bones
   on the first load enter with a staggered fade and 12 pt rise, the first five only.
 - Tab switches are instant, because they happen all the time. The tapped label brightens with a
@@ -176,7 +170,7 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
 - Deposit button and nav icons scale on press (Deposit's springs spell out mass 1, since
   Reanimated 4 defaults to mass 4); sky parallax at 0.3×.
 
-Nothing else moves. Apart from those two moments for the numbers, the sky bar's scroll-linked
+Nothing else moves. Apart from the sky bar's scroll-linked
 motion and the loading skeleton (below), the header, carousel and cards are static by design.
 
 ## Loading skeleton
@@ -215,9 +209,8 @@ and are cached for the session by a small store that also owns the loading timin
   FlashList calls it as a function.)
 - Sparkline geometry (`src/utils/sparkline.ts`) is computed once per item with `useMemo` and
   rendered with `react-native-svg`, not images.
-- No per-frame JS work: scroll, sky bar, pill, mascot, draw-in and the digit rolls are all worklets.
-  The portfolio figures re-render the list header only when they change: once as the portfolio
-  loads and rolls in, and once per return to the app.
+- No per-frame JS work: scroll, sky bar, pill, mascot, and draw-in are all worklets.
+  The portfolio figures re-render the list header once, as the portfolio loads.
 - A tab tap lights its label in a commit of its own; the cards follow in a deferred render
   (`useDeferredValue`), so the label never waits for them. The nav bar is memoised, so feed tab
   switches leave it and the ghost alone.
@@ -229,8 +222,7 @@ and are cached for the session by a small store that also owns the loading timin
   which lands the bar 36 pt above the bottom on an iPhone with a home indicator, as in the Figma).
 - The feed has bottom padding so the last card clears the bar; layout is flex-based so other widths
   reflow (cards keep 4 pt margins, the carousel keeps its 204 pt cards and snaps).
-- Dense rows clamp Dynamic Type with `maxFontSizeMultiplier` 1.2–1.3. NumberFlow has no such prop,
-  so the live numbers pre-shrink their type above the cap to the same effect (`src/utils/flowStyle.ts`).
+- Dense rows clamp Dynamic Type with `maxFontSizeMultiplier` 1.2–1.3.
 - Android: the nav bar uses a solid colour instead of `BlurView` and the bottom edge uses a plain
   gradient instead of the masked progressive blur. Web gets the same fallbacks.
 
@@ -241,12 +233,8 @@ the mock data (determinism, per-tab subsets, Figma values on the first card), th
 the sky bar's scroll maths (thresholds from the Figma, presence, band edge, fold), plus the loading
 skeleton: the mock api and its hold switch, the resource store's timing (cold
 start, cache hit, show delay, minimum time, reveal window, clear) with fake timers, the bone maths,
-and that each skeleton region is announced once as busy. The portfolio numbers are covered too: the
-random walk (whole cents, step sizes, pull back to the start, how far it gets for the time away), the
-live hook (still while open, a refresh on return but not after a trip to inactive, cleanup, nothing
-until the portfolio loads), the opening roll (24h-ago figures first, the beat counted from the
-portfolio's arrival, Reduce Motion) and the screen-reader labels, and the patched NumberFlow (glyphs
-placed with the tracking, clips untouched; these fail if the patch was not applied).
+and that each skeleton region is announced once as busy. The portfolio figures are covered too (the
+loaded values, a signed loss).
 The motion maths has its own tests: the ghost's breath, eyes and turns (and its press handling
 through the real Pressability), the card entrance, the nav pill's stretch, nav shrink, the Deposit
 springs' overshoot and settle, and the Dials store.
@@ -261,18 +249,8 @@ entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade
   compared against the exact Figma geometry (every measured box lands within 1 pt). The native-only paths
   (`BlurView`, `MaskedView`, haptics) follow the documented APIs. A later pass on an iPhone
   confirmed the layout and caught two things: the count-up not applying on the new architecture
-  (since replaced by the live value) and native Liquid Glass drifting from the design (replaced by
+  (since replaced by static figures) and native Liquid Glass drifting from the design (replaced by
   the faked glass above). A real-device recording is still to do.
-- **Live value: a patched library.** `number-flow-react-native` 0.5.1 ignores `letterSpacing`: it
-  places each glyph at the sum of the measured widths before it, so the value lost the Figma's −3%
-  tracking and rendered about 10 pt wider than the static text. `patches/number-flow-react-native+0.5.1.patch`
-  (applied by `patch-package` on every `npm install`) adds the tracking to those positions only; each
-  rolling digit keeps its full glyph width as its clip, so nothing is shaved. On web every glyph now
-  lands within about 1 px of a tracked Text (`src/__tests__/numberFlowPatch.test.tsx` covers the maths
-  and the component). The library is pinned to exactly 0.5.1 because a patch is tied to one version.
-  Its edge fade needs a masked view (`@expo/ui`), so without one each rolling digit fades on its own
-  instead. 0.5.1 can also leave a fading digit stuck if a roll is interrupted; the numbers change only
-  as the portfolio loads and on each return to the app, seconds apart, so every roll finishes first.
 - **Assets.** The verified seal, swap badge, coin logos and nav icons are hand-drawn SVGs matched to
   the capture rather than exported vectors. Two avatar photos are reused across the mock feed.
 - **Fonts.** iOS renders the design's SF Pro Rounded; Android and web substitute Nunito (see
@@ -300,6 +278,4 @@ entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade
    exported.
 4. Add gesture-driven dismissal of the nav bar and a pull-to-refresh that reuses the mascot.
 5. More component tests with `@testing-library/react-native`, for the card's "Read more" and the
-   carousel (the screen, the ghost and the ticker have them).
-6. Offer the `letterSpacing` support upstream to number-flow-react-native and drop the local patch
-   once a release includes it.
+   carousel (the screen, the ghost and the portfolio figures have them).

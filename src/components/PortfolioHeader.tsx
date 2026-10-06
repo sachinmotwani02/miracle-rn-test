@@ -3,23 +3,14 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Portfolio } from '../data/types';
 import { colors, layout, text } from '../theme';
 import { DepositButton } from './DepositButton';
-import { PortfolioTicker } from './PortfolioTicker';
+import { PortfolioFigures } from './PortfolioFigures';
 import { PortfolioBones } from './skeleton/PortfolioBones';
 import { Reveal } from './skeleton/Reveal';
 
 /**
  * Until the portfolio arrives the value and delta are bones; the label and Deposit stay real.
- * `shown` is what the numbers draw while they roll in (see useRollIn); screen readers hear `portfolio`.
  */
-export function PortfolioHeader({
-  portfolio,
-  shown,
-  reveal = false,
-}: {
-  portfolio?: Portfolio;
-  shown?: Portfolio;
-  reveal?: boolean;
-}) {
+export function PortfolioHeader({ portfolio, reveal = false }: { portfolio?: Portfolio; reveal?: boolean }) {
   return (
     <View style={styles.row}>
       <View style={styles.left}>
@@ -28,7 +19,7 @@ export function PortfolioHeader({
         </Text>
         {portfolio ? (
           <Reveal active={reveal} bones={<PortfolioBones />}>
-            <PortfolioTicker portfolio={portfolio} shown={shown} />
+            <PortfolioFigures portfolio={portfolio} />
           </Reveal>
         ) : (
           <PortfolioBones />
