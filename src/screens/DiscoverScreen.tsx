@@ -54,17 +54,17 @@ export function DiscoverScreen() {
         // Hold the direction while events keep arriving, then decay to idle so the
         // nav bar springs back as soon as the scroll pauses (wheel scrolling on web
         // never fires the drag/momentum end events).
-        scrollDirection.value = dy > 0 ? 1 : -1;
-        scrollDirection.value = withDelay(220, withTiming(0, { duration: 1 }));
+        scrollDirection.set(dy > 0 ? 1 : -1);
+        scrollDirection.set(withDelay(220, withTiming(0, { duration: 1 })));
       }
-      lastY.value = y;
-      scrollY.value = y;
+      lastY.set(y);
+      scrollY.set(y);
     },
     onEndDrag: () => {
-      scrollDirection.value = 0;
+      scrollDirection.set(0);
     },
     onMomentumEnd: () => {
-      scrollDirection.value = 0;
+      scrollDirection.set(0);
     },
   });
 

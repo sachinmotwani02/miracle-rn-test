@@ -21,10 +21,10 @@ function Tab({ label, selected, onPress }: { label: string; selected: boolean; o
       accessibilityState={{ selected }}
       onPress={onPress}
       onPressIn={() => {
-        pressed.value = 1;
+        pressed.set(1);
       }}
       onPressOut={() => {
-        pressed.value = 0;
+        pressed.set(0);
       }}
       hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
     >

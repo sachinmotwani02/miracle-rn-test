@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import Animated, {
@@ -8,7 +8,6 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import { colors, layout } from '../theme';
@@ -70,13 +69,13 @@ export const Sparkline = React.memo(function Sparkline({
     () => buildSparkline(values, { width, height: height - 4, padding: 5 }),
     [values, width, height],
   );
-  const first = useRef(!seen.has(id)).current;
+  const [first] = useState(() => !seen.has(id));
   const progress = useSharedValue(first ? 0 : 1);
 
   useEffect(() => {
     if (first) {
       seen.add(id);
-      progress.value = withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }));
+      progress.set(withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) })));
     }
   }, [first, id, progress]);
 

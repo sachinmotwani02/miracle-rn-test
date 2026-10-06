@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Android blur is costly, so other platforms get the gradient alone.
 let MaskedView: React.ComponentType<any> | null = null;
 if (Platform.OS === 'ios') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   MaskedView = require('@react-native-masked-view/masked-view').default;
 }
 

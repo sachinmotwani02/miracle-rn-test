@@ -147,10 +147,10 @@ function useBreath(enabled: boolean) {
     if (p >= 1) {
       // A new breath starts from rest, so its length and depth can change without a jump.
       p -= 1;
-      period.value = BREATH.period * randomBetween(0.9, 1.1);
-      depth.value = randomBetween(0.9, 1.1);
+      period.set(BREATH.period * randomBetween(0.9, 1.1));
+      depth.set(randomBetween(0.9, 1.1));
     }
-    phase.value = p;
+    phase.set(p);
   }, enabled);
   return { phase, depth, exertion };
 }
@@ -175,20 +175,20 @@ function useIdleFace(
     };
     const nextBlink = () =>
       after(randomBetween(2000, 6000), () => {
-        if (!busy.current) blink.value = Math.random() < 0.2 ? blinkTwice() : blinkOnce();
+        if (!busy.current) blink.set(Math.random() < 0.2 ? blinkTwice() : blinkOnce());
         nextBlink();
       });
     const nextGlance = () =>
       after(randomBetween(4000, 9000), () => {
         if (busy.current) return nextGlance();
         // Dart somewhere (half the time behind a blink), hold, then come back.
-        if (Math.random() < 0.5) blink.value = blinkOnce();
-        gazeX.value = withSpring((Math.random() < 0.5 ? -1 : 1) * randomBetween(0.35, 0.9), DART);
-        gazeY.value = withSpring(randomBetween(-0.6, 0.5), DART);
+        if (Math.random() < 0.5) blink.set(blinkOnce());
+        gazeX.set(withSpring((Math.random() < 0.5 ? -1 : 1) * randomBetween(0.35, 0.9), DART));
+        gazeY.set(withSpring(randomBetween(-0.6, 0.5), DART));
         after(randomBetween(900, 1800), () => {
           if (!busy.current) {
-            gazeX.value = withSpring(0, DART);
-            gazeY.value = withSpring(0, DART);
+            gazeX.set(withSpring(0, DART));
+            gazeY.set(withSpring(0, DART));
           }
           nextGlance();
         });
@@ -252,21 +252,21 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     () => ({
       glance(direction: number) {
         if (reduceMotion) return;
-        gazeX.value = withSpring(0, DART);
-        gazeY.value = withSpring(0, DART);
-        look.value = withSequence(withSpring(direction, DART), withDelay(650, withSpring(0, DRIFT_BACK)));
-        wide.value = withSequence(withTiming(0.4, { duration: 120 }), withDelay(450, withTiming(0, { duration: 220 })));
-        bob.value = withSequence(withTiming(-5, { duration: 110, easing: Easing.out(Easing.quad) }), withSpring(0, BOB));
+        gazeX.set(withSpring(0, DART));
+        gazeY.set(withSpring(0, DART));
+        look.set(withSequence(withSpring(direction, DART), withDelay(650, withSpring(0, DRIFT_BACK))));
+        wide.set(withSequence(withTiming(0.4, { duration: 120 }), withDelay(450, withTiming(0, { duration: 220 }))));
+        bob.set(withSequence(withTiming(-5, { duration: 110, easing: Easing.out(Easing.quad) }), withSpring(0, BOB)));
       },
     }),
     [reduceMotion, gazeX, gazeY, look, wide, bob],
   );
 
   const relax = () => {
-    squash.value = withSpring(1, RELAX);
-    wide.value = withTiming(0, { duration: 160 });
+    squash.set(withSpring(1, RELAX));
+    wide.set(withTiming(0, { duration: 160 }));
     if (queued.current === 0) {
-      spin.value = withSpring(target.current, RELAX);
+      spin.set(withSpring(target.current, RELAX));
       busy.current = false;
     }
   };
@@ -277,11 +277,11 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     busy.current = true;
     haptic('light');
     // Wind-up: squash, eyes wide, and turn a little the other way unless a turn is playing.
-    squash.value = withSpring(0.88, PRESS);
-    wide.value = withTiming(1, { duration: 120 });
-    gazeX.value = withSpring(0, DART);
-    gazeY.value = withSpring(0, DART);
-    if (queued.current === 0) spin.value = withSpring(target.current - 15, PRESS);
+    squash.set(withSpring(0.88, PRESS));
+    wide.set(withTiming(1, { duration: 120 }));
+    gazeX.set(withSpring(0, DART));
+    gazeY.set(withSpring(0, DART));
+    if (queued.current === 0) spin.set(withSpring(target.current - 15, PRESS));
   };
 
   // On a quick tap Pressability fires onPress first and holds onPressOut back to 130 ms.
@@ -294,9 +294,9 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     handled.current = true;
     if (reduceMotion) {
       // No movement: a moment of the happy face is the whole reaction.
-      happy.value = 1;
+      happy.set(1);
       schedule(900, () => {
-        happy.value = 0;
+        happy.set(0);
       });
       return;
     }
@@ -308,35 +308,41 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     target.current += 360;
     const to = target.current;
     // The turn, about the vertical axis: a spring that overshoots and swings back to face us.
-    spin.value = withSpring(to, SPIN);
-    trail.value = withTiming(to, TRAIL_CHASE);
+    spin.set(withSpring(to, SPIN));
+    trail.set(withTiming(to, TRAIL_CHASE));
     // Float up during the fast part, then land on a soft bounce.
-    lift.value = withSequence(withTiming(-7, { duration: 240, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
+    lift.set(withSequence(withTiming(-7, { duration: 240, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND)));
     // The halo is a ring around that axis, so it does not turn: it lags the take-off, floats
     // on past the top, and jiggles back into place after the landing.
-    haloLift.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withTiming(-3, { duration: 320, easing: Easing.inOut(Easing.quad) }),
-      withSpring(0, HALO_SETTLE),
+    haloLift.set(
+      withSequence(
+        withTiming(1, { duration: 100 }),
+        withTiming(-3, { duration: 320, easing: Easing.inOut(Easing.quad) }),
+        withSpring(0, HALO_SETTLE),
+      ),
     );
-    haloTilt.value = withSequence(withDelay(400, withTiming(-5, { duration: 90 })), withSpring(0, HALO_WOBBLE));
+    haloTilt.set(withSequence(withDelay(400, withTiming(-5, { duration: 90 })), withSpring(0, HALO_WOBBLE)));
     // Stretch on take-off, squash on landing.
-    squash.value = withSequence(
-      withTiming(1.08, { duration: 110, easing: Easing.out(Easing.quad) }),
-      withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) }),
-      withTiming(0.92, { duration: 80, easing: Easing.out(Easing.quad) }),
-      withSpring(1, SETTLE),
+    squash.set(
+      withSequence(
+        withTiming(1.08, { duration: 110, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 300, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0.92, { duration: 80, easing: Easing.out(Easing.quad) }),
+        withSpring(1, SETTLE),
+      ),
     );
     // Face: wide turns happy while spinning, then a dizzy swirl, then a blink to recover.
-    wide.value = withTiming(0, { duration: 150 });
-    happy.value = withSequence(withTiming(1, { duration: 120 }), withDelay(380, withTiming(0, { duration: 160 })));
-    dizzy.value = 0;
-    dizzy.value = withDelay(520, withTiming(1, { duration: 650, easing: Easing.linear }));
-    blink.value = withDelay(1180, blinkOnce());
+    wide.set(withTiming(0, { duration: 150 }));
+    happy.set(withSequence(withTiming(1, { duration: 120 }), withDelay(380, withTiming(0, { duration: 160 }))));
+    dizzy.set(0);
+    dizzy.set(withDelay(520, withTiming(1, { duration: 650, easing: Easing.linear })));
+    blink.set(withDelay(1180, blinkOnce()));
     // Out of breath for a few breaths afterwards.
-    exertion.value = withSequence(
-      withTiming(1, { duration: 300 }),
-      withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
+    exertion.set(
+      withSequence(
+        withTiming(1, { duration: 300 }),
+        withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
+      ),
     );
     clearTurnTimers();
     schedule(450, () => haptic('soft'));

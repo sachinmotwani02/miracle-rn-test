@@ -51,12 +51,12 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
       accessibilityState={{ selected: active }}
       style={[styles.slot, { left: navSlotCenter(index) - SLOT_W / 2 }]}
       onPressIn={() => {
-        pressed.value = 1;
-        bloomT.value = 0;
-        bloomT.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) });
+        pressed.set(1);
+        bloomT.set(0);
+        bloomT.set(withTiming(1, { duration: 420, easing: Easing.out(Easing.quad) }));
       }}
       onPressOut={() => {
-        pressed.value = 0;
+        pressed.set(0);
       }}
       onPress={() => onPress(index)}
       hitSlop={6}
@@ -82,8 +82,8 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
 
   useEffect(() => {
     const next = navPillLeft(active);
-    target.value = next;
-    pillX.value = withSpring(next, { damping: 15, stiffness: 190, mass: 0.9 });
+    target.set(next);
+    pillX.set(withSpring(next, { damping: 15, stiffness: 190, mass: 0.9 }));
   }, [active, pillX, target]);
 
   const onPress = useCallback(
