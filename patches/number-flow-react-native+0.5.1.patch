@@ -1,0 +1,146 @@
+diff --git a/node_modules/number-flow-react-native/src/core/layout.ts b/node_modules/number-flow-react-native/src/core/layout.ts
+index 2f733fe..f0e237d 100644
+--- a/node_modules/number-flow-react-native/src/core/layout.ts
++++ b/node_modules/number-flow-react-native/src/core/layout.ts
+@@ -6,17 +6,19 @@ import type { GlyphMetrics, KeyedPart, ResolvedTextAlign } from "./types";
+  * Assigns x positions to each entry based on text alignment.
+  * Mutates the `x` field of each entry in place.
+  * Worklet-safe. When `precomputedContentWidth` is provided, skips the sum loop.
++ * `letterSpacing` is extra advance after every glyph, as a tracked Text lays it out.
+  */
+ export function assignXPositions(
+   chars: { x: number; width: number }[],
+   totalWidth: number,
+   textAlign: ResolvedTextAlign,
+   precomputedContentWidth?: number,
++  letterSpacing = 0,
+ ): void {
+   "worklet";
+   let contentWidth = precomputedContentWidth ?? 0;
+   if (precomputedContentWidth === undefined) {
+-    for (const entry of chars) contentWidth += entry.width;
++    for (const entry of chars) contentWidth += entry.width + letterSpacing;
+   }
+ 
+   let startX = 0;
+@@ -26,7 +28,7 @@ export function assignXPositions(
+   let currentX = startX;
+   for (const entry of chars) {
+     entry.x = currentX;
+-    currentX += entry.width;
++    currentX += entry.width + letterSpacing;
+   }
+ }
+ 
+@@ -44,6 +46,11 @@ export interface KeyedLayoutOptions {
+   localeDigitStrings?: string[];
+   rawCharsWithBidi?: string[];
+   direction?: "ltr" | "rtl";
++  /**
++   * The style's letterSpacing. It moves glyphs only: each entry keeps its own `width`, which is
++   * also its slot's clip, so tracking never shaves a rolling digit.
++   */
++  letterSpacing?: number;
+ }
+ 
+ export function computeKeyedLayout(
+@@ -53,7 +60,7 @@ export function computeKeyedLayout(
+   textAlign: ResolvedTextAlign,
+   options?: KeyedLayoutOptions,
+ ): CharLayout[] {
+-  const { localeDigitStrings, rawCharsWithBidi, direction } = options ?? {};
++  const { localeDigitStrings, rawCharsWithBidi, direction, letterSpacing } = options ?? {};
+ 
+   // Apply bidi visual reordering for RTL content in RTL mode
+   const orderedParts =
+@@ -87,6 +94,6 @@ export function computeKeyedLayout(
+     });
+   }
+ 
+-  assignXPositions(chars, totalWidth, textAlign);
++  assignXPositions(chars, totalWidth, textAlign, undefined, letterSpacing);
+   return chars;
+ }
+diff --git a/node_modules/number-flow-react-native/src/native/NumberFlow.tsx b/node_modules/number-flow-react-native/src/native/NumberFlow.tsx
+index 9a9c932..7af0f12 100644
+--- a/node_modules/number-flow-react-native/src/native/NumberFlow.tsx
++++ b/node_modules/number-flow-react-native/src/native/NumberFlow.tsx
+@@ -87,6 +87,8 @@ export const NumberFlow = ({
+     setContainerWidth(e.nativeEvent.layout.width);
+   }, []);
+ 
++  const letterSpacing = nfStyle.letterSpacing ?? 0;
++
+   const layout = useMemo(() => {
+     if (!metrics) return [];
+ 
+@@ -102,6 +104,7 @@ export const NumberFlow = ({
+       localeDigitStrings: digitStrings,
+       rawCharsWithBidi: rawChars,
+       direction: resolvedDir,
++      letterSpacing,
+     });
+ 
+     if (__DEV__ && globalThis.__NF_TRACE) {
+@@ -111,12 +114,15 @@ export const NumberFlow = ({
+       });
+     }
+     return computed;
+-  }, [metrics, keyedParts, containerWidth, textAlign, digitStrings, rawChars, resolvedDir]);
++  }, [metrics, keyedParts, containerWidth, textAlign, digitStrings, rawChars, resolvedDir, letterSpacing]);
+ 
+   // On web, all children are position:'absolute' so the container has 0 intrinsic
+   // width. With alignItems:'center' on a parent, the container collapses. Setting
+   // minWidth to the sum of character widths prevents the collapse.
+-  const contentWidth = useMemo(() => layout.reduce((sum, entry) => sum + entry.width, 0), [layout]);
++  const contentWidth = useMemo(
++    () => layout.reduce((sum, entry) => sum + entry.width + letterSpacing, 0),
++    [layout, letterSpacing],
++  );
+ 
+   const {
+     resolvedSpinTiming,
+@@ -172,7 +178,12 @@ export const NumberFlow = ({
+     [animatedWidth],
+   );
+ 
+-  const textStyle = useMemo(
++  /**
++   * The plain-Text placeholder keeps letterSpacing so the first frame has the tracked width.
++   * Slots are already placed with the tracking (computeKeyedLayout), so their glyphs drop it:
++   * applied again it would only shift each glyph inside its clip.
++   */
++  const placeholderStyle = useMemo(
+     () => ({
+       ...nfStyle,
+       color: nfStyle.color ?? "#000000",
+@@ -180,6 +191,11 @@ export const NumberFlow = ({
+     [nfStyle],
+   );
+ 
++  const textStyle = useMemo(() => {
++    const { letterSpacing: _tracking, ...glyphStyle } = placeholderStyle;
++    return glyphStyle;
++  }, [placeholderStyle]);
++
+   const resolvedMask = mask ?? true;
+   const maskTop = adaptiveMask.top;
+   const maskBottom = adaptiveMask.bottom;
+@@ -203,7 +219,7 @@ export const NumberFlow = ({
+         onLayout={handleContainerLayout}
+         style={containerStyle}
+       >
+-        <Text style={[textStyle, { textAlign }]}>{accessibilityLabel}</Text>
++        <Text style={[placeholderStyle, { textAlign }]}>{accessibilityLabel}</Text>
+         {MeasureElement}
+       </View>
+     );
+@@ -229,7 +245,7 @@ export const NumberFlow = ({
+           },
+         ]}
+       >
+-        <Text style={[textStyle, { textAlign }]}>{accessibilityLabel}</Text>
++        <Text style={[placeholderStyle, { textAlign }]}>{accessibilityLabel}</Text>
+         {MeasureElement}
+       </View>
+     );

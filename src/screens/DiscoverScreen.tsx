@@ -4,11 +4,13 @@ import { FlashList, FlashListProps, ListRenderItem } from '@shopify/flash-list';
 import Animated, { useAnimatedScrollHandler, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useLivePortfolio } from '../data/live';
 import { feedForTab, portfolio, topTrades } from '../data/mock';
 import { FeedItem, TabKey } from '../data/types';
 import { colors, layout } from '../theme';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
+import { useRollIn } from '../components/PortfolioTicker';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
@@ -33,6 +35,9 @@ export function DiscoverScreen() {
   const scrollDirection = useSharedValue(0);
   const lastY = useSharedValue(0);
   const firstMount = useRef(true);
+  // Held here, above the list that remounts on every tab switch, so neither restarts there.
+  const livePortfolio = useLivePortfolio(portfolio);
+  const shownPortfolio = useRollIn(livePortfolio);
 
   const items = useMemo(() => feedForTab(tab), [tab]);
 
@@ -85,7 +90,7 @@ export function DiscoverScreen() {
     () => (
       // Figma (status bar 59pt): label 70, title 167, carousel 195, tabs 309, first card 347.
       <View style={{ paddingTop: insets.top + 11 }}>
-        <PortfolioHeader portfolio={portfolio} />
+        <PortfolioHeader portfolio={livePortfolio} shown={shownPortfolio} />
         <View style={{ height: 27 }} />
         <TopTradesCarousel trades={topTrades} />
         <View style={{ height: 22 }} />
@@ -93,7 +98,7 @@ export function DiscoverScreen() {
         <View style={{ height: 18 }} />
       </View>
     ),
-    [insets.top, tab, onTab],
+    [insets.top, tab, onTab, livePortfolio, shownPortfolio],
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;

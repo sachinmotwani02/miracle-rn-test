@@ -73,7 +73,7 @@ Soft white clouds concentrated top-right and in a band around y 280–320.
 
 Portfolio header (left margin 20):
 - "Your portfolio" 11 pt medium, white; cap top 74.
-- "$12,057.70" 22 pt bold, white; cap top 97 (counts up on mount).
+- "$12,057.70" 22 pt bold, white; cap top 97 (rolls up to it from the 24h-ago value on open, see below).
 - "+$64.20" 12 pt semibold white, then " · 0.54% 24h" 12 pt white 70%; cap top 129.
 - Deposit button: 86 × 36 pill at x 291, y 89 (right margin 16). Fill white 20%,
   1 pt border white 35%, text "Deposit" 14 pt semibold white.
@@ -155,7 +155,9 @@ Nav bar — "the mascot is paying attention":
 Elsewhere (deliberately limited):
 - Sparkline draw-in (stroke dash offset, 700 ms ease-out) with markers popping in as the
   line reaches them; runs once per item id, not on list recycling.
-- Portfolio value counts up on mount (TextInput `animatedProps`), 900 ms.
+- Portfolio value and 24h change roll (`number-flow-react-native`, 900 ms) up from the 24h-ago
+  figures when the screen opens, and to a fresh value when the app returns from the background (a
+  mean-reverting random walk for the time away); otherwise they hold still.
 - First five cards enter with a staggered fade + 12 pt rise.
 - Tab switch: active label crossfades; the list content fades/slides 8 pt on tab change.
 - Note box expands/collapses with a spring on height.
