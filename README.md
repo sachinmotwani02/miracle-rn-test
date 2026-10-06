@@ -121,6 +121,15 @@ works on iOS, Android and web):
 Any other component can get a panel the same way: `useDials('Name', { size: [1, 0, 2], on: true,
 folder: { … }, replay: { type: 'action' } }, { onAction })`.
 
+### Recording close-ups
+
+With the web dev server running, `/craft.html` (`public/craft.html`) frames the app in a 390 × 844
+iframe for screen recordings: camera shots, slow motion down to ⅒× (`,` and `.`), keyboard taps,
+a soft touch cursor (`T`) and a record mode without controls (`H`). The app's half,
+`src/dev/craftFrame.ts`, rescales its clock and only installs inside that iframe. `V` switches the
+rare spin between the orbit rings that shipped and two rejected looks, a silk ribbon and comets
+(`src/dev/rareStyles.ts`); the app itself always uses the orbit rings.
+
 ## Animation: the sky bar
 
 The header lives in the list, so without help it scrolled straight under a transparent status bar:

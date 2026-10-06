@@ -1,3 +1,5 @@
+// First, so the craft showcase can take over the clock before anything reads it (web only, no-op elsewhere).
+import './src/dev/craftFrame';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

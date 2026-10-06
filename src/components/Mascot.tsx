@@ -18,7 +18,7 @@ import Animated, {
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { haptic } from '../utils/haptics';
-import { SwirlLayer, useSwirl } from './MascotSwirl';
+import { SwirlLayer, burstSwirl, resetSwirl, useSwirl } from './MascotSwirl';
 import {
   BREATH,
   SPARKLE_MS,
@@ -138,9 +138,6 @@ const RARE_SPIN = { stiffness: 60, damping: 12.5, mass: 1 };
 const RARE_SPIN_MS = 2000;
 /** It lands this long after launch: the rings burst and the twinkles pop. */
 const RARE_LAND_MS = 480;
-/** The burst: the rings grow to this size while fading out over BURST_MS, like a small firework. */
-const BURST_SPREAD = 1.45;
-const BURST_MS = 420;
 /** Presses do nothing until this long after launch, while it is in the air. */
 const RARE_AIR_MS = 700;
 
@@ -390,22 +387,14 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     // small firework as the twinkles pop.
     swirl.run(true);
     swirlRunning.current = true;
-    swirl.alpha.set(withSequence(
-      withTiming(1, { duration: 160 }),
-      withDelay(burst - 160, withTiming(0, { duration: BURST_MS, easing: Easing.in(Easing.quad) })),
-    ));
+    resetSwirl(swirl);
+    swirl.alpha.set(withTiming(1, { duration: 160 }));
     swirl.speed.set(withSequence(
       withTiming(WINDUP_SPEED, { duration: RARE_WINDUP_MS, easing: Easing.in(Easing.quad) }),
       withTiming(SPIN_SPEED, { duration: 250 }),
       withDelay(250, withTiming(400, { duration: 500 })),
     ));
-    swirl.spread.set(1);
-    swirl.spread.set(withDelay(burst, withTiming(BURST_SPREAD, { duration: BURST_MS, easing: Easing.out(Easing.quad) })));
-    swirl.sparkleSeed.set(withDelay(burst, withTiming(Math.random() * 360, { duration: 0 })));
-    swirl.sparkleMs.set(withDelay(burst, withSequence(
-      withTiming(0, { duration: 0 }),
-      withTiming(SPARKLE_MS, { duration: SPARKLE_MS, easing: Easing.linear }),
-    )));
+    burstSwirl(swirl, SPARKLE_MS, burst);
 
     schedule(launch, () => haptic('medium'));
     schedule(burst, () => haptic('soft'));
@@ -414,7 +403,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       swirlRunning.current = false;
       swirl.alpha.set(0);
       swirl.speed.set(0);
-      swirl.spread.set(1);
+      resetSwirl(swirl);
     });
     schedule(launch + RARE_SPIN_MS, () => {
       turnPlaying.current = false;
