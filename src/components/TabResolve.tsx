@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   SharedValue,
-  useAnimatedProps,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -11,40 +9,37 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, layout } from '../theme';
-import { TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
-
-const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
-
-// iOS and web blur whatever sits under the overlay. Android's BlurView needs a BlurTargetView
-// around the content and would only paint a tint here, so Android resolves with scale and fade.
-const CAN_BLUR = Platform.OS !== 'android';
+import { TAB_RESOLVE, resolveDelay, slideFrame } from '../utils/tabResolve';
 
 /**
- * The screen's side of the resolve. `pending` (0 = sharp, 1 = fully soft) starts rising on the tap,
- * straight from the press handler, so the cards soften on the UI thread while the new feed renders.
- * `softening` is true from the tap until the tapped feed is on screen; it mounts the blur overlays.
+ * The screen's side of the slide. `pending` (0 = still, 1 = fully out) starts rising on the tap,
+ * straight from the press handler, so the old content slides out on the UI thread while the new
+ * feed renders. `direction` is 1 when the tapped tab sits right of the feed on screen, -1 when it
+ * sits left. `softening` is true from the tap until the tapped feed is on screen; it turns the
+ * cards' clip on.
  */
 export interface TabSoften {
   pending: SharedValue<number>;
+  direction: SharedValue<number>;
   softening: boolean;
 }
 
 export const TabSoftenContext = createContext<TabSoften | null>(null);
 
 interface Props {
-  /** Bumped by the screen when a switch puts a new feed in the cards; a change plays the resolve. */
+  /** Bumped by the screen when a switch puts a new feed in the cards; a change plays the slide. */
   resolveKey: number;
   index: number;
   children: React.ReactNode;
 }
 
 /**
- * Plays the tab switch resolve (see TAB_RESOLVE) around one feed card. Only what is inside the card
- * softens: a solid white shell sits behind it, so the card never turns see-through to the sky, and
- * the blur stops at the card's 4 pt rim, so its edge stays crisp; the whole card only scales. The
- * fade is on the content, and the blur is a sibling overlay outside it (a blur view under a
- * see-through ancestor renders wrong on iOS), mounted only while the card softens or resolves. The screen hands the softening over through
- * context, so the tap re-renders these wrappers and not the list.
+ * Plays the tab switch slide (see TAB_RESOLVE) around one feed card. The card itself stays put: while
+ * it moves, a solid white clip on the card's own shape holds still and the content (the card's face,
+ * note box and all) slides and dims inside it, so the card's edge stays crisp and the sky never shows
+ * through. Outside a switch the clip is a plain wrapper, so the first-load entrance and the skeleton
+ * reveal play as before. The screen hands the motion over through context, so the tap re-renders
+ * these wrappers and not the list.
  */
 export function TabResolve({ resolveKey, index, children }: Props) {
   const soften = useContext(TabSoftenContext);
@@ -52,12 +47,15 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const delay = resolveDelay(index);
   const takesPart = delay !== null && !reduced;
   const progress = useSharedValue(1);
-  const sharp = useSharedValue(0);
-  const pending = soften && takesPart ? soften.pending : sharp;
+  const still = useSharedValue(0);
+  const right = useSharedValue(1);
+  const arrival = useSharedValue(1);
+  const pending = soften && takesPart ? soften.pending : still;
+  const direction = soften ? soften.direction : right;
   const [seenKey, setSeenKey] = useState(resolveKey);
   const [run, setRun] = useState<{ id: number; delay: number } | null>(null);
-  // The blur stays up while the screen eases `pending` back (tapped away and back before the cards
-  // changed), so it fades with the scale and the opacity instead of vanishing in one frame.
+  // The clip stays on while the screen eases `pending` back (tapped away and back before the cards
+  // changed), so the old content slides home inside it.
   const softening = !!soften?.softening;
   const [wasSoftening, setWasSoftening] = useState(softening);
   const [settling, setSettling] = useState(false);
@@ -74,13 +72,14 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   }
 
   // Before paint, and before the screen lets go of `pending` (parents' layout effects run after
-  // their children's): the card takes over from however soft the tap had made it, so the new
-  // content's first frame matches the last frame of the old.
+  // their children's): the new content starts as far along as the old one had got, on the far side,
+  // so the swap reads as one card passing through.
   useLayoutEffect(() => {
     if (!run) return;
+    arrival.set(direction.get());
     progress.set(1 - pending.get());
     progress.set(withDelay(run.delay, withTiming(1, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing })));
-  }, [run, progress, pending]);
+  }, [run, progress, pending, direction, arrival]);
 
   useEffect(() => {
     if (!run) return;
@@ -94,51 +93,24 @@ export function TabResolve({ resolveKey, index, children }: Props) {
     return () => clearTimeout(id);
   }, [settling]);
 
-  const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: resolveFrame(Math.min(progress.value, 1 - pending.value)).scale }],
-  }));
-  const fadeStyle = useAnimatedStyle(() => ({
-    opacity: resolveFrame(Math.min(progress.value, 1 - pending.value)).opacity,
-  }));
-  const blurProps = useAnimatedProps(() => ({
-    intensity: resolveFrame(Math.min(progress.value, 1 - pending.value)).intensity,
-  }));
+  const slideStyle = useAnimatedStyle(() => {
+    const frame = slideFrame(progress.value, pending.value, direction.value, arrival.value);
+    return { opacity: frame.opacity, transform: [{ translateX: frame.x }] };
+  });
 
-  const blurring = CAN_BLUR && takesPart && (run !== null || softening || settling);
+  const moving = takesPart && (run !== null || softening || settling);
   return (
-    <Animated.View style={scaleStyle}>
-      {takesPart ? <View style={styles.shell} /> : null}
-      <Animated.View style={fadeStyle}>{children}</Animated.View>
-      {blurring ? (
-        <View style={styles.overlay} testID="tab-resolve-blur">
-          {/* Starts unblurred: the animated props take it to the live value from the first frame. */}
-          <AnimatedBlurView animatedProps={blurProps} intensity={0} tint="light" style={StyleSheet.absoluteFill} />
-        </View>
-      ) : null}
-    </Animated.View>
+    <View style={[styles.clip, moving && styles.clipping]} testID={moving ? 'tab-resolve-slide' : undefined}>
+      <Animated.View style={[styles.content, slideStyle]}>{children}</Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Matches the card (TradeCard's slot margin and radius) and stays opaque while the content fades.
-  shell: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: layout.cardMargin,
-    right: layout.cardMargin,
-    borderRadius: layout.cardRadius,
-    backgroundColor: colors.card,
-  },
-  // Inside the card's rim, on the note box's inset and radius, so the blur never reaches the edge.
-  overlay: {
-    position: 'absolute',
-    top: layout.noteInset,
-    bottom: layout.noteInset,
-    left: layout.cardMargin + layout.noteInset,
-    right: layout.cardMargin + layout.noteInset,
-    borderRadius: layout.noteRadius,
-    overflow: 'hidden',
-    pointerEvents: 'none',
-  },
+  // On the card's own rectangle (TradeCard's slot margin), so clipping it cuts exactly at the card's edge.
+  clip: { marginHorizontal: layout.cardMargin },
+  // Matches the card's radius and stays opaque while the content dims and slides inside it.
+  clipping: { overflow: 'hidden', borderRadius: layout.cardRadius, backgroundColor: colors.card },
+  // Gives the card back the slot's full width, so its own margin lands it on the clip.
+  content: { marginHorizontal: -layout.cardMargin },
 });

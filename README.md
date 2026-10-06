@@ -178,19 +178,20 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
 - Tab switches are instant, because they happen all the time. The tapped label brightens with a
   100 ms ease-out (more than half of it on the first frame), and a loaded feed drops into the cards
   already on screen: FlashList recycles them, so nothing is rebuilt, and the list keeps its scroll
-  position for the sky bar. The cards answer the tap itself: the press handler starts them
-  softening (a faint blur, 0.97 scale, 45% opacity, 160 ms) on the UI thread, before React renders
-  anything, while the new feed renders into them underneath. When it lands, each of the first five
-  sharpens back from wherever the softening had got to, over 300 ms, 45 ms apart, with the same
-  strong ease-out. One motion from the tap, and the time spent soft is time the render takes anyway,
-  so nothing waits on the animation; tapped away and back before the cards change, they ease back.
-  Only what is inside a card softens: its white shell stays solid and its edge crisp (a faded shell
-  let the sky show through and turned the cards into blue frosted panes). The blur is an expo-blur
-  overlay inside the card's 4 pt rim, mounted only while a card softens or resolves, since iOS
-  cannot blur a view with `filter`. Android, whose BlurView needs a blur target, does scale and fade only,
+  position for the sky bar. The cards answer the tap itself, with a slide that follows the tab row:
+  the cards hold still and their content slides through them. The press handler starts the old
+  content sliding 16 pt away from the tapped tab and dimming to 45% (160 ms) on the UI thread,
+  before React renders anything, while the new feed renders into the cards underneath. When it
+  lands, the new content starts 22 pt off on the tapped tab's side, as far along as the old had
+  got, and each of the first five cards slides it home over 300 ms, 30 ms apart, with the same
+  strong ease-out. Discover to Following slides right to left; going back reverses it. One motion
+  from the tap, and the time spent sliding out is time the render takes anyway, so nothing waits on
+  the animation; tapped away and back before the cards change, the old content slides home. While a
+  card moves, a solid white clip on its own shape holds still, so its edge stays crisp and the sky
+  never shows through the dimmed content. It needs no blur, so Android plays the same motion,
   and Reduce Motion skips it. Once the first feed is in, the feeds behind the other tabs load
-  quietly, so a tab's first visit resolves like any other; one tapped before its feed lands keeps
-  the old cards up, soft (no bones, no empty list), and resolves when it arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
+  quietly, so a tab's first visit slides like any other; one tapped before its feed lands keeps
+  the old cards up, slid out and dimmed (no bones, no empty list), and slides in when it arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
   made each switch wait on a burst of work and then on the fade.
 - "Read more" eases the note box open to its measured full height (320 ms, a strong ease-out with
   no bounce). An invisible copy of the full text gives the target, measured synchronously on mount,
@@ -279,11 +280,11 @@ The motion maths has its own tests: the ghost's breath, eyes and turns (and its 
 through the real Pressability), the card entrance, the nav pill's stretch, nav shrink, the Deposit
 springs' overshoot and settle, and the Dials store.
 `tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
-label before the cards change, reuses the mounted cards of a loaded feed, resolves them in place
-(on a first visit too, and after holding the old cards while a feed loads), starts softening them
+label before the cards change, reuses the mounted cards of a loaded feed, slides them in place
+(on a first visit too, and after holding the old cards while a feed loads), starts sliding them
 in the commit that lights the tab, ignores a tap on the tab already shown, never replays the
 entrance and leaves the nav bar alone.
-`tabResolve.test.ts` pins the resolve's start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
+`tabResolve.test.ts` pins the slide's direction, start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
 `feedMenu.test.tsx` drags across the menu's rows (a tick per row, lifting on a row picks it,
 drifting past the sides keeps the row, lifting off the rows picks nothing). `screenReader.test.tsx`
 checks what a screen reader reaches at the top, with the bar docked and with the menu open. The

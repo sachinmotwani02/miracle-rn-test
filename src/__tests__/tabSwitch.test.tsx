@@ -42,8 +42,8 @@ const isLit = (label: string) => screen.queryByRole('tab', { name: label, select
 const showsDiscoverCards = () => screen.queryAllByText('moonpilot').length > 0;
 /** Card views carrying an entrance animation, which plays when they mount. */
 const entering = () => screen.container.queryAll(node => node.props.entering != null);
-/** Blur overlays of cards resolving after a switch (mounted only while they play). */
-const resolving = () => screen.queryAllByTestId('tab-resolve-blur').length;
+/** Cards whose content is sliding after a switch (their clip is on only while they play). */
+const resolving = () => screen.queryAllByTestId('tab-resolve-slide').length;
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -156,8 +156,8 @@ describe('switching feed tabs', () => {
     expect(showsDiscoverCards()).toBe(true);
     expect(resolving()).toBeGreaterThan(0);
 
-    await act(() => jest.advanceTimersByTimeAsync(1000));
-    expect(showsDiscoverCards()).toBe(false);
+    // The moment Following lands, its cards slide in.
+    while (showsDiscoverCards()) await act(() => jest.advanceTimersByTimeAsync(50));
     expect(resolving()).toBeGreaterThan(0);
   });
 
