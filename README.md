@@ -16,6 +16,7 @@ npx expo start            # scan with Expo Go (iOS or Android), or press i / a f
 npx expo start --web      # browser preview (used for the fidelity pass below)
 npm test                  # jest unit tests
 npm run typecheck         # tsc --noEmit
+npm run lint              # expo lint (ESLint 9, eslint-config-expo)
 ```
 
 Every native dependency is in Expo Go's module list (Reanimated 4, Gesture Handler, SVG, Blur, Linear
@@ -28,9 +29,9 @@ Gradient, Image, Haptics, Masked View, Safe Area Context, FlashList 2), and the 
 | --- | --- |
 | Sky/cloud header | The Figma raster export (`assets/sky.png`, 393×504 pt), pinned to the top, parallaxed at 0.3× scroll on the UI thread. |
 | Sky bar | A strip of that sky under the status bar that the header scrolls under; on scroll up in the feed it brings a feed dropdown and Deposit (see below). |
-| Portfolio header | Label, value and 24h change (bones until the portfolio loads; then they roll up from the 24h-ago figures, and to a fresh value when you come back to the app), glass Deposit pill (the Figma's white gradient, rim and top highlight). |
+| Portfolio header | Label, value and 24h change (bones until the portfolio loads; then they roll up from the 24h-ago figures, and to a fresh value when you come back to the app), glass Deposit pill (the Figma's white gradient with its drop shadow and inner glow). |
 | Top trades carousel | Horizontal `FlatList`, 204×92 cards with radius 24, 4 pt gap, snapping. |
-| Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, animated crossfade. Each tab shows a different slice of the mock feed. |
+| Tab row | Discover / Following / Rising / Favourites with 18 pt gaps; active label white, inactive white 70%, a 100 ms crossfade; it folds into the sky bar's feed dropdown on scroll. Each tab shows a different slice of the mock feed. |
 | Feed | `FlashList` v2 with a memoised `TradeCard`: 36 pt avatar + verified seal, Buy/Sell pill, stats line with 2 pt dot separators, a 2 pt thread line down to the coin logo with its swap badge, size/price/change line, 90×32 SVG sparkline (2.2 pt stroke, lifted "+" markers over ringed dots), and the expandable note (radius 20). |
 | Floating nav bar | 304×64 pill (`#22242A` at 80%), icons on the measured slot centres, 56×48 active pill, cloud mascot in the centre, a 114 pt white fade behind it. |
 
@@ -169,12 +170,14 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   its scroll position for the sky bar. A feed's first visit shows its bones (after 150 ms) and its
   cards crossfade in from them. Rebuilding every card and replaying the entrance made each switch
   wait on a burst of work and then on the fade.
-- "Read more" springs the note box open to its measured full height (an invisible copy of the full
-  text provides the target so the spring has a real end value).
-- Deposit button and nav icons scale on press; sky parallax at 0.3×.
+- "Read more" eases the note box open to its measured full height (320 ms, a strong ease-out with
+  no bounce). An invisible copy of the full text gives the target, measured synchronously on mount,
+  so a card mounts at its final height instead of growing mid-entrance.
+- Deposit button and nav icons scale on press (Deposit's springs spell out mass 1, since
+  Reanimated 4 defaults to mass 4); sky parallax at 0.3×.
 
-Nothing else moves. Apart from those two moments for the numbers and the sky bar's scroll-linked
-motion, the header, carousel and cards are static by design.
+Nothing else moves. Apart from those two moments for the numbers, the sky bar's scroll-linked
+motion and the loading skeleton (below), the header, carousel and cards are static by design.
 
 ## Loading skeleton
 
@@ -200,8 +203,8 @@ and are cached for the session by a small store that also owns the loading timin
   chrome never dip. Cached content and quick replies skip the bones.
 - **Timing rules.** A tab's first load draws nothing for 150 ms, so a quick reply never flashes
   bones; once drawn they stay at least 400 ms.
-- **Dials > Skeleton:** latency per section, **Hold loading** (inspect the bones for as long as you
-  like) and **Replay cold start**.
+- **Dials > Skeleton** (with `SHOW_DIALS` on, as above): latency per section, **Hold loading**
+  (inspect the bones for as long as you like) and **Replay cold start**.
 
 ## Performance
 
@@ -244,6 +247,9 @@ live hook (still while open, a refresh on return but not after a trip to inactiv
 until the portfolio loads), the opening roll (24h-ago figures first, the beat counted from the
 portfolio's arrival, Reduce Motion) and the screen-reader labels, and the patched NumberFlow (glyphs
 placed with the tracking, clips untouched; these fail if the patch was not applied).
+The motion maths has its own tests: the ghost's breath, eyes and turns (and its press handling
+through the real Pressability), the card entrance, the nav pill's stretch, nav shrink, the Deposit
+springs' overshoot and settle, and the Dials store.
 `tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
 label before the cards change, reuses the mounted cards of a loaded feed, never replays the
 entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade frame by frame.
@@ -277,7 +283,8 @@ entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade
   bar came out mid-grey, the active state a milky blob), it is iOS 26 only, and Android gets nothing.
   Since the brief grades fidelity and parity on both platforms, the glass is faked from the Figma's
   own values and renders identically everywhere: the 92% white card body with a white hairline, the
-  Deposit gradient (white 32→64% at 32%) with a rim and a 1 pt top highlight, and the `#22242A` 80%
+  Deposit gradient (white 32→64% at 32%) with the Figma's soft white drop shadow and its inner
+  shadows as inset glows (a bottom glow and two 1 pt catch-lights), and the `#22242A` 80%
   bar over an iOS blur (a denser fill on Android) with a hairline rim and a 12% white lens lit by inset white shadows. The
   native-glass version is in git history (`88badf4`) if a future iOS-only build wants it.
 - **Tabs filter the same mock set**, served through a simulated async API so the loading state is
@@ -292,6 +299,7 @@ entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade
 3. Replace the hand-drawn SVG badges and logos with the Figma vector exports once the file can be
    exported.
 4. Add gesture-driven dismissal of the nav bar and a pull-to-refresh that reuses the mascot.
-5. Component tests with `@testing-library/react-native` for the card and nav bar interactions.
+5. More component tests with `@testing-library/react-native`, for the card's "Read more" and the
+   carousel (the screen, the ghost and the ticker have them).
 6. Offer the `letterSpacing` support upstream to number-flow-react-native and drop the local patch
    once a release includes it.

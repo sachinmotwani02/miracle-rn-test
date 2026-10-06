@@ -57,8 +57,9 @@ shipped as a generated PNG.
   `@react-native-masked-view/masked-view` for the progressive blur mask on iOS.
 - `expo-image` for raster assets, `expo-haptics` for press feedback,
   `react-native-safe-area-context` for insets.
-- Fonts: SF Pro (system) on iOS; Inter (`@expo-google-fonts/inter`) on Android as the
-  closest metric match. A `font(weight)` helper in the theme hides the split.
+- Fonts: SF Pro Rounded through the `ui-rounded` system font on iOS; Nunito
+  (`@expo-google-fonts/nunito`) on Android and web as the closest rounded match. A
+  `font(weight)` helper in the theme hides the split.
 - Jest + `@testing-library/react-native` for unit tests of pure logic (sparkline path,
   number formatting, mock data, nav geometry).
 
@@ -142,14 +143,18 @@ selected tab and nav state and a shared `scrollY` value (Reanimated). FlashList 
 Nav bar — "the mascot is paying attention":
 1. Active pill is a spring-driven circle that slides to the tapped slot; it stretches
    along the direction of travel while moving (scaleX up to 1.25) and settles with a
-   small overshoot.
+   small overshoot. (Revised 2026-10-06: it lands critically damped with no overshoot and
+   stretches up to 1.23; the defaults live in `PILL`, tunable in the Dials panel.)
 2. The mascot reacts to every tab change: a short bob (translateY −6 → 0 spring) and its
    eyes glance toward the chosen tab (eye group translateX ±3), returning to centre after
    ~600 ms. Tapping the mascot itself makes it jump with squash-and-stretch and fires a
-   light haptic.
-3. Press feedback: the pressed icon scales to 0.9; released icon springs back.
+   light haptic. (Revised: see `2026-10-05-ghost-mascot-motion-design.md`.)
+3. Press feedback: the pressed icon scales to 0.9; released icon springs back. (Revised
+   2026-10-06: 0.88 on a critically damped 150 ms spring.)
 4. Scroll-linked: when scrolling down quickly the bar sinks 12 pt and shrinks to 0.97,
-   springing back as soon as scrolling slows or reverses.
+   springing back as soon as scrolling slows or reverses. (Revised 2026-10-06: it sinks
+   12 pt and shrinks to 0.9 on a scroll down and grows back on a scroll up or at the top; a
+   pause changes nothing, and 6 pt of travel flips it. See `src/utils/navShrink.ts`.)
 
 Elsewhere (deliberately limited):
 - Sparkline draw-in (stroke dash offset, 700 ms ease-out) with markers popping in as the
@@ -163,9 +168,13 @@ Elsewhere (deliberately limited):
 - Tab switch: instant. The active label crossfades in 100 ms (strong ease-out) and a loaded feed
   appears in the cards already on screen, with no fade or slide; a feed's first visit loads behind
   its bones. (Revised 2026-10-06: the replayed entrance made frequent switches feel slow.)
-- Note box expands/collapses with a spring on height.
-- Deposit and card press: 0.97 scale spring.
+- Note box expands/collapses with a spring on height. (Revised 2026-10-06: a 320 ms strong
+  ease-out with no bounce, its target measured synchronously so cards mount at their final height.)
+- Deposit and card press: 0.97 scale spring. (Revised 2026-10-06: Deposit squeezes to 0.95 on a
+  mass-1 spring; cards have no press scale.)
 - Sky parallax at 0.3× scroll.
+- Status bar and header on scroll: the sky bar, see `2026-10-06-sky-bar-header-design.md`.
+- Loading: bones with one subtle shared sweep, see `2026-10-06-feed-skeleton-design.md`.
 
 ## Robustness
 
