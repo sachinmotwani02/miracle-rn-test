@@ -86,12 +86,12 @@ describe('switching feed tabs', () => {
     await press('Discover');
     await settle();
     // candlefox's $18.4K SOL buy heads both feeds.
-    const card = screen.getAllByText('$18.4K')[0];
+    const card = screen.getAllByText('$18.4K at $148.60')[0];
 
     await press('Following');
 
     // Compared by identity: a rebuilt card is a new host view (and diffing two views takes minutes).
-    const sameView = screen.getAllByText('$18.4K')[0] === card;
+    const sameView = screen.getAllByText('$18.4K at $148.60')[0] === card;
     expect(sameView).toBe(true);
   });
 

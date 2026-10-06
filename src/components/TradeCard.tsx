@@ -75,13 +75,10 @@ export const TradeCard = React.memo(function TradeCard({ item, index, expanded, 
             {item.asset}
           </Text>
           <View style={styles.priceRow}>
+            {/* One run of text, so where the row is too narrow it wraps as text. */}
             <Text style={[text.priceStrong, styles.priceDark]} maxFontSizeMultiplier={1.2}>
               {formatCompactMoney(item.sizeUsd)}
-            </Text>
-            <Text style={[text.price, styles.priceMuted]} maxFontSizeMultiplier={1.2}>
-              {' at '}
-            </Text>
-            <Text style={[text.priceStrong, styles.priceDark]} maxFontSizeMultiplier={1.2}>
+              <Text style={[text.price, styles.priceMuted]}>{' at '}</Text>
               {formatMoney(item.price)}
             </Text>
             <View style={styles.changeRow}>
@@ -137,10 +134,12 @@ const styles = StyleSheet.create({
   },
   assetText: { flex: 1 },
   assetName: { color: colors.textPrimary, height: 22 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', height: 16 },
+  // On a narrow phone the change drops to a line of its own and the row grows to fit it, so the
+  // note below never covers it. A column gap rather than a margin, so the wrapped line is not indented.
+  priceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 5, minHeight: 16 },
   priceDark: { color: colors.textPrimary },
   priceMuted: { color: colors.textTertiary },
-  changeRow: { flexDirection: 'row', alignItems: 'center', marginLeft: 5, gap: 2 },
+  changeRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   tri: {
     width: 0,
     height: 0,
