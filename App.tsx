@@ -5,6 +5,9 @@ import { useFonts, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } fro
 import { DialPanel } from './src/dev/DialPanel';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
 
+/** Flip to true to bring back the Dials chip for tuning animations. */
+const SHOW_DIALS = false;
+
 export default function App() {
   const [loaded] = useFonts({ Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold });
   if (!loaded) return null;
@@ -13,7 +16,7 @@ export default function App() {
       <SafeAreaProvider>
         <DiscoverScreen />
         {/* Live animation controls (src/dev/dials.ts); never shipped in release builds. */}
-        {__DEV__ ? <DialPanel /> : null}
+        {__DEV__ && SHOW_DIALS ? <DialPanel /> : null}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
