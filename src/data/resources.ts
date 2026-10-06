@@ -9,6 +9,7 @@ import { REVEAL_WINDOW, SKELETON } from '../utils/skeleton';
  * - `content`: the data. `revealing` stays true for REVEAL_WINDOW after content replaces bones,
  *   so the components that mount then crossfade from their bones. Content that never had bones
  *   (a cache hit, a reply inside the show delay) is not revealing.
+ * A quiet load never draws bones: it stays blank until its content lands, and is not revealing.
  * Timers and the fetch callback make every change; rendering never does.
  */
 export type LoadPhase = 'blank' | 'skeleton' | 'content';
@@ -22,6 +23,8 @@ export interface Resource<T> {
 export interface LoadOptions {
   /** Wait this long before drawing bones; 0 draws them at once (cold start). */
   showDelay?: number;
+  /** Never draw bones (feeds behind the tabs, which load ahead and keep the old cards meanwhile). */
+  quiet?: boolean;
 }
 
 interface Entry {
@@ -57,8 +60,9 @@ function after(entry: Entry, ms: number, run: () => void) {
 }
 
 /** Starts loading `key` unless it is loading or loaded already. Safe to call on every render. */
-export function load<T>(key: string, fetcher: () => Promise<T>, { showDelay = 0 }: LoadOptions = {}) {
+export function load<T>(key: string, fetcher: () => Promise<T>, { showDelay = 0, quiet = false }: LoadOptions = {}) {
   if (entries.has(key)) return;
+  if (quiet) showDelay = Infinity;
   // The new entry reads exactly like the pending snapshot, so nobody needs telling yet.
   const entry: Entry = {
     snapshot: showDelay > 0 ? BLANK : BONES,
@@ -66,7 +70,7 @@ export function load<T>(key: string, fetcher: () => Promise<T>, { showDelay = 0 
     timers: new Set(),
   };
   entries.set(key, entry);
-  if (showDelay > 0) {
+  if (showDelay > 0 && showDelay !== Infinity) {
     after(entry, showDelay, () => {
       entry.shownAt = Date.now();
       update(entry, { phase: 'skeleton' });
@@ -92,8 +96,8 @@ export function load<T>(key: string, fetcher: () => Promise<T>, { showDelay = 0 
 }
 
 /** What a component sees for `key` right now; a key nobody has loaded yet reads as pending. */
-export function readResource<T>(key: string, { showDelay = 0 }: LoadOptions = {}): Resource<T> {
-  return (entries.get(key)?.snapshot ?? (showDelay > 0 ? BLANK : BONES)) as Resource<T>;
+export function readResource<T>(key: string, { showDelay = 0, quiet = false }: LoadOptions = {}): Resource<T> {
+  return (entries.get(key)?.snapshot ?? (quiet || showDelay > 0 ? BLANK : BONES)) as Resource<T>;
 }
 
 /** Forgets every load, cached or in flight (the Dials' "Replay cold start"). */
@@ -106,8 +110,9 @@ export function clearResources() {
 /** Loads `key` once per session and re-renders as it goes from blank to bones to content. */
 export function useResource<T>(key: string, fetcher: () => Promise<T>, options: LoadOptions = {}): Resource<T> {
   const showDelay = options.showDelay ?? 0;
+  const quiet = options.quiet ?? false;
   useEffect(() => {
-    load(key, fetcher, { showDelay });
-  }, [key, fetcher, showDelay]);
-  return useSyncExternalStore(subscribe, () => readResource<T>(key, { showDelay }));
+    load(key, fetcher, { showDelay, quiet });
+  }, [key, fetcher, showDelay, quiet]);
+  return useSyncExternalStore(subscribe, () => readResource<T>(key, { showDelay, quiet }));
 }

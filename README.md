@@ -172,9 +172,11 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   300 ms, 45 ms apart, with the same strong ease-out. Content first, motion second, so the switch
   never waits on the animation. The blur is an expo-blur overlay mounted only while a card
   resolves, since iOS cannot blur a view with `filter`. Android, whose BlurView needs a blur target,
-  resolves with scale and fade only, and Reduce Motion skips it. A feed's first visit shows its
-  bones (after 150 ms) and its cards crossfade in from them, without the resolve on top. Rebuilding
-  every card and replaying the entrance made each switch wait on a burst of work and then on the fade.
+  resolves with scale and fade only, and Reduce Motion skips it. Once the first feed is in, the
+  feeds behind the other tabs load quietly, so a tab's first visit resolves like any other; one
+  tapped before its feed lands keeps the old cards up (no bones, no empty list) and resolves when it
+  arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
+  made each switch wait on a burst of work and then on the fade.
 - "Read more" eases the note box open to its measured full height (320 ms, a strong ease-out with
   no bounce). An invisible copy of the full text gives the target, measured synchronously on mount,
   so a card mounts at its final height instead of growing mid-entrance.
@@ -187,7 +189,7 @@ motion and the loading skeleton (below), the header, carousel and cards are stat
 ## Loading skeleton
 
 The mock data arrives the way a network would (`src/data/api.ts`): portfolio, top trades and each
-tab's feed load on their own (600 / 900 / 1300 ms on a cold start, 700 ms for a tab's first visit)
+tab's feed load on their own (600 / 900 / 1300 ms on a cold start, then 700 ms for each other tab's feed, loaded ahead)
 and are cached for the session by a small store that also owns the loading timing
 (`src/data/resources.ts`). Before building it I looked at how premium apps do it on Mobbin
 (Coinbase, Uniswap, Revolut, Wise, Bluesky, Substack, Perplexity); the rules below come from there.
@@ -206,8 +208,9 @@ and are cached for the session by a small store that also owns the loading timin
 - **Handover in place.** Each card mounts over its own skeleton, which stays solid underneath;
   the content fades in on top (240 ms, 70 ms stagger) while only the bones fade out, so shells and
   chrome never dip. Cached content and quick replies skip the bones.
-- **Timing rules.** A tab's first load draws nothing for 150 ms, so a quick reply never flashes
-  bones; once drawn they stay at least 400 ms.
+- **Timing rules.** Bones belong to the cold start; once drawn they stay at least 400 ms. The other
+  tabs' feeds load quietly behind it, and a tab tapped before its feed lands keeps the cards it had
+  (see the tab switch above). The store's 150 ms show delay remains for any delayed load.
 - **Dials > Skeleton** (with `SHOW_DIALS` on, as above): latency per section, **Hold loading**
   (inspect the bones for as long as you like) and **Replay cold start**.
 
@@ -257,7 +260,8 @@ through the real Pressability), the card entrance, the nav pill's stretch, nav s
 springs' overshoot and settle, and the Dials store.
 `tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
 label before the cards change, reuses the mounted cards of a loaded feed, resolves them in place
-(and not on a feed's first visit), never replays the entrance and leaves the nav bar alone.
+(on a first visit too, and after holding the old cards while a feed loads), never replays the
+entrance and leaves the nav bar alone.
 `tabResolve.test.ts` pins the resolve's start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
 
 ## Trade-offs and honest notes

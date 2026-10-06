@@ -82,11 +82,6 @@ describe('switching feed tabs', () => {
   it('keeps a card that is in both feeds mounted when switching to a loaded feed', async () => {
     await render(<DiscoverScreen />);
     await settle();
-    // A feed's first visit empties the list while it loads, so load Following once first.
-    await press('Following');
-    await settle();
-    await press('Discover');
-    await settle();
     // candlefox's $18.4K SOL buy heads both feeds.
     const card = screen.getAllByText('$18.4K')[0];
 
@@ -138,23 +133,31 @@ describe('switching feed tabs', () => {
     expect(resolving()).toBe(0);
   });
 
-  it('reveals a feed on its first visit from bones, without the resolve on top', async () => {
-    const counts: number[] = [];
-    let recording = false;
-    await render(
-      <Profiler id="feed" onRender={() => recording && counts.push(resolving())}>
-        <DiscoverScreen />
-      </Profiler>,
-    );
+  it("resolves the cards on a tab's first visit too, from its feed loaded ahead", async () => {
+    await render(<DiscoverScreen />);
     await settle();
 
-    recording = true;
     await press('Following');
-    await settle();
+    await act(() => jest.advanceTimersByTimeAsync(50));
 
     expect(showsDiscoverCards()).toBe(false);
-    expect(counts.length).toBeGreaterThan(0);
-    expect(Math.max(...counts)).toBe(0);
+    expect(resolving()).toBeGreaterThan(0);
+  });
+
+  it("keeps the cards up when a tab's feed is still loading, then resolves into it", async () => {
+    await render(<DiscoverScreen />);
+    // Tap the moment the first feed is in, before the feeds behind the tabs have landed.
+    while (!showsDiscoverCards()) await act(() => jest.advanceTimersByTimeAsync(50));
+    await press('Following');
+    await act(() => jest.advanceTimersByTimeAsync(50));
+
+    expect(isLit('Following')).toBe(true);
+    expect(showsDiscoverCards()).toBe(true);
+    expect(resolving()).toBe(0);
+
+    await act(() => jest.advanceTimersByTimeAsync(1000));
+    expect(showsDiscoverCards()).toBe(false);
+    expect(resolving()).toBeGreaterThan(0);
   });
 
   it('leaves the nav bar and its ghost alone', async () => {

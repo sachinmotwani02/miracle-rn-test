@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { useLivePortfolio } from '../data/live';
-import { clearResources, useResource } from '../data/resources';
+import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
 import { useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
@@ -104,26 +104,37 @@ function Discover({ latency }: { latency: Latency }) {
   const livePortfolio = useLivePortfolio(portfolio.data);
   const shownPortfolio = useRollIn(livePortfolio);
   const topTrades = useResource('topTrades', () => fetchTopTrades(latency.topTrades));
-  // The feed follows the deferred tab, so a tap repaints its label before the cards change.
+  // The feed follows the deferred tab, so a tap repaints its label before the cards change. Only
+  // the cold start's feed draws bones; the feeds behind the other tabs load quietly (ahead of time,
+  // below), and until one lands the cards of the feed shown before stay up.
   const cold = shown.tab === firstTab;
   const feed = useResource(`feed:${shown.tab}`, () => fetchFeed(shown.tab, cold ? latency.feed : latency.tabFeed), {
-    showDelay: cold ? 0 : SKELETON.gate.showDelay,
+    quiet: !cold,
   });
-  const loading = portfolio.phase !== 'content' || topTrades.phase !== 'content' || feed.phase !== 'content';
-  const items = feed.phase === 'content' && feed.data ? feed.data : NO_ITEMS;
+  const [feedTab, setFeedTab] = useState<TabKey | null>(null);
+  // A switch, to a feed loaded ahead or one that just landed, resolves the cards on screen in place.
+  const [resolveKey, setResolveKey] = useState(0);
+  if (feed.phase === 'content' && feedTab !== shown.tab) {
+    setFeedTab(shown.tab);
+    if (feedTab !== null) setResolveKey(k => k + 1);
+  }
+  const showing = feed.phase === 'content' ? feed : feedTab ? readResource<FeedItem[]>(`feed:${feedTab}`) : feed;
+  const items = showing.phase === 'content' && showing.data ? showing.data : NO_ITEMS;
+  const loading = portfolio.phase !== 'content' || topTrades.phase !== 'content' || feed.phase === 'skeleton';
   const revealing = feed.revealing;
   // The staggered entrance is for a first feed that arrives without bones. One that reveals from
   // its bones retires it for good, so cards that mount after the reveal window never play it.
   const [revealed, setRevealed] = useState(false);
   if (revealing && !revealed) setRevealed(true);
-  // A switch to a feed that is already loaded resolves the cards on screen in place. A feed's first
-  // visit reveals from its bones instead, and two arrivals must never play over each other.
-  const [resolvedTab, setResolvedTab] = useState(shown.tab);
-  const [resolveKey, setResolveKey] = useState(0);
-  if (shown.tab !== resolvedTab) {
-    setResolvedTab(shown.tab);
-    if (feed.phase === 'content' && !revealing) setResolveKey(k => k + 1);
-  }
+
+  // Once the first feed is in, the others load behind it, so a tab tap usually finds its feed ready.
+  const firstFeedIn = feedTab !== null;
+  useEffect(() => {
+    if (!firstFeedIn) return;
+    for (const { key } of TABS) {
+      if (key !== firstTab) load(`feed:${key}`, () => fetchFeed(key, latency.tabFeed), { quiet: true });
+    }
+  }, [firstFeedIn, firstTab, latency.tabFeed]);
 
   const onTab = useCallback((tab: TabKey) => {
     setSelection(prev => (prev.tab === tab ? prev : { tab, switched: true }));
@@ -163,7 +174,7 @@ function Discover({ latency }: { latency: Latency }) {
     // The new cards render first (in the deferred render); then the list lands on the first one,
     // right under the bar.
     requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
-  }, [shown.tab, bar.feedTop]);
+  }, [feedTab, bar.feedTop]);
 
   // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
   // scrolls to the top while it is open).
