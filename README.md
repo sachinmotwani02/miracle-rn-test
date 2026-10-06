@@ -167,15 +167,17 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
 - Tab switches are instant, because they happen all the time. The tapped label brightens with a
   100 ms ease-out (more than half of it on the first frame), and a loaded feed drops into the cards
   already on screen: FlashList recycles them, so nothing is rebuilt, and the list keeps its scroll
-  position for the sky bar. The new content shows on the next frame and then resolves: the first
-  five cards start soft (a light blur, 6 px on web), at 0.97 scale and 45% opacity, and sharpen into place over
-  300 ms, 45 ms apart, with the same strong ease-out. Content first, motion second, so the switch
-  never waits on the animation. The blur is an expo-blur overlay mounted only while a card
-  resolves, since iOS cannot blur a view with `filter`. Android, whose BlurView needs a blur target,
-  resolves with scale and fade only, and Reduce Motion skips it. Once the first feed is in, the
-  feeds behind the other tabs load quietly, so a tab's first visit resolves like any other; one
-  tapped before its feed lands keeps the old cards up (no bones, no empty list) and resolves when it
-  arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
+  position for the sky bar. The cards answer the tap itself: the press handler starts them
+  softening (a light blur, 0.97 scale, 45% opacity, 160 ms) on the UI thread, before React renders
+  anything, while the new feed renders into them underneath. When it lands, each of the first five
+  sharpens back from wherever the softening had got to, over 300 ms, 45 ms apart, with the same
+  strong ease-out. One motion from the tap, and the time spent soft is time the render takes anyway,
+  so nothing waits on the animation; tapped away and back before the cards change, they ease back.
+  The blur is an expo-blur overlay mounted only while a card softens or resolves, since iOS cannot
+  blur a view with `filter`. Android, whose BlurView needs a blur target, does scale and fade only,
+  and Reduce Motion skips it. Once the first feed is in, the feeds behind the other tabs load
+  quietly, so a tab's first visit resolves like any other; one tapped before its feed lands keeps
+  the old cards up, soft (no bones, no empty list), and resolves when it arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
   made each switch wait on a burst of work and then on the fade.
 - "Read more" eases the note box open to its measured full height (320 ms, a strong ease-out with
   no bounce). An invisible copy of the full text gives the target, measured synchronously on mount,
@@ -260,7 +262,8 @@ through the real Pressability), the card entrance, the nav pill's stretch, nav s
 springs' overshoot and settle, and the Dials store.
 `tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
 label before the cards change, reuses the mounted cards of a loaded feed, resolves them in place
-(on a first visit too, and after holding the old cards while a feed loads), never replays the
+(on a first visit too, and after holding the old cards while a feed loads), starts softening them
+in the commit that lights the tab, ignores a tap on the tab already shown, never replays the
 entrance and leaves the nav bar alone.
 `tabResolve.test.ts` pins the resolve's start, end and stagger. `feedTabs.test.ts` steps the label's fade frame by frame.
 

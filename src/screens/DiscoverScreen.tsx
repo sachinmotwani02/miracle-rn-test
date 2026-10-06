@@ -1,7 +1,13 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
-import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedScrollHandler,
+  useComposedEventHandler,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
@@ -12,6 +18,7 @@ import { useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { SKELETON } from '../utils/skeleton';
+import { TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -19,7 +26,7 @@ import { useRollIn } from '../components/PortfolioTicker';
 import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
-import { TabResolve } from '../components/TabResolve';
+import { TabResolve, TabSoftenContext } from '../components/TabResolve';
 import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
 import { SkyBar } from '../components/SkyBar';
@@ -136,9 +143,33 @@ function Discover({ latency }: { latency: Latency }) {
     }
   }, [firstFeedIn, firstTab, latency.tabFeed]);
 
-  const onTab = useCallback((tab: TabKey) => {
-    setSelection(prev => (prev.tab === tab ? prev : { tab, switched: true }));
-  }, []);
+  // The cards start to soften on the tap itself, from this handler, before React renders anything;
+  // the new feed then resolves out of the softness (TabResolve).
+  const pending = useSharedValue(0);
+  const reduced = useReducedMotion();
+  const onTab = useCallback(
+    (tab: TabKey) => {
+      if (tab === selection.tab) return;
+      if (!reduced) pending.set(withTiming(1, { duration: TAB_RESOLVE.soften, easing: TAB_RESOLVE.easing }));
+      setSelection({ tab, switched: true });
+    },
+    [selection.tab, reduced, pending],
+  );
+  const softening = feedTab !== null && selection.tab !== feedTab;
+  const soften = useMemo(() => ({ pending, softening }), [pending, softening]);
+  // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken
+  // over from `pending` (their layout effects run first), so it drops at once; with no resolve (tapped
+  // away and back before the cards changed) they ease back to sharp.
+  const handedOff = useRef(resolveKey);
+  useLayoutEffect(() => {
+    if (softening) return;
+    if (handedOff.current !== resolveKey) {
+      handedOff.current = resolveKey;
+      pending.set(0);
+    } else {
+      pending.set(withTiming(0, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing }));
+    }
+  }, [softening, resolveKey, pending]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -265,24 +296,26 @@ function Discover({ latency }: { latency: Latency }) {
         <StatusBar style="light" />
         <SkyBackground scrollY={scrollY} />
         <View style={styles.list}>
-          <AnimatedFlashList
-            ref={listRef}
-            data={items}
-            renderItem={renderItem}
-            keyExtractor={keyExtractor}
-            extraData={expanded}
-            ListHeaderComponent={header}
-            ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
-            ItemSeparatorComponent={Separator}
-            contentContainerStyle={{ paddingBottom: navClearance }}
-            showsVerticalScrollIndicator={false}
-            onScroll={onScroll}
-            scrollEventThrottle={16}
-            drawDistance={height}
-            // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
-            // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
-            maintainVisibleContentPosition={MVCP_OFF}
-          />
+          <TabSoftenContext.Provider value={soften}>
+            <AnimatedFlashList
+              ref={listRef}
+              data={items}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              extraData={expanded}
+              ListHeaderComponent={header}
+              ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
+              ItemSeparatorComponent={Separator}
+              contentContainerStyle={{ paddingBottom: navClearance }}
+              showsVerticalScrollIndicator={false}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              drawDistance={height}
+              // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
+              // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
+              maintainVisibleContentPosition={MVCP_OFF}
+            />
+          </TabSoftenContext.Provider>
         </View>
         <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} />
         <BottomFade height={navClearance + 20} />

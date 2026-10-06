@@ -144,20 +144,56 @@ describe('switching feed tabs', () => {
     expect(resolving()).toBeGreaterThan(0);
   });
 
-  it("keeps the cards up when a tab's feed is still loading, then resolves into it", async () => {
+  it("keeps the cards up, soft, while a tab's feed is still loading, then resolves into it", async () => {
     await render(<DiscoverScreen />);
     // Tap the moment the first feed is in, before the feeds behind the tabs have landed.
     while (!showsDiscoverCards()) await act(() => jest.advanceTimersByTimeAsync(50));
     await press('Following');
     await act(() => jest.advanceTimersByTimeAsync(50));
 
+    // Still the Discover cards, held soft while Following loads.
     expect(isLit('Following')).toBe(true);
     expect(showsDiscoverCards()).toBe(true);
-    expect(resolving()).toBe(0);
+    expect(resolving()).toBeGreaterThan(0);
 
     await act(() => jest.advanceTimersByTimeAsync(1000));
     expect(showsDiscoverCards()).toBe(false);
     expect(resolving()).toBeGreaterThan(0);
+  });
+
+  it('starts softening the cards in the same commit that lights the tab, before the new cards render', async () => {
+    const commits: { lit: boolean; discoverCards: boolean; soft: number }[] = [];
+    let recording = false;
+    await render(
+      <Profiler
+        id="feed"
+        onRender={() => {
+          if (recording) commits.push({ lit: isLit('Following'), discoverCards: showsDiscoverCards(), soft: resolving() });
+        }}
+      >
+        <DiscoverScreen />
+      </Profiler>,
+    );
+    await settle();
+
+    recording = true;
+    await press('Following');
+    await settle();
+
+    const first = commits.find(c => c.lit);
+    expect(first?.discoverCards).toBe(true);
+    expect(first?.soft).toBeGreaterThan(0);
+    expect(first?.soft).toBeLessThanOrEqual(5);
+    expect(commits[commits.length - 1]).toEqual({ lit: true, discoverCards: false, soft: 0 });
+  });
+
+  it('does nothing when the tab already shown is tapped', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+
+    await press('Discover');
+
+    expect(resolving()).toBe(0);
   });
 
   it('leaves the nav bar and its ghost alone', async () => {
