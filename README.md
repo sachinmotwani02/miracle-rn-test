@@ -81,11 +81,12 @@ The idea: **the mascot is paying attention.**
      mark the press and the landing; a burst of taps stacks up to three turns. With Reduce Motion
      on it stays still and only smiles.
    - **Rare spin:** every fourth tap the turn is a special one. Once the finger has lifted, so it
-     can be seen, the ghost crouches as a silk ribbon in five colour bands (halo gold, pink,
-     violet, sky blue, mint) wraps round it, passing in front of and behind the cloud. Then it
-     launches into a double spin with the ribbon whipping round it, and as it lands the ribbon
-     unravels upward and four little twinkles pop round it. (It began as hold-to-charge, but a
-     finger holding the ghost hides it, so the charge-up could not be seen.)
+     can be seen, the ghost crouches as five colourful rings (halo gold, pink, violet, sky blue,
+     mint) start to orbit it on tilted paths, crossing like a gyroscope and passing in front of
+     and behind the cloud. Then it launches into a double spin with the rings whipping round it,
+     and as it lands they burst outward like a small firework while four little twinkles pop
+     round it. (It began as hold-to-charge, but a finger holding the ghost hides it, so the
+     charge-up could not be seen.)
 3. Press feedback: the pressed icon scales to 0.88 on a stiff spring and a soft white bloom expands
    and fades behind it.
 4. Scroll-linked: while the feed is being scrolled downward the bar sinks 12 pt and shrinks to 0.97,
