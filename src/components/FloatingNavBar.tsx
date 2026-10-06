@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { SharedValue, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { SharedValue, interpolate, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDials } from '../dev/dials';
 import { colors, layout, navPillLeft, navSlotCenter } from '../theme';
 import { haptic } from '../utils/haptics';
+import { NavShrinkState, navShrinkStep } from '../utils/navShrink';
 import { PILL, PillStretch, moveStart, pillGlass, pillShape, pillSpring } from '../utils/pillMotion';
 import { BarsIcon, CompassIcon, HomeIcon, PersonIcon } from './NavIcons';
 import { Mascot, MascotHandle } from './Mascot';
@@ -47,8 +48,6 @@ interface Props {
   active: number;
   onChange: (index: number) => void;
   scrollY: SharedValue<number>;
-  /** +1 scrolling down, -1 scrolling up, 0 idle. */
-  scrollDirection: SharedValue<number>;
 }
 
 interface ButtonProps {
@@ -61,6 +60,11 @@ interface ButtonProps {
 
 /** Each slot is absolutely positioned on the icon centres measured from the Figma. */
 const SLOT_W = 56;
+
+/** The bar's size while shrunk (see navShrink). */
+const NAV_SCROLLED_SCALE = 0.9;
+/** How far (pt) the bar sinks while shrunk. */
+const NAV_SCROLLED_SINK = 12;
 
 
 function NavButton({ index, active, onPress, children, label }: ButtonProps) {
@@ -95,10 +99,10 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
  * The nav bar's idea: the ghost is paying attention. The active pill slides and
  * stretches toward the tapped tab and the ghost glances that way with a tiny hop. The ghost
  * itself is a toy with a life of its own (see Mascot); tapping it never changes the
- * tab. The bar sinks a little while the feed is being scrolled downward and springs
- * back as soon as the scroll eases.
+ * tab. The bar sinks and shrinks out of the way on a scroll down and rises back on a scroll up
+ * (see navShrink).
  */
-export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: Props) {
+export function FloatingNavBar({ active, onChange, scrollY }: Props) {
   const insets = useSafeAreaInsets();
   const pillX = useSharedValue(navPillLeft(active));
   const target = useSharedValue(navPillLeft(active));
@@ -146,18 +150,24 @@ export function FloatingNavBar({ active, onChange, scrollY, scrollDirection }: P
     return { transform: [{ translateX: pillX.value }, { scaleX }, { scaleY }] };
   });
 
-  // Bar sinks while the list is being scrolled downward.
-  const barStyle = useAnimatedStyle(() => {
-    const down = scrollDirection.value > 0 && scrollY.value > 40;
-    return {
-      transform: [
-        { translateY: withSpring(down ? 12 : 0, { damping: 18, stiffness: 180 }) },
-        { scale: withSpring(down ? 0.97 : 1, { damping: 18, stiffness: 180 }) },
-      ],
-    };
-  });
-
   const bottom = Math.max(insets.bottom, 16) + layout.nav.bottomGap;
+  const shrink = useSharedValue<NavShrinkState>({ shrunk: false, travel: 0 });
+  useAnimatedReaction(
+    () => scrollY.value,
+    (y, prev) => {
+      if (prev !== null) shrink.value = navShrinkStep(shrink.value, y, y - prev);
+    },
+  );
+
+  // One spring drives both the sink and the shrink so they move as one. Critically damped like
+  // the pill, so a quick reversal turns around without a bounce.
+  const shrunk = useDerivedValue(() => withSpring(shrink.value.shrunk ? 1 : 0, { duration: 350, dampingRatio: 1 }));
+  const barStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(shrunk.value, [0, 1], [0, NAV_SCROLLED_SINK]) },
+      { scale: interpolate(shrunk.value, [0, 1], [1, NAV_SCROLLED_SCALE]) },
+    ],
+  }));
 
   return (
     <Animated.View style={[styles.wrap, { bottom }, barStyle]}>
