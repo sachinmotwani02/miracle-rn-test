@@ -173,8 +173,10 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   sharpens back from wherever the softening had got to, over 300 ms, 45 ms apart, with the same
   strong ease-out. One motion from the tap, and the time spent soft is time the render takes anyway,
   so nothing waits on the animation; tapped away and back before the cards change, they ease back.
-  The blur is an expo-blur overlay mounted only while a card softens or resolves, since iOS cannot
-  blur a view with `filter`. Android, whose BlurView needs a blur target, does scale and fade only,
+  Only what is inside a card softens: its white shell stays solid and its edge crisp (a faded shell
+  let the sky show through and turned the cards into blue frosted panes). The blur is an expo-blur
+  overlay inside the card's 4 pt rim, mounted only while a card softens or resolves, since iOS
+  cannot blur a view with `filter`. Android, whose BlurView needs a blur target, does scale and fade only,
   and Reduce Motion skips it. Once the first feed is in, the feeds behind the other tabs load
   quietly, so a tab's first visit resolves like any other; one tapped before its feed lands keeps
   the old cards up, soft (no bones, no empty list), and resolves when it arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance

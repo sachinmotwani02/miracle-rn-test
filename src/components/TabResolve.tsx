@@ -10,7 +10,7 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import { layout } from '../theme';
+import { colors, layout } from '../theme';
 import { TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
@@ -39,10 +39,11 @@ interface Props {
 }
 
 /**
- * Plays the tab switch resolve (see TAB_RESOLVE) around one feed card. The fade sits on the
- * content only, and the blur is a sibling overlay outside it: a blur view under a see-through
- * ancestor renders wrong on iOS. The overlay covers the card (inside its side margins) and is
- * mounted only while the card softens or resolves. The screen hands the softening over through
+ * Plays the tab switch resolve (see TAB_RESOLVE) around one feed card. Only what is inside the card
+ * softens: a solid white shell sits behind it, so the card never turns see-through to the sky, and
+ * the blur stops at the card's 4 pt rim, so its edge stays crisp; the whole card only scales. The
+ * fade is on the content, and the blur is a sibling overlay outside it (a blur view under a
+ * see-through ancestor renders wrong on iOS), mounted only while the card softens or resolves. The screen hands the softening over through
  * context, so the tap re-renders these wrappers and not the list.
  */
 export function TabResolve({ resolveKey, index, children }: Props) {
@@ -106,6 +107,7 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const blurring = CAN_BLUR && takesPart && (run !== null || softening || settling);
   return (
     <Animated.View style={scaleStyle}>
+      {takesPart ? <View style={styles.shell} /> : null}
       <Animated.View style={fadeStyle}>{children}</Animated.View>
       {blurring ? (
         <View style={styles.overlay} testID="tab-resolve-blur">
@@ -118,13 +120,24 @@ export function TabResolve({ resolveKey, index, children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  // Matches the card (TradeCard's slot margin and radius) and stays opaque while the content fades.
+  shell: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     left: layout.cardMargin,
     right: layout.cardMargin,
     borderRadius: layout.cardRadius,
+    backgroundColor: colors.card,
+  },
+  // Inside the card's rim, on the note box's inset and radius, so the blur never reaches the edge.
+  overlay: {
+    position: 'absolute',
+    top: layout.noteInset,
+    bottom: layout.noteInset,
+    left: layout.cardMargin + layout.noteInset,
+    right: layout.cardMargin + layout.noteInset,
+    borderRadius: layout.noteRadius,
     overflow: 'hidden',
     pointerEvents: 'none',
   },
