@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import Animated, { useAnimatedScrollHandler, useComposedEventHandler, useSharedValue } from 'react-native-reanimated';
@@ -82,8 +82,11 @@ export function DiscoverScreen() {
 function Discover({ latency }: { latency: Latency }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const [tab, setTab] = useState<TabKey>('discover');
-  const [firstTab] = useState(tab);
+  // A tap lights its label in a commit of its own; the cards follow in a deferred render, so the
+  // label never waits for them. `switched` retires the first-load entrance for good.
+  const [selection, setSelection] = useState<{ tab: TabKey; switched: boolean }>({ tab: 'discover', switched: false });
+  const shown = useDeferredValue(selection);
+  const [firstTab] = useState(selection.tab);
   const [nav, setNav] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [menuOpen, setMenuOpen] = useState(false);
@@ -100,13 +103,22 @@ function Discover({ latency }: { latency: Latency }) {
   const livePortfolio = useLivePortfolio(portfolio.data);
   const shownPortfolio = useRollIn(livePortfolio);
   const topTrades = useResource('topTrades', () => fetchTopTrades(latency.topTrades));
-  const cold = tab === firstTab;
-  const feed = useResource(`feed:${tab}`, () => fetchFeed(tab, cold ? latency.feed : latency.tabFeed), {
+  // The feed follows the deferred tab, so a tap repaints its label before the cards change.
+  const cold = shown.tab === firstTab;
+  const feed = useResource(`feed:${shown.tab}`, () => fetchFeed(shown.tab, cold ? latency.feed : latency.tabFeed), {
     showDelay: cold ? 0 : SKELETON.gate.showDelay,
   });
   const loading = portfolio.phase !== 'content' || topTrades.phase !== 'content' || feed.phase !== 'content';
   const items = feed.phase === 'content' && feed.data ? feed.data : NO_ITEMS;
   const revealing = feed.revealing;
+  // The staggered entrance is for a first feed that arrives without bones. One that reveals from
+  // its bones retires it for good, so cards that mount after the reveal window never play it.
+  const [revealed, setRevealed] = useState(false);
+  if (revealing && !revealed) setRevealed(true);
+
+  const onTab = useCallback((tab: TabKey) => {
+    setSelection(prev => (prev.tab === tab ? prev : { tab, switched: true }));
+  }, []);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -129,19 +141,20 @@ function Discover({ latency }: { latency: Latency }) {
   const onPickFeed = useCallback(
     (next: TabKey) => {
       setMenuOpen(false);
-      if (next === tab) return;
+      if (next === selection.tab) return;
       landOnFeed.current = true;
-      setTab(next);
+      onTab(next);
     },
-    [tab],
+    [selection.tab, onTab],
   );
 
   useEffect(() => {
     if (!landOnFeed.current) return;
     landOnFeed.current = false;
-    // The new cards render first; then the list lands on the first one, right under the bar.
+    // The new cards render first (in the deferred render); then the list lands on the first one,
+    // right under the bar.
     requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: bar.feedTop, animated: false }));
-  }, [tab, bar.feedTop]);
+  }, [shown.tab, bar.feedTop]);
 
   // The menu hangs off the docked dropdown, so it closes if the bar leaves (say a status bar tap
   // scrolls to the top while it is open).
@@ -153,12 +166,13 @@ function Discover({ latency }: { latency: Latency }) {
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => (
-      // Keyed by tab so a switch remounts just the cards while the list and its header stay mounted
-      // (keeping the scroll offset the sky bar reads). The cards that replace the feed's bones
-      // crossfade from them (the skeleton card stays underneath until the real one covers it);
-      // otherwise the first cards play their entrance.
+      // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
+      // them, so only their props change) and shows it on the next frame, while the list and its
+      // header stay mounted for the sky bar. Rebuilding every card and fading it in from nothing
+      // made each switch wait on a pile of work and then on the fade. A feed's first load empties
+      // the list, so its cards mount fresh and crossfade from the bones (the skeleton card stays
+      // underneath until the real one covers it); the staggered entrance belongs to the first load only.
       <Reveal
-        key={tab}
         active={revealing && index < SKELETON.feedFade.length}
         delay={index * SKELETON.reveal.stagger}
         bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
@@ -168,11 +182,11 @@ function Discover({ latency }: { latency: Latency }) {
           index={index}
           expanded={!!expanded[item.id]}
           onToggleNote={onToggleNote}
-          animateIn={!revealing && index < ENTRANCE_COUNT}
+          animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
         />
       </Reveal>
     ),
-    [tab, expanded, onToggleNote, revealing],
+    [revealed, shown.switched, expanded, onToggleNote, revealing],
   );
 
   const header = useMemo(
@@ -188,8 +202,8 @@ function Discover({ latency }: { latency: Latency }) {
         <View style={{ height: 22 }} />
         <View onLayout={bar.onTabsLayout} {...a11yHidden(bar.docked)}>
           <FeedTabs
-            active={tab}
-            onChange={setTab}
+            active={selection.tab}
+            onChange={onTab}
             fold={bar.fold}
             folded={bar.folded}
             onOpenMenu={openMenuFromTabs}
@@ -200,7 +214,8 @@ function Discover({ latency }: { latency: Latency }) {
     ),
     [
       insets.top,
-      tab,
+      selection.tab,
+      onTab,
       livePortfolio,
       shownPortfolio,
       portfolio.revealing,
@@ -218,7 +233,7 @@ function Discover({ latency }: { latency: Latency }) {
   );
 
   const navClearance = Math.max(insets.bottom, 16) + layout.nav.bottomGap + layout.nav.height + 16;
-  const feedLabel = TABS.find(t => t.key === tab)?.label ?? '';
+  const feedLabel = TABS.find(t => t.key === selection.tab)?.label ?? '';
 
   return (
     // One subtle light sweep crosses every bone while anything is loading.
@@ -251,7 +266,7 @@ function Discover({ latency }: { latency: Latency }) {
         <FloatingNavBar active={nav} onChange={setNav} scrollY={scrollY} />
         <FeedMenu
           open={menuOpen}
-          active={tab}
+          active={selection.tab}
           top={insets.top + SKY_BAR.height + 4}
           onSelect={onPickFeed}
           onClose={closeMenu}

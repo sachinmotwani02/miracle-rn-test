@@ -162,9 +162,13 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   numbers open on them. Both hooks live in the screen rather than the header, so a tab change
   neither replays the roll nor drops a refresh (Replay cold start remounts the screen and rolls again).
 - Cards that replace the loading bones crossfade in place (below); cards that arrive without bones
-  (a tab already loaded) enter with a staggered fade and 12 pt rise, the first five only.
-- A tab switch remounts just the cards (keyed by tab) so the first ones replay their entrance, while
-  the list keeps its scroll position for the sky bar; active label opacity animates.
+  on the first load enter with a staggered fade and 12 pt rise, the first five only.
+- Tab switches are instant, because they happen all the time. The tapped label brightens with a
+  100 ms ease-out (more than half of it on the first frame), and a loaded feed drops into the cards
+  already on screen: FlashList recycles them, so nothing is rebuilt or faded in, and the list keeps
+  its scroll position for the sky bar. A feed's first visit shows its bones (after 150 ms) and its
+  cards crossfade in from them. Rebuilding every card and replaying the entrance made each switch
+  wait on a burst of work and then on the fade.
 - "Read more" springs the note box open to its measured full height (an invisible copy of the full
   text provides the target so the spring has a real end value).
 - Deposit button and nav icons scale on press; sky parallax at 0.3×.
@@ -211,6 +215,9 @@ and are cached for the session by a small store that also owns the loading timin
 - No per-frame JS work: scroll, sky bar, pill, mascot, draw-in and the digit rolls are all worklets.
   The portfolio figures re-render the list header only when they change: once as the portfolio
   loads and rolls in, and once per return to the app.
+- A tab tap lights its label in a commit of its own; the cards follow in a deferred render
+  (`useDeferredValue`), so the label never waits for them. The nav bar is memoised, so feed tab
+  switches leave it and the ghost alone.
 - Mock data is generated once at module load from a seeded PRNG, so renders are deterministic.
 
 ## Robustness
@@ -237,6 +244,9 @@ live hook (still while open, a refresh on return but not after a trip to inactiv
 until the portfolio loads), the opening roll (24h-ago figures first, the beat counted from the
 portfolio's arrival, Reduce Motion) and the screen-reader labels, and the patched NumberFlow (glyphs
 placed with the tracking, clips untouched; these fail if the patch was not applied).
+`tabSwitch.test.tsx` renders the real screen and FlashList and checks that a tab tap lights its
+label before the cards change, reuses the mounted cards of a loaded feed, never replays the
+entrance and leaves the nav bar alone. `feedTabs.test.ts` steps the label's fade frame by frame.
 
 ## Trade-offs and honest notes
 

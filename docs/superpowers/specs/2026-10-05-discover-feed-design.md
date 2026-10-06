@@ -158,8 +158,11 @@ Elsewhere (deliberately limited):
   figures once the portfolio loads (a beat after its bones hand over), and to a fresh value when the
   app returns from the background (a mean-reverting random walk for the time away); otherwise they
   hold still.
-- First five cards enter with a staggered fade + 12 pt rise.
-- Tab switch: active label crossfades; the list content fades/slides 8 pt on tab change.
+- First five cards enter with a staggered fade + 12 pt rise, on the first load only (cards that
+  replace the loading bones crossfade from them instead).
+- Tab switch: instant. The active label crossfades in 100 ms (strong ease-out) and a loaded feed
+  appears in the cards already on screen, with no fade or slide; a feed's first visit loads behind
+  its bones. (Revised 2026-10-06: the replayed entrance made frequent switches feel slow.)
 - Note box expands/collapses with a spring on height.
 - Deposit and card press: 0.97 scale spring.
 - Sky parallax at 0.3× scroll.

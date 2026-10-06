@@ -101,8 +101,9 @@ function NavButton({ index, active, onPress, children, label }: ButtonProps) {
  * itself is a toy with a life of its own (see Mascot); tapping it never changes the
  * tab. The bar sinks and shrinks out of the way on a scroll down and rises back on a scroll up
  * (see navShrink).
+ * Memoised: a feed tab switch re-renders the screen, and the bar and its ghost have nothing to redo.
  */
-export function FloatingNavBar({ active, onChange, scrollY }: Props) {
+export const FloatingNavBar = React.memo(function FloatingNavBar({ active, onChange, scrollY }: Props) {
   const insets = useSafeAreaInsets();
   const pillX = useSharedValue(navPillLeft(active));
   const target = useSharedValue(navPillLeft(active));
@@ -201,7 +202,7 @@ export function FloatingNavBar({ active, onChange, scrollY }: Props) {
       </View>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', pointerEvents: 'box-none' },

@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
-import Animated, { SharedValue, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { Easing, SharedValue, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { TABS, TabKey } from '../data/types';
 import { colors, layout, text } from '../theme';
 import { chevronReveal, foldedTab } from '../utils/skyBar';
 import { Chevron } from './Chevron';
+
+/**
+ * Tabs get switched all the time, so the labels barely animate: a short, strong ease-out puts more
+ * than half the change on the first frame and settles in about 100 ms.
+ */
+export const LABEL_FADE = { duration: 100, easing: Easing.bezier(0.23, 1, 0.32, 1) };
 
 interface Props {
   active: TabKey;
@@ -30,7 +36,7 @@ interface TabProps {
 function Tab({ label, selected, onPress, fold, x, folded, onLayout }: TabProps) {
   const pressed = useSharedValue(0);
   const style = useAnimatedStyle(() => ({
-    opacity: withTiming(selected ? 1 : 0.72, { duration: 180 }),
+    opacity: withTiming(selected ? 1 : 0.72, LABEL_FADE),
     transform: [{ scale: withTiming(pressed.value ? 0.96 : 1, { duration: 120 }) }],
   }));
   const folding = useAnimatedStyle(() => {
