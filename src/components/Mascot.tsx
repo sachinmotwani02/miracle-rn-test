@@ -18,6 +18,7 @@ import Animated, {
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { haptic } from '../utils/haptics';
+import { SwirlLayer, useSwirl } from './MascotSwirl';
 import {
   BREATH,
   TrailRing,
@@ -118,6 +119,21 @@ const HALO_WOBBLE = { stiffness: 140, damping: 5, mass: 1 };
 const TURN_MS = 1400;
 /** Turns a burst of taps can stack up. */
 const MAX_TURNS = 3;
+
+/**
+ * Holding the ghost charges a colourful swirl; letting go fires a bigger double spin. A quick
+ * tap never charges: the swirl only starts once a press has lasted HOLD_MS.
+ */
+const HOLD_MS = 300;
+const CHARGE_MS = 900;
+/** Let go with less charge than this and it is an ordinary turn. */
+const MIN_CHARGE = 0.3;
+/** Swirl speeds, degrees per second: at full charge, and while the big spin plays. */
+const CHARGE_SPEED = 650;
+const SPIN_SPEED = 1100;
+const BIG_SPIN = { stiffness: 60, damping: 12.5, mass: 1 };
+/** How long the big spin's choreography runs. */
+const BIG_SPIN_MS = 2000;
 
 const blinkOnce = () => withSequence(withTiming(1, BLINK_CLOSE), withTiming(0, BLINK_OPEN));
 const blinkTwice = () =>
@@ -225,6 +241,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const trail = useSharedValue(0); // where the trails' tail has got to, degrees
   const haloLift = useSharedValue(0); // pt, relative to the cloud
   const haloTilt = useSharedValue(0); // degrees
+  const swirl = useSwirl();
 
   const busy = useRef(false);
   useIdleFace(!reduceMotion, busy, blink, gazeX, gazeY);
@@ -233,20 +250,34 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   const queued = useRef(0);
   const handled = useRef(false);
   const turnTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  // The hold has its own timers (start of charge, haptic ticks, fizzle) so ending a hold never
+  // cancels a turn that is still playing.
+  const holdTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  /** When the current charge began, or null when not charging. */
+  const chargeStart = useRef<number | null>(null);
   useEffect(() => {
     const timers = turnTimers.current;
-    return () => timers.forEach(clearTimeout);
+    const holds = holdTimers.current;
+    return () => {
+      timers.forEach(clearTimeout);
+      holds.forEach(clearTimeout);
+    };
   }, []);
-  const schedule = (ms: number, run: () => void) => {
+  const later = (set: Set<ReturnType<typeof setTimeout>>, ms: number, run: () => void) => {
     const id = setTimeout(() => {
-      turnTimers.current.delete(id);
+      set.delete(id);
       run();
     }, ms);
-    turnTimers.current.add(id);
+    set.add(id);
   };
+  const schedule = (ms: number, run: () => void) => later(turnTimers.current, ms, run);
   const clearTurnTimers = () => {
     turnTimers.current.forEach(clearTimeout);
     turnTimers.current.clear();
+  };
+  const clearHold = () => {
+    holdTimers.current.forEach(clearTimeout);
+    holdTimers.current.clear();
   };
 
   useImperativeHandle(
@@ -275,6 +306,90 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     }
   };
 
+  // Fades the swirl out and stops its clock once it is gone (unless a new charge has begun).
+  const endSwirl = (ms: number) => {
+    swirl.alpha.value = withTiming(0, { duration: ms });
+    swirl.speed.value = withTiming(0, { duration: ms });
+    schedule(ms + 60, () => {
+      if (chargeStart.current === null) swirl.run(false);
+    });
+  };
+
+  // Held long enough: the colourful swirl charges up round the ghost while it hunkers down.
+  const beginCharge = () => {
+    chargeStart.current = Date.now();
+    swirl.run(true);
+    swirl.spread.value = 1;
+    swirl.alpha.value = withTiming(1, { duration: 250 });
+    swirl.speed.value = withTiming(CHARGE_SPEED, { duration: CHARGE_MS, easing: Easing.in(Easing.quad) });
+    squash.value = withTiming(0.84, { duration: CHARGE_MS, easing: Easing.out(Easing.quad) });
+    spin.value = withTiming(target.current - 32, { duration: CHARGE_MS, easing: Easing.inOut(Easing.quad) });
+    wide.value = withTiming(0.3, { duration: 300 });
+    happy.value = withTiming(0.55, { duration: 300 });
+    // Three light ticks while it charges; the last one marks full charge.
+    haptic('selection');
+    later(holdTimers.current, CHARGE_MS / 2, () => haptic('selection'));
+    later(holdTimers.current, CHARGE_MS, () => haptic('selection'));
+  };
+
+  // The finger slid off mid-charge: let the swirl fizzle out.
+  const fizzle = () => {
+    chargeStart.current = null;
+    happy.value = withTiming(0, { duration: 200 });
+    endSwirl(200);
+  };
+
+  // Let go after charging: a double spin with the swirl whipping round it, then a burst.
+  const bigSpin = () => {
+    queued.current = MAX_TURNS; // nothing stacks on top of the big one
+    busy.current = true;
+    target.current += 720;
+    const to = target.current;
+    haptic('medium');
+    spin.value = withSpring(to, BIG_SPIN);
+    trail.value = to; // the coloured swirl stands in for the white trails here
+    swirl.speed.value = withSequence(withTiming(SPIN_SPEED, { duration: 250 }), withDelay(250, withTiming(400, { duration: 500 })));
+    lift.value = withSequence(withTiming(-9, { duration: 300, easing: Easing.out(Easing.cubic) }), withSpring(0, LAND));
+    haloLift.value = withSequence(
+      withTiming(1.5, { duration: 110 }),
+      withTiming(-5, { duration: 380, easing: Easing.inOut(Easing.quad) }),
+      withSpring(0, HALO_SETTLE),
+    );
+    haloTilt.value = withSequence(withDelay(470, withTiming(-7, { duration: 90 })), withSpring(0, HALO_WOBBLE));
+    squash.value = withSequence(
+      withTiming(1.1, { duration: 120, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 330, easing: Easing.inOut(Easing.quad) }),
+      withTiming(0.9, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withSpring(1, SETTLE),
+    );
+    wide.value = withTiming(0, { duration: 150 });
+    happy.value = withSequence(withTiming(1, { duration: 120 }), withDelay(480, withTiming(0, { duration: 180 })));
+    dizzy.value = 0;
+    dizzy.value = withDelay(650, withTiming(1, { duration: 1000, easing: Easing.linear }));
+    blink.value = withDelay(1700, blinkOnce());
+    exertion.value = withSequence(
+      withTiming(1, { duration: 300 }),
+      withDelay(1500, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
+    );
+    clearTurnTimers();
+    // Landing: the swirl bursts outward and fades like a small firework.
+    schedule(480, () => {
+      haptic('soft');
+      swirl.spread.value = withTiming(1.45, { duration: 420, easing: Easing.out(Easing.quad) });
+      swirl.alpha.value = withTiming(0, { duration: 420, easing: Easing.in(Easing.quad) });
+    });
+    schedule(1000, () => {
+      if (chargeStart.current !== null) return;
+      swirl.run(false);
+      swirl.speed.value = 0;
+      swirl.spread.value = 1;
+    });
+    schedule(BIG_SPIN_MS, () => {
+      queued.current = 0;
+      busy.current = false;
+    });
+  };
+
   const onPressIn = () => {
     handled.current = false;
     if (reduceMotion) return;
@@ -285,23 +400,36 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     wide.value = withTiming(1, { duration: 120 });
     gazeX.value = withSpring(0, DART);
     gazeY.value = withSpring(0, DART);
-    if (queued.current === 0) spin.value = withSpring(target.current - 15, PRESS);
+    if (queued.current === 0) {
+      spin.value = withSpring(target.current - 15, PRESS);
+      later(holdTimers.current, HOLD_MS, beginCharge);
+    }
   };
 
-  // On a quick tap Pressability fires onPress first and holds onPressOut back to 130 ms.
+  // On a quick tap Pressability fires onPress first and holds onPressOut back to 130 ms. On a
+  // longer press onPressOut comes first, so a charge only fizzles if no onPress follows.
   const onPressOut = () => {
     if (reduceMotion || handled.current) return;
+    clearHold();
     relax();
+    if (chargeStart.current !== null) later(holdTimers.current, 80, fizzle);
   };
 
   const onPress = () => {
     handled.current = true;
+    clearHold();
+    const charge = chargeStart.current === null ? 0 : Math.min(1, (Date.now() - chargeStart.current) / CHARGE_MS);
+    chargeStart.current = null;
     if (reduceMotion) {
       // No movement: a moment of the happy face is the whole reaction.
       happy.value = 1;
       schedule(900, () => {
         happy.value = 0;
       });
+      return;
+    }
+    if (charge >= MIN_CHARGE && queued.current === 0) {
+      bigSpin();
       return;
     }
     if (queued.current >= MAX_TURNS) {
@@ -346,6 +474,8 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       withDelay(1200, withTiming(0, { duration: 6000, easing: Easing.inOut(Easing.quad) })),
     );
     clearTurnTimers();
+    // A short hold that never built enough charge: drop the swirl and just turn.
+    if (charge > 0) endSwirl(150);
     schedule(450, () => haptic('soft'));
     schedule(TURN_MS, () => {
       queued.current = 0;
@@ -425,7 +555,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Ghost"
-      accessibilityHint="Spins the ghost"
+      accessibilityHint="Spins the ghost. Hold, then let go, for a big spin."
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       onPress={onPress}
@@ -439,6 +569,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
             <AnimatedPath animatedProps={lowerTrail} fill={colors.white} />
           </Svg>
         </View>
+        <SwirlLayer swirl={swirl} side="back" cx={W / 2} cy={PIVOT_Y} />
         <Animated.View style={[styles.halo, haloStyle]}>
           <Image source={ART} style={styles.art} contentFit="contain" transition={0} />
         </Animated.View>
@@ -459,6 +590,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
             ))}
           </Animated.View>
         </Animated.View>
+        <SwirlLayer swirl={swirl} side="front" cx={W / 2} cy={PIVOT_Y} />
       </Animated.View>
     </Pressable>
   );

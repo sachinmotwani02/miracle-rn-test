@@ -38,6 +38,26 @@ export const TRAIL = {
   samples: 14,
 } as const;
 
+export const RIBBON = {
+  /** Shortest and longest ribbon, degrees of arc; length grows with the swirl's speed. */
+  minArc: 40,
+  maxArc: 200,
+  /** Degrees of extra length per degree-per-second of swirl speed. */
+  arcPerSpeed: 0.14,
+  /** Thickness at the head, pt. */
+  width: 1.6,
+  /** Points along each ribbon. */
+  samples: 18,
+} as const;
+
+/** A tilted elliptical orbit round the ghost (pt and degrees). */
+export interface Orbit {
+  rx: number;
+  ry: number;
+  /** In-plane tilt of the orbit, so the ribbons cross like rings round a planet. */
+  tilt: number;
+}
+
 export interface TrailRing {
   /** Centre height of the ring, pt. */
   cy: number;
@@ -143,6 +163,83 @@ export function trailPath(head: number, tail: number, ring: TrailRing, cx: numbe
     if (i === n) tip = `${(x + (tx / len) * w).toFixed(2)} ${(y + (ty / len) * w).toFixed(2)}`;
   }
   return `M${upper.join(' L')} L${tip} L${lower.reverse().join(' L')} Z`;
+}
+
+/** How long a swirl ribbon is, degrees of arc, at a swirl speed in degrees per second. */
+export function ribbonArc(speed: number): number {
+  'worklet';
+  return clamp(RIBBON.minArc + RIBBON.arcPerSpeed * speed, RIBBON.minArc, RIBBON.maxArc);
+}
+
+/**
+ * SVG paths for one coloured swirl ribbon on a tilted orbit round the ghost, split by depth:
+ * `front` is the part on the near side of the orbit (drawn over the cloud) and `back` the far
+ * side (drawn behind it). The ribbon runs `arc` degrees back from `head` (0 = nearest the viewer)
+ * and tapers to a point at its tail. `spread` scales the orbit for the burst at the end.
+ */
+export function ribbonPaths(
+  head: number,
+  arc: number,
+  orbit: Orbit,
+  spread: number,
+  cx: number,
+  cy: number,
+): { front: string; back: string } {
+  'worklet';
+  const len = Math.min(arc, RIBBON.maxArc);
+  if (len <= 0.5) return { front: 'M0 0', back: 'M0 0' };
+  const start = ((head - len) * Math.PI) / 180;
+  const span = (len * Math.PI) / 180;
+  const tilt = (orbit.tilt * Math.PI) / 180;
+  const ct = Math.cos(tilt);
+  const st = Math.sin(tilt);
+  const rx = orbit.rx * spread;
+  const ry = orbit.ry * spread;
+  const n = RIBBON.samples;
+  let front = '';
+  let back = '';
+  let upper: string[] = [];
+  let lower: string[] = [];
+  let side = 0;
+  for (let i = 0; i <= n; i++) {
+    const s = i / n;
+    const a = start + span * s;
+    const sin = Math.sin(a);
+    const cos = Math.cos(a);
+    // Point and tangent on the flat orbit (near side is its lower half), then tilted in plane.
+    const lx = rx * sin;
+    const ly = ry * cos;
+    const x = cx + lx * ct - ly * st;
+    const y = cy + lx * st + ly * ct;
+    const tlx = rx * cos;
+    const tly = -ry * sin;
+    const tx = tlx * ct - tly * st;
+    const ty = tlx * st + tly * ct;
+    const l = Math.sqrt(tx * tx + ty * ty) || 1;
+    const w = (RIBBON.width / 2) * Math.pow(s, 0.7);
+    const top = `${(x - (ty / l) * w).toFixed(2)} ${(y + (tx / l) * w).toFixed(2)}`;
+    const bottom = `${(x + (ty / l) * w).toFixed(2)} ${(y - (tx / l) * w).toFixed(2)}`;
+    const here = cos >= 0 ? 1 : -1;
+    if (side !== 0 && here !== side) {
+      // Crossing the side of the orbit: end this piece on this point and start the next from it.
+      upper.push(top);
+      lower.push(bottom);
+      const piece = `M${upper.join(' L')} L${lower.reverse().join(' L')} Z`;
+      if (side > 0) front += piece;
+      else back += piece;
+      upper = [];
+      lower = [];
+    }
+    side = here;
+    upper.push(top);
+    lower.push(bottom);
+  }
+  if (upper.length > 1) {
+    const piece = `M${upper.join(' L')} L${lower.reverse().join(' L')} Z`;
+    if (side > 0) front += piece;
+    else back += piece;
+  }
+  return { front: front || 'M0 0', back: back || 'M0 0' };
 }
 
 /**

@@ -1,4 +1,70 @@
-import { BREATH, TRAIL, TURN, breathCurve, clamp, dizzyOffset, randomBetween, trailPath, turnPose, wrap01 } from '../utils/mascotMotion';
+import {
+  BREATH,
+  RIBBON,
+  TRAIL,
+  TURN,
+  breathCurve,
+  clamp,
+  dizzyOffset,
+  randomBetween,
+  ribbonArc,
+  ribbonPaths,
+  trailPath,
+  turnPose,
+  wrap01,
+} from '../utils/mascotMotion';
+
+describe('ribbonPaths', () => {
+  const orbit = { rx: 20, ry: 5, tilt: 0 };
+  const cx = 38;
+  const cy = 28;
+  const coords = (d: string) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  const xs = (d: string) => coords(d).filter((_, i) => i % 2 === 0);
+  const ys = (d: string) => coords(d).filter((_, i) => i % 2 === 1);
+  const pad = RIBBON.width;
+
+  it('draws nothing for a ribbon with no length', () => {
+    expect(ribbonPaths(90, 0, orbit, 1, cx, cy)).toEqual({ front: 'M0 0', back: 'M0 0' });
+  });
+
+  it('puts the near half of the orbit in front of the ghost and the far half behind it', () => {
+    // Seen from slightly above, the near side of a flat orbit is its lower half.
+    const nearOnly = ribbonPaths(40, 70, orbit, 1, cx, cy); // -30..40 deg: all on the near side
+    expect(nearOnly.back).toBe('M0 0');
+    for (const y of ys(nearOnly.front)) expect(y).toBeGreaterThanOrEqual(cy - pad);
+    const farOnly = ribbonPaths(220, 70, orbit, 1, cx, cy); // 150..220 deg: all on the far side
+    expect(farOnly.front).toBe('M0 0');
+    for (const y of ys(farOnly.back)) expect(y).toBeLessThanOrEqual(cy + pad);
+  });
+
+  it('splits a ribbon that wraps round the side into a front piece and a back piece', () => {
+    const p = ribbonPaths(130, 100, orbit, 1, cx, cy); // 30..130 deg crosses 90
+    expect(p.front).not.toBe('M0 0');
+    expect(p.back).not.toBe('M0 0');
+  });
+
+  it('tilts the orbit and grows it with the spread', () => {
+    const flat = ribbonPaths(200, 200, orbit, 1, cx, cy);
+    const tilted = ribbonPaths(200, 200, { ...orbit, tilt: 45 }, 1, cx, cy);
+    const span = (d: string) => Math.max(...ys(d)) - Math.min(...ys(d));
+    expect(span(tilted.front + tilted.back)).toBeGreaterThan(span(flat.front + flat.back) + 5);
+    const wide = ribbonPaths(200, 200, orbit, 1.5, cx, cy);
+    for (const x of xs(wide.front + wide.back)) expect(Math.abs(x - cx)).toBeLessThanOrEqual(orbit.rx * 1.5 + pad);
+    expect(Math.max(...xs(wide.front + wide.back))).toBeGreaterThan(cx + orbit.rx * 1.2);
+  });
+
+  it('never draws more than the longest ribbon', () => {
+    expect(ribbonPaths(300, 999, orbit, 1, cx, cy)).toEqual(ribbonPaths(300, RIBBON.maxArc, orbit, 1, cx, cy));
+  });
+});
+
+describe('ribbonArc', () => {
+  it('gets longer the faster the swirl runs, within limits', () => {
+    expect(ribbonArc(0)).toBe(RIBBON.minArc);
+    expect(ribbonArc(600)).toBeGreaterThan(ribbonArc(200));
+    expect(ribbonArc(100000)).toBe(RIBBON.maxArc);
+  });
+});
 
 describe('trailPath', () => {
   const ring = { cy: 20, rx: 20, ry: 3 };
