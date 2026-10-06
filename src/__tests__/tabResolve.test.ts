@@ -4,7 +4,7 @@ jest.mock('react-native-worklets', () => jest.requireActual('react-native-workle
 
 describe('tab switch resolve', () => {
   it('starts soft, slightly small and see-through', () => {
-    expect(resolveFrame(0)).toEqual({ opacity: 0.45, scale: 0.97, intensity: 30 });
+    expect(resolveFrame(0)).toEqual({ opacity: 0.45, scale: 0.97, intensity: 12 });
   });
 
   it('lands crisp, full size and opaque', () => {

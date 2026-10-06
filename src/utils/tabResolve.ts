@@ -16,8 +16,8 @@ export const TAB_RESOLVE = {
   count: 5,
   scale: 0.97,
   opacity: 0.45,
-  /** expo-blur intensity at the start; 30 is a 6 px blur on web (intensity x 0.2 px). */
-  blur: 30,
+  /** expo-blur intensity when fully soft; 12 is a 2.4 px blur on web (intensity x 0.2 px). */
+  blur: 12,
   /** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
   easing: Easing.bezier(0.23, 1, 0.32, 1),
 };
