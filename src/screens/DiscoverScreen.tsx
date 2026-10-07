@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
-import { hideDials, setDial, useDials } from '../dev/dials';
+import { hideDials, setDial, setDialNote, useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
@@ -74,6 +74,12 @@ const CARD_DIALS = {
   height: [TAB_RESOLVE.height, 0, 600, 10],
   /** Stretches every duration and the stagger, to watch a switch frame by frame. */
   slowMo: [1, 1, 10, 0.5],
+  /**
+   * How far past the screen FlashList keeps cards drawn, in pt. Every drawn card re-renders on a
+   * switch, so this is the hold's length: one screen (the shipped 812-ish) keeps about 13 cards,
+   * 250 (FlashList's default) about 7, at the price of cards drawing later in a fast scroll.
+   */
+  drawDistance: [812, 0, 1600, 50],
 } as const;
 
 /**
@@ -185,7 +191,7 @@ function Discover({ latency }: { latency: Latency }) {
     if (preset) for (const [key, value] of Object.entries(preset)) setDial('Card animation', key, value);
   }, []);
   const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
-  const { soften: softenMs, duration, curve, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay } = card;
+  const { soften: softenMs, duration, curve, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay, drawDistance } = card;
   const look = useMemo<ResolveLook>(
     () => ({
       soften: softenMs * slowMo,
@@ -203,6 +209,8 @@ function Discover({ latency }: { latency: Latency }) {
 
   const reduced = useReducedMotion();
 
+  // Dev readout in the Dials: how long after the tap the new feed reached the screen.
+  const tappedAt = useRef(0);
   // A switch, to a feed loaded ahead or one that just landed, resolves the cards on screen in place.
   const [resolveKey, setResolveKey] = useState(0);
   if (feed.phase === 'content' && feedTab !== shown.tab) {
@@ -230,9 +238,11 @@ function Discover({ latency }: { latency: Latency }) {
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
   // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
+
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
+      tappedAt.current = Date.now();
       if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.easing }));
       setSelection({ tab, switched: true });
     },
@@ -266,6 +276,8 @@ function Discover({ latency }: { latency: Latency }) {
     if (handedOff.current !== resolveKey) {
       handedOff.current = resolveKey;
       pending.set(0);
+      // The commit that puts the new feed in the cards: the hold ends here and the resolve starts.
+      if (__DEV__ && tappedAt.current) setDialNote('Card animation', `Last switch: new feed on screen ${Date.now() - tappedAt.current} ms after the tap`);
     } else {
       pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
@@ -431,7 +443,7 @@ function Discover({ latency }: { latency: Latency }) {
                 showsVerticalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                drawDistance={height}
+                drawDistance={__DEV__ ? drawDistance : height}
                 // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
                 // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
                 maintainVisibleContentPosition={MVCP_OFF}

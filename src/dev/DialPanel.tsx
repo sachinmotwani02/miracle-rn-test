@@ -80,6 +80,7 @@ export function DialPanel({ only, startOpen = false }: { only?: readonly string[
       <ScrollView style={styles.body} scrollEnabled={!dragging} showsVerticalScrollIndicator={false}>
         {panels.map(panel => (
           <View key={panel.name} style={styles.panel}>
+            {panel.note ? <Text style={styles.noteLine}>{panel.note}</Text> : null}
             {single ? null : (
               <View style={styles.panelHead}>
                 <Text style={styles.panelName}>{panel.name}</Text>
@@ -280,6 +281,7 @@ const styles = StyleSheet.create({
   panel: { paddingHorizontal: 14, paddingBottom: 12 },
   panelHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   panelName: { ...font('700'), fontSize: 12, color: 'rgba(255,255,255,0.55)', flex: 1, textTransform: 'uppercase', letterSpacing: 0.6 },
+  noteLine: { ...font('600'), fontSize: 12, color: ACCENT, marginTop: 6, fontVariant: ['tabular-nums'] },
   folder: { ...font('700'), fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.6 },
   label: { ...font('600'), fontSize: 13, color: 'rgba(255,255,255,0.88)' },
   value: { ...font('600'), fontSize: 12, color: 'rgba(255,255,255,0.55)', fontVariant: ['tabular-nums'] },

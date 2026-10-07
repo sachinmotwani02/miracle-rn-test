@@ -50,6 +50,8 @@ export interface DialPanel {
   rows: DialRow[];
   values: Readonly<Record<string, number | boolean>>;
   version: number;
+  /** One line of live readout under the panel's header (timings, say); see setDialNote. */
+  note?: string;
 }
 
 interface Panel extends DialPanel {
@@ -139,7 +141,7 @@ export function registerDials(name: string, config: DialConfig): DialPanel {
     const kept = old && 'def' in old && old.def === row.def;
     values[row.path] = kept ? existing!.values[row.path] : row.def;
   }
-  const panel: Panel = { name, config, rows, values, version: (existing?.version ?? 0) + 1, onAction: existing?.onAction };
+  const panel: Panel = { name, config, rows, values, version: (existing?.version ?? 0) + 1, onAction: existing?.onAction, note: existing?.note };
   panels.set(name, panel);
   // Registration happens during render, where other components must not be updated.
   queueMicrotask(emit);
@@ -164,6 +166,15 @@ export function resetDials(name: string, path?: string) {
   const defaults: Record<string, number | boolean> = {};
   for (const row of rows) if ((row.kind === 'slider' || row.kind === 'toggle') && (!path || row.path === path)) defaults[row.path] = row.def;
   update(name, defaults);
+}
+
+/** Shows `text` under the panel's header, replacing the last note; for what the dials cannot show. */
+export function setDialNote(name: string, text: string) {
+  const panel = panels.get(name);
+  if (!panel || panel.note === text) return;
+  panel.note = text;
+  panel.version++;
+  emit();
 }
 
 let hiddenUntil = 0;
