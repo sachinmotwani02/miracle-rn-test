@@ -35,13 +35,15 @@ export const TAB_RESOLVE = {
   /** expo-blur intensity when fully soft; 8 is a 1.6 px blur on web (intensity x 0.2 px). */
   blur: 8,
   /**
-   * The resolve's ease-out: `smooth` (cubic) in RESOLVE_CURVES. Half way at 80 ms of the 260, and
+   * The resolve's ease-out: `gentle` (sine) in RESOLVE_CURVES. Half way at 95 ms of the 260 and
    * still moving at the end, so it reads as the card coming into focus; the snap (quint) that the
-   * entrance and the tab labels use sharpened in four frames and read as a cut. 190 ms felt too
-   * fast once a release build removed the dev-mode hold.
+   * entrance and the tab labels use sharpened in four frames and read as a cut, and the cubic was
+   * "a bit" short of smooth. 190 ms felt too fast once a release build removed the dev-mode hold.
    */
-  curve: 2,
-  easing: RESOLVE_CURVES[2].easing,
+  curve: 3,
+  easing: RESOLVE_CURVES[3].easing,
+  /** The soften keeps the snap: front-loaded, so the cards are well soft by the time a fast land turns them. */
+  softenEasing: RESOLVE_CURVES[0].easing,
   /**
    * The new feed's cards are often taller or shorter than the old ones (a note's line count): the
    * card eases to its new height over this many ms (TabResolve), and the cards below follow. 0 snaps.
@@ -65,6 +67,7 @@ export interface ResolveLook {
   opacity: number;
   blur: number;
   easing: EasingFunctionFactory;
+  softenEasing: EasingFunctionFactory;
   height: number;
 }
 

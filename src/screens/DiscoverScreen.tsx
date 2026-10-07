@@ -202,6 +202,7 @@ function Discover({ latency }: { latency: Latency }) {
       opacity,
       blur,
       easing: resolveEasing(curve),
+      softenEasing: TAB_RESOLVE.softenEasing,
       height: heightMs * slowMo,
     }),
     [softenMs, duration, curve, stagger, cards, scale, opacity, blur, slowMo, heightMs],
@@ -243,7 +244,7 @@ function Discover({ latency }: { latency: Latency }) {
     (tab: TabKey) => {
       if (tab === selection.tab) return;
       tappedAt.current = Date.now();
-      if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.easing }));
+      if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.softenEasing }));
       setSelection({ tab, switched: true });
     },
     [selection.tab, reduced, pending, look],
