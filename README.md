@@ -6,8 +6,6 @@ The Discover feed from the Miracle take-home, rebuilt in Expo SDK 57 + TypeScrip
   <a href="assets/readme-assets/hero.mp4"><img src="assets/readme-assets/hero.gif" width="520" alt="App tour" /></a>
 </p>
 
-[Figma](https://www.figma.com/design/JbobRQFbjv9tU37hT4ak9a/Untitled?node-id=694-310) · [Brief](docs/reference/brief.pdf)
-
 ```bash
 npm ci
 npm start
