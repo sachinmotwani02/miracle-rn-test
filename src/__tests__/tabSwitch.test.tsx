@@ -1,4 +1,5 @@
 import React, { Profiler } from 'react';
+import { LayoutAnimation } from 'react-native';
 import { act, render, screen, userEvent } from '@testing-library/react-native';
 import * as MascotModule from '../components/Mascot';
 import { clearResources } from '../data/resources';
@@ -187,17 +188,23 @@ describe('switching feed tabs', () => {
     expect(commits[commits.length - 1]).toEqual({ lit: true, discoverCards: false, soft: 0 });
   });
 
-  it('lets the cells glide to new heights and places for the length of a switch only', async () => {
-    const gliding = () => screen.container.queryAll(node => typeof node.props.layout === 'function').length;
+  it('tweens the cards to their new heights when a switch swaps their content', async () => {
+    const configure = jest.spyOn(LayoutAnimation, 'configureNext').mockImplementation(() => {});
     await render(<DiscoverScreen />);
     await settle();
-    expect(gliding()).toBe(0);
+    expect(configure).not.toHaveBeenCalled();
 
     await press('Following');
-    expect(gliding()).toBeGreaterThan(0);
-
     await settle();
-    expect(gliding()).toBe(0);
+
+    // The commit that swaps the content, and FlashList's re-layout of the cells after it.
+    expect(configure.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(configure).toHaveBeenLastCalledWith({ duration: 220, update: { type: LayoutAnimation.Types.easeOut } });
+
+    configure.mockClear();
+    await press('Following');
+    await settle();
+    expect(configure).not.toHaveBeenCalled();
   });
 
   it('does nothing when the tab already shown is tapped', async () => {
