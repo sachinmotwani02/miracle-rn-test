@@ -46,7 +46,6 @@ Deliberately not animated: the portfolio numbers. I built a count-up on mount an
 - Frame times are judged from phone recordings, not measured. It felt smooth; I don't have numbers.
 - Android has no blur: denser fills, and scale + fade on the tab switch.
 - The bottom fade and a few icons are redrawn, not exported. Close, not identical.
-- Reduced motion calms the ghost, the tab switch, the menu and the loading sweep, but not the pill or the sky bar yet.
 
 ## Next
 
