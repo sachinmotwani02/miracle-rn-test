@@ -37,6 +37,8 @@ npm start
 
 Deliberately not animated: the portfolio numbers. I built a count-up on mount and removed it. It fought with the skeleton reveal, and without real prices it's decoration.
 
+**7. Android.** Same screen on a Samsung phone. No blur, so the glass and the tab switch fall back to denser fills and scale + fade, and the layout holds across safe areas and widths down to 320 pt.
+
 <p align="center">
   <img src="assets/readme-assets/android-screenshot.jpg" width="260" alt="Android" />
 </p>
