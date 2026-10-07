@@ -15,6 +15,12 @@
  */
 import { useEffect, useSyncExternalStore } from 'react';
 
+/**
+ * Whether the Dials exist in this build: every dev build, and a production bundle served with
+ * `EXPO_PUBLIC_DIALS=1` (to tune on a phone without the dev-mode render cost). Never a release.
+ */
+export const DIALS_ON = __DEV__ || process.env.EXPO_PUBLIC_DIALS === '1';
+
 export type SliderDial = readonly [def: number, min: number, max: number, step?: number];
 export interface ActionDial {
   readonly type: 'action';
@@ -219,4 +225,4 @@ export function useDials<C extends DialConfig>(
 }
 
 // Dev builds also reach the store from the console or a script: `__dials.set('Card animation', 'curve', 2)`.
-if (__DEV__) (globalThis as { __dials?: unknown }).__dials = { set: setDial, reset: resetDials, snapshot: dialsSnapshot };
+if (DIALS_ON) (globalThis as { __dials?: unknown }).__dials = { set: setDial, reset: resetDials, snapshot: dialsSnapshot };

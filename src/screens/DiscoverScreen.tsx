@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
-import { hideDials, setDial, setDialNote, useDials } from '../dev/dials';
+import { DIALS_ON, hideDials, setDial, setDialNote, useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
@@ -61,25 +61,28 @@ const CARD_DIALS = {
   deepFast: { type: 'action', label: 'Deep fast' },
   whisper: { type: 'action', label: 'Whisper' },
   deep: { type: 'action', label: 'Deep' },
-  soften: [TAB_RESOLVE.soften, 0, 600, 10],
+  // The feel: how long the cards take to come back, and on what curve.
   duration: [TAB_RESOLVE.duration, 50, 1000, 10],
   /** Ease-out of the resolve, an index into RESOLVE_CURVES: 0 snap, 1 quick, 2 smooth, 3 gentle. */
   curve: [TAB_RESOLVE.curve, 0, 3, 1],
+  soften: [TAB_RESOLVE.soften, 0, 600, 10],
   stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
-  cards: [TAB_RESOLVE.count, 0, 8, 1],
+  // The softness: how far the cards sink at the tap.
   scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
   opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
   blur: [TAB_RESOLVE.blur, 0, 40, 1],
+  // The rest.
+  cards: [TAB_RESOLVE.count, 0, 8, 1],
   /** How long the cards' height changes take, ms; 0 snaps. */
   height: [TAB_RESOLVE.height, 0, 600, 10],
-  /** Stretches every duration and the stagger, to watch a switch frame by frame. */
-  slowMo: [1, 1, 10, 0.5],
   /**
    * How far past the screen FlashList keeps cards drawn, in pt. Every drawn card re-renders on a
    * switch, so this is the hold's length: one screen (the shipped 812-ish) keeps about 13 cards,
    * 250 (FlashList's default) about 7, at the price of cards drawing later in a fast scroll.
    */
   drawDistance: [812, 0, 1600, 50],
+  /** Stretches every duration and the stagger, to watch a switch frame by frame. */
+  slowMo: [1, 1, 10, 0.5],
 } as const;
 
 /**
@@ -278,7 +281,7 @@ function Discover({ latency }: { latency: Latency }) {
       handedOff.current = resolveKey;
       pending.set(0);
       // The commit that puts the new feed in the cards: the hold ends here and the resolve starts.
-      if (__DEV__ && tappedAt.current) setDialNote('Card animation', `Last switch: new feed on screen ${Date.now() - tappedAt.current} ms after the tap`);
+      if (DIALS_ON && tappedAt.current) setDialNote('Card animation', `Last switch: new feed on screen ${Date.now() - tappedAt.current} ms after the tap`);
     } else {
       pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
@@ -444,7 +447,7 @@ function Discover({ latency }: { latency: Latency }) {
                 showsVerticalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                drawDistance={__DEV__ ? drawDistance : height}
+                drawDistance={DIALS_ON ? drawDistance : height}
                 // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
                 // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
                 maintainVisibleContentPosition={MVCP_OFF}
