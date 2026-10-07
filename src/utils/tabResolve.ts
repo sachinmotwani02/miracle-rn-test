@@ -1,4 +1,3 @@
-import { LayoutAnimation } from 'react-native';
 import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
 
 /**
@@ -23,7 +22,7 @@ export const TAB_RESOLVE = {
   easing: Easing.bezier(0.23, 1, 0.32, 1),
   /**
    * The new feed's cards are often taller or shorter than the old ones (a note's line count): the
-   * change in height, and the cards below moving with it, animate over this many ms. 0 snaps.
+   * card eases to its new height over this many ms (TabResolve), and the cards below follow. 0 snaps.
    */
   height: 220,
 };
@@ -39,15 +38,6 @@ export interface ResolveLook {
   blur: number;
   easing: EasingFunctionFactory;
   height: number;
-}
-
-/**
- * Animates the next layout change on the UI thread: the cards' new heights and the cards below
- * moving to fit. FlashList keeps reusing the same cells (unlike its prepareForLayoutAnimationRender,
- * which turns recycling off and so rebuilds every card), so each card's frame tweens from old to new.
- */
-export function animateNextLayout(ms: number) {
-  if (ms > 0) LayoutAnimation.configureNext({ duration: ms, update: { type: LayoutAnimation.Types.easeOut } });
 }
 
 /** Where a card stands at progress `k` (0 = fully soft, 1 = settled). */

@@ -18,7 +18,7 @@ import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { ResolveLook, TAB_RESOLVE, animateNextLayout } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -166,12 +166,7 @@ function Discover({ latency }: { latency: Latency }) {
   const [resolveKey, setResolveKey] = useState(0);
   if (feed.phase === 'content' && feedTab !== shown.tab) {
     setFeedTab(shown.tab);
-    if (feedTab !== null) {
-      setResolveKey(k => k + 1);
-      // React re-runs this render at once with the new state and commits it: that commit swaps the
-      // cards' content, so their heights tween instead of jumping.
-      if (!reduced) animateNextLayout(look.height);
-    }
+    if (feedTab !== null) setResolveKey(k => k + 1);
   }
   const showing = feed.phase === 'content' ? feed : feedTab ? readResource<FeedItem[]>(`feed:${feedTab}`) : feed;
   const items = showing.phase === 'content' && showing.data ? showing.data : NO_ITEMS;
@@ -230,13 +225,10 @@ function Discover({ latency }: { latency: Latency }) {
     if (handedOff.current !== resolveKey) {
       handedOff.current = resolveKey;
       pending.set(0);
-      // FlashList measures the new heights in its layout effects (they run before this one) and
-      // re-renders the cells' positions right after this commit; that move tweens too.
-      if (!reduced) animateNextLayout(look.height);
     } else {
       pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
-  }, [softening, resolveKey, pending, look, reduced]);
+  }, [softening, resolveKey, pending, look]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -416,7 +408,11 @@ function Discover({ latency }: { latency: Latency }) {
 }
 
 const NO_ITEMS: FeedItem[] = [];
-const keyExtractor = (item: FeedItem) => item.id;
+// Cells are keyed by position, not by trade: on a tab switch each cell keeps its place and takes
+// the new feed's card for it, so a card can hold its slot's height and ease to the new one
+// (TabResolve). Keyed by trade, FlashList handed cells across positions (the second card's cell
+// became the first), and the held heights belonged to the wrong slots. The feed never reorders.
+const keyExtractor = (_item: FeedItem, index: number) => String(index);
 const MVCP_OFF = { disabled: true };
 
 function Separator() {

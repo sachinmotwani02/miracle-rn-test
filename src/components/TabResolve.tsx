@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { LayoutChangeEvent, Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import Animated, {
   SharedValue,
@@ -65,9 +65,13 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   const softening = !!soften?.softening;
   const [wasSoftening, setWasSoftening] = useState(softening);
   const [settling, setSettling] = useState(false);
+  // The card's height is held from the tap (see `onContentLayout`), and only with motion on.
+  const glideMs = reduced ? 0 : look.height;
+  const [holding, setHolding] = useState(false);
   if (softening !== wasSoftening) {
     setWasSoftening(softening);
     setSettling(!softening);
+    if (softening && glideMs > 0) setHolding(true);
   }
 
   // A mount (or a recycled card that scrolls in) takes the current key quietly; only a change
@@ -108,29 +112,81 @@ export function TabResolve({ resolveKey, index, children }: Props) {
     intensity: resolveFrame(Math.min(progress.value, 1 - pending.value), look).intensity,
   }));
 
+  // Height. The new feed's card is often taller or shorter than the old one (a note's line count).
+  // From the tap the card keeps its height; when the new content lays out, the card eases to the
+  // new height on the UI thread, and FlashList moves the cards below as the card resizes, as it
+  // does when "Read more" opens a note. Then the card lets go and sizes to its content again.
+  // `box` is the held height, -1 when the card sizes itself.
+  const box = useSharedValue(-1);
+  const natural = useRef(0);
+  const held = useRef(false);
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const release = useCallback(
+    (after: number) => {
+      clearTimeout(releaseTimer.current);
+      releaseTimer.current = setTimeout(() => {
+        held.current = false;
+        box.set(-1);
+        setHolding(false);
+      }, after);
+    },
+    [box],
+  );
+  useLayoutEffect(() => {
+    held.current = holding;
+    if (holding && natural.current > 0) box.set(natural.current);
+  }, [holding, box]);
+  // Once the new feed is in (or the tap was taken back), let go a moment after any glide.
+  useEffect(() => {
+    if (holding && !softening) release(glideMs + 250);
+  }, [holding, softening, glideMs, release]);
+  useEffect(() => () => clearTimeout(releaseTimer.current), []);
+  const onContentLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const height = e.nativeEvent.layout.height;
+      if (held.current && natural.current > 0 && height !== natural.current) {
+        box.set(withTiming(height, { duration: glideMs, easing: look.easing }));
+        release(glideMs + 80);
+      }
+      natural.current = height;
+    },
+    [box, glideMs, look.easing, release],
+  );
+  const heightStyle = useAnimatedStyle(() => ({ height: box.value < 0 ? 'auto' : box.value }));
+
   const blurring = CAN_BLUR && takesPart && (run !== null || softening || settling);
   return (
     <Animated.View style={scaleStyle}>
-      {takesPart ? <View style={styles.shell} /> : null}
-      <Animated.View style={fadeStyle}>{children}</Animated.View>
-      {blurring ? (
-        <View style={styles.overlay} testID="tab-resolve-blur">
-          {/* Starts unblurred: the animated props take it to the live value from the first frame. */}
-          <AnimatedBlurView animatedProps={blurProps} intensity={0} tint="light" style={StyleSheet.absoluteFill} />
-        </View>
-      ) : null}
+      {/* The card's slot: rounded like the card, so while it clips a growing card the corners stay round. */}
+      <Animated.View style={[styles.slot, holding && styles.clip, heightStyle]} testID={holding ? 'tab-resolve-hold' : undefined}>
+        {takesPart ? <View style={styles.shell} /> : null}
+        <Animated.View style={[styles.content, fadeStyle]} onLayout={onContentLayout}>
+          {children}
+        </Animated.View>
+        {blurring ? (
+          <View style={styles.overlay} testID="tab-resolve-blur">
+            {/* Starts unblurred: the animated props take it to the live value from the first frame. */}
+            <AnimatedBlurView animatedProps={blurProps} intensity={0} tint="light" style={StyleSheet.absoluteFill} />
+          </View>
+        ) : null}
+      </Animated.View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Matches the card (TradeCard's slot margin and radius) and stays opaque while the content fades.
+  // Exactly the card's box: TradeCard's slot margin and radius.
+  slot: { marginHorizontal: layout.cardMargin, borderRadius: layout.cardRadius },
+  clip: { overflow: 'hidden' },
+  // The card brings its own side margins; it sits full width, so it lines up with the slot.
+  content: { marginHorizontal: -layout.cardMargin },
+  // Fills the slot and stays opaque while the content fades.
   shell: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    left: layout.cardMargin,
-    right: layout.cardMargin,
+    left: 0,
+    right: 0,
     borderRadius: layout.cardRadius,
     backgroundColor: colors.card,
   },
@@ -139,8 +195,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: layout.noteInset,
     bottom: layout.noteInset,
-    left: layout.cardMargin + layout.noteInset,
-    right: layout.cardMargin + layout.noteInset,
+    left: layout.noteInset,
+    right: layout.noteInset,
     borderRadius: layout.noteRadius,
     overflow: 'hidden',
     pointerEvents: 'none',

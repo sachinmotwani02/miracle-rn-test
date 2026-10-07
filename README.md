@@ -189,10 +189,13 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   overlay inside the card's 4 pt rim, mounted only while a card softens or resolves, since iOS
   cannot blur a view with `filter`. Android, whose BlurView needs a blur target, does scale and fade only,
   and Reduce Motion skips it. A new card that is taller or shorter than the old one (a note's line
-  count) eases to its height over 220 ms, and the cards below glide with it: a `LayoutAnimation`
-  set up for the commit that swaps the content and for FlashList's re-layout after it. FlashList's
-  own `prepareForLayoutAnimationRender` was skipped because it turns off recycling, which would
-  rebuild every card on each switch. Once the first feed is in, the feeds behind the other tabs load
+  count) eases to its height over 220 ms, and the cards below follow: from the tap each card holds
+  its height in a rounded, clipping slot; when the new content lays out, the slot eases to the new
+  height on the UI thread and FlashList moves the cards below as it resizes, as when "Read more"
+  opens a note. Cells are keyed by position, so each keeps its slot across a switch (keyed by trade,
+  FlashList handed the second card's cell to the first slot and the heights went to the wrong
+  places). `LayoutAnimation` did nothing on the phone, and a Reanimated layout transition on
+  FlashList's cell containers broke the list's layout, so both were dropped. Once the first feed is in, the feeds behind the other tabs load
   quietly, so a tab's first visit resolves like any other; one tapped before its feed lands keeps
   the old cards up, soft (no bones, no empty list), and resolves when it arrives. Only the cold start shows the skeleton. Rebuilding every card and replaying the entrance
   made each switch wait on a burst of work and then on the fade.
