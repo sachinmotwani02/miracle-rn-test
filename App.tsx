@@ -6,7 +6,7 @@ import { DialPanel } from './src/dev/DialPanel';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { FONTS } from './src/theme/fonts';
 
-/** Flip to true to bring back the Dials chip for tuning animations. */
+/** Flip to false to hide the Dials, which tune the tab switch card animation. */
 const SHOW_DIALS = true;
 
 export default function App() {
@@ -19,7 +19,7 @@ export default function App() {
       <SafeAreaProvider>
         <DiscoverScreen />
         {/* Live animation controls (src/dev/dials.ts); never shipped in release builds. */}
-        {__DEV__ && SHOW_DIALS ? <DialPanel /> : null}
+        {__DEV__ && SHOW_DIALS ? <DialPanel only={['Card animation']} startOpen /> : null}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

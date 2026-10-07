@@ -2,7 +2,6 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import Animated, {
-  Easing,
   useAnimatedScrollHandler,
   useComposedEventHandler,
   useReducedMotion,
@@ -14,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
-import { useDials } from '../dev/dials';
+import { hideDials, useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
@@ -49,29 +48,24 @@ const SKELETON_DIALS = {
   replay: { type: 'action', label: 'Replay cold start' },
 } as const;
 
-/** Live controls for the tab switch resolve in dev builds; defaults come from TAB_RESOLVE. */
-const TAB_SWITCH_DIALS = {
-  timing: {
-    soften: [TAB_RESOLVE.soften, 0, 600, 10],
-    duration: [TAB_RESOLVE.duration, 50, 1000, 10],
-    stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
-    count: [TAB_RESOLVE.count, 0, 8, 1],
-  },
-  look: {
-    scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
-    opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
-    blur: [TAB_RESOLVE.blur, 0, 40, 1],
-  },
-  curve: {
-    x1: [TAB_RESOLVE.curve.x1, 0, 1, 0.01],
-    y1: [TAB_RESOLVE.curve.y1, -0.5, 1.5, 0.01],
-    x2: [TAB_RESOLVE.curve.x2, 0, 1, 0.01],
-    y2: [TAB_RESOLVE.curve.y2, -0.5, 1.5, 0.01],
-  },
+/**
+ * Live controls for the tab switch card animation in dev builds (the Dials chip); defaults come
+ * from TAB_RESOLVE. Play switches to the next tab like a tap; with auto play on, every change
+ * plays a switch too, so a slider shows its effect as soon as it moves. The panel hides while a
+ * switch plays, so it never covers the cards.
+ */
+const CARD_DIALS = {
+  play: { type: 'action', label: 'Play' },
+  autoPlay: true,
+  soften: [TAB_RESOLVE.soften, 0, 600, 10],
+  duration: [TAB_RESOLVE.duration, 50, 1000, 10],
+  stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
+  cards: [TAB_RESOLVE.count, 0, 8, 1],
+  scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
+  opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
+  blur: [TAB_RESOLVE.blur, 0, 40, 1],
   /** Stretches every duration and the stagger, to watch a switch frame by frame. */
   slowMo: [1, 1, 10, 0.5],
-  previousTab: { type: 'action', label: '← Tab' },
-  nextTab: { type: 'action', label: 'Tab →' },
 } as const;
 
 interface Latency {
@@ -166,21 +160,25 @@ function Discover({ latency }: { latency: Latency }) {
     }
   }, [firstFeedIn, firstTab, latency.tabFeed]);
 
-  // The panel's buttons switch tabs like a tap; onTab is declared below, so they go through a ref.
-  const dialAction = useRef<(action: string) => void>(() => {});
-  const onDialAction = useCallback((action: string) => dialAction.current(action), []);
-  const dials = useDials('Tab switch', TAB_SWITCH_DIALS, { onAction: onDialAction });
-  const { timing, look: lookDials, curve, slowMo } = dials;
+  // Play switches tabs like a tap; onTab is declared below, so it goes through a ref.
+  const playNext = useRef(() => {});
+  const onDialAction = useCallback((action: string) => {
+    if (action === 'play') playNext.current();
+  }, []);
+  const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
+  const { soften: softenMs, duration, stagger, cards, scale, opacity, blur, slowMo, autoPlay } = card;
   const look = useMemo<ResolveLook>(
     () => ({
-      ...lookDials,
-      soften: timing.soften * slowMo,
-      duration: timing.duration * slowMo,
-      stagger: timing.stagger * slowMo,
-      count: timing.count,
-      easing: Easing.bezier(curve.x1, curve.y1, curve.x2, curve.y2),
+      soften: softenMs * slowMo,
+      duration: duration * slowMo,
+      stagger: stagger * slowMo,
+      count: cards,
+      scale,
+      opacity,
+      blur,
+      easing: TAB_RESOLVE.easing,
     }),
-    [timing, lookDials, curve, slowMo],
+    [softenMs, duration, stagger, cards, scale, opacity, blur, slowMo],
   );
 
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
@@ -196,12 +194,22 @@ function Discover({ latency }: { latency: Latency }) {
     [selection.tab, reduced, pending, look],
   );
   useEffect(() => {
-    dialAction.current = action => {
+    playNext.current = () => {
       const i = TABS.findIndex(t => t.key === selection.tab);
-      const step = action === 'nextTab' ? 1 : action === 'previousTab' ? -1 : 0;
-      if (step) onTab(TABS[(i + step + TABS.length) % TABS.length].key);
+      // The panel steps aside until the last card settles (plus the new feed's render).
+      hideDials(look.soften + Math.max(look.count - 1, 0) * look.stagger + look.duration + 400);
+      onTab(TABS[(i + 1) % TABS.length].key);
     };
-  }, [onTab, selection.tab]);
+  }, [onTab, selection.tab, look]);
+  // Auto play: a moment after the dials stop changing, play a switch with the new values.
+  const lookSeen = useRef(look);
+  useEffect(() => {
+    if (lookSeen.current === look) return;
+    lookSeen.current = look;
+    if (!autoPlay) return;
+    const id = setTimeout(() => playNext.current(), 250);
+    return () => clearTimeout(id);
+  }, [look, autoPlay]);
   const softening = feedTab !== null && selection.tab !== feedTab;
   const soften = useMemo(() => ({ pending, softening, look }), [pending, softening, look]);
   // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken

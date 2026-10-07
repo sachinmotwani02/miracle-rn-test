@@ -1,8 +1,5 @@
 import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
 
-/** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
-const CURVE = { x1: 0.23, y1: 1, x2: 0.32, y2: 1 };
-
 /**
  * The tab switch "resolve". On the tap itself the cards on screen start to soften (slightly small,
  * see-through, blurred), on the UI thread, while the new feed renders into them. When it lands they
@@ -21,8 +18,8 @@ export const TAB_RESOLVE = {
   opacity: 0.45,
   /** expo-blur intensity when fully soft; 12 is a 2.4 px blur on web (intensity x 0.2 px). */
   blur: 12,
-  curve: CURVE,
-  easing: Easing.bezier(CURVE.x1, CURVE.y1, CURVE.x2, CURVE.y2),
+  /** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
+  easing: Easing.bezier(0.23, 1, 0.32, 1),
 };
 
 /** Everything that shapes the resolve; the Dials' Tab switch panel hands the screen a live one. */

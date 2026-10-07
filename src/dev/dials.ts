@@ -166,6 +166,17 @@ export function resetDials(name: string, path?: string) {
   update(name, defaults);
 }
 
+let hiddenUntil = 0;
+
+/** Clears the panel off the screen for `ms` (say while an animation it tunes plays), then brings it back. */
+export function hideDials(ms: number) {
+  hiddenUntil = Date.now() + ms;
+  emit();
+  setTimeout(emit, ms);
+}
+
+export const dialsHidden = () => Date.now() < hiddenUntil;
+
 export function fireAction(name: string, path: string) {
   panels.get(name)?.onAction?.(path);
 }
