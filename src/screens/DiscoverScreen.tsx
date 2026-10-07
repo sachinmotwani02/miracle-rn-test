@@ -1,5 +1,5 @@
-import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, View, ViewProps, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import Animated, {
   useAnimatedScrollHandler,
@@ -58,7 +58,7 @@ const CARD_DIALS = {
   play: { type: 'action', label: 'Play' },
   autoPlay: true,
   /** Whole looks to compare in one tap; Reset is the shipped one. */
-  focus: { type: 'action', label: 'Focus' },
+  deepFast: { type: 'action', label: 'Deep fast' },
   whisper: { type: 'action', label: 'Whisper' },
   deep: { type: 'action', label: 'Deep' },
   soften: [TAB_RESOLVE.soften, 0, 600, 10],
@@ -77,13 +77,13 @@ const CARD_DIALS = {
 } as const;
 
 /**
- * Three looks for the resolve, each a whole set of dials. Focus keeps the shipped softness but
- * lets the sharpening take its time (a smooth curve over 420 ms, so it reads as coming into
- * focus rather than a cut); Whisper is the lightest touch that still registers; Deep sinks the
- * cards further and surfaces them slowly, for a switch with presence.
+ * Three looks for the resolve, each a whole set of dials. Deep sinks the cards further than the
+ * shipped look and surfaces them slowly, for a switch with presence; Deep fast keeps that
+ * softness but settles in 380 ms on the smooth curve ("I like the softness of Deep but it feels
+ * very slow"); Whisper is the lightest touch that still registers.
  */
 const CARD_PRESETS: Record<string, Record<string, number>> = {
-  focus: { soften: 160, duration: 420, curve: 2, stagger: 40, cards: 5, scale: 0.975, opacity: 0.5, blur: 12, height: 220 },
+  deepFast: { soften: 160, duration: 380, curve: 2, stagger: 40, cards: 5, scale: 0.96, opacity: 0.4, blur: 14, height: 220 },
   whisper: { soften: 140, duration: 320, curve: 1, stagger: 35, cards: 5, scale: 0.985, opacity: 0.65, blur: 8, height: 200 },
   deep: { soften: 200, duration: 520, curve: 3, stagger: 55, cards: 5, scale: 0.96, opacity: 0.4, blur: 14, height: 260 },
 };
@@ -130,10 +130,20 @@ export function DiscoverScreen() {
 function Discover({ latency }: { latency: Latency }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  // A tap lights its label in a commit of its own; the cards follow in a deferred render, so the
-  // label never waits for them. `switched` retires the first-load entrance for good.
+  // A tap lights its label in a commit of its own; the cards follow a frame later, so the label
+  // never waits for them. `switched` retires the first-load entrance for good.
+  // Not useDeferredValue: FlashList rewrites its layout table while it renders, and React throws a
+  // deferred render away when anything urgent lands (a second tap, a dial, a feed arriving),
+  // keeping the old cards on screen over a table cut to the new feed; their next layout report
+  // then asks for a card past its end and crashes. A state set from the next frame renders at the
+  // default priority, which React runs to the end.
   const [selection, setSelection] = useState<{ tab: TabKey; switched: boolean }>({ tab: 'discover', switched: false });
-  const shown = useDeferredValue(selection);
+  const [shown, setShown] = useState(selection);
+  useEffect(() => {
+    if (shown === selection) return;
+    const id = requestAnimationFrame(() => setShown(selection));
+    return () => cancelAnimationFrame(id);
+  }, [selection, shown]);
   const [firstTab] = useState(selection.tab);
   const [nav, setNav] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -310,9 +320,8 @@ function Discover({ latency }: { latency: Latency }) {
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
     ({ item, index }) => {
-      // FlashList updates the cells it draws while it renders, and the feed renders in a deferred,
-      // interruptible pass: a tap that cuts in can leave it drawing a longer feed's cells for a
-      // shorter one, with no card past the end. Draw nothing; its next pass drops the cell.
+      // FlashList can draw a cell for an index its render stack is about to drop (a longer feed's
+      // cell on a shorter feed), with no card for it. Draw nothing; its next pass drops the cell.
       if (!item) return null;
       return (
         // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
@@ -401,6 +410,7 @@ function Discover({ latency }: { latency: Latency }) {
                 ref={listRef}
                 data={items}
                 renderItem={renderItem}
+                CellRendererComponent={FeedCell}
                 keyExtractor={keyExtractor}
                 extraData={expanded}
                 ListHeaderComponent={header}
@@ -439,6 +449,23 @@ const NO_ITEMS: FeedItem[] = [];
 // (TabResolve). Keyed by trade, FlashList handed cells across positions (the second card's cell
 // became the first), and the held heights belonged to the wrong slots. The feed never reorders.
 const keyExtractor = (_item: FeedItem, index: number) => String(index);
+
+/**
+ * The list's cell. FlashList sizes cells from their layout reports and looks each one up by the
+ * cell's index. Card heights animate on the UI thread (TabResolve), so a report can still be in
+ * flight when a shorter feed drops the cell, and Fabric delivers it to the removed cell all the
+ * same: an index past the end of the new feed, which FlashList throws on. Dropped here instead.
+ */
+const FeedCell = forwardRef<View, ViewProps>(function FeedCell({ onLayout, ...rest }, ref) {
+  const live = useRef(true);
+  useEffect(() => () => {
+    live.current = false;
+  }, []);
+  const onLiveLayout = useCallback((e: LayoutChangeEvent) => {
+    if (live.current) onLayout?.(e);
+  }, [onLayout]);
+  return <View ref={ref} {...rest} onLayout={onLiveLayout} />;
+});
 const MVCP_OFF = { disabled: true };
 
 function Separator() {

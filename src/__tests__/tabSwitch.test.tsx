@@ -1,5 +1,5 @@
 import React, { Profiler } from 'react';
-import { act, render, screen, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import * as MascotModule from '../components/Mascot';
 import { clearResources } from '../data/resources';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -219,6 +219,61 @@ describe('switching feed tabs', () => {
       expect(screen.getAllByText(FEED_PRICE).length).toBe(12);
     } finally {
       measureItemLayout.mockImplementation(() => ({ x: 0, y: 0, width: 393, height: 192 }));
+    }
+  });
+
+  /** Scrolls the feed list, as FlashList sees it (its own handler is on the vertical scroll view). */
+  const scrollFeed = (y: number) => {
+    const list = screen.container.queryAll(n => n.props.onScroll != null && !n.props.horizontal)[0];
+    return act(async () => {
+      fireEvent.scroll(list, {
+        nativeEvent: {
+          contentOffset: { x: 0, y },
+          contentSize: { width: 393, height: 290 + 36 * 196 },
+          layoutMeasurement: { width: 393, height: 852 },
+        },
+      });
+    });
+  };
+  /** The host view of the list cell drawing card `index` (FlashList hands each cell its index). */
+  const cellOf = (index: number) => screen.container.queryAll(n => n.props.index === index && n.props.onLayout != null)[0];
+
+  it('switches to a shorter feed from deep in a longer one', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+    const before = screen.getAllByText(FEED_PRICE).map(t => String(t.props.children));
+    // Past where Favourites' 12 cards end (header 290 + 12 x 196 pt), as a reader deep in Discover.
+    await scrollFeed(4000);
+    await settle();
+    expect(screen.getAllByText(FEED_PRICE).map(t => String(t.props.children))).not.toEqual(before);
+
+    await press('Favourites');
+    await settle();
+
+    expect(isLit('Favourites')).toBe(true);
+    expect(screen.getAllByText(FEED_PRICE).length).toBeLessThanOrEqual(12);
+  });
+
+  it('ignores a layout report that reaches a cell after a shorter feed dropped it', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+    await scrollFeed(4000);
+    await settle();
+    const cells = Array.from({ length: 36 }, (_, i) => cellOf(i)).filter(Boolean);
+    expect(cells.length).toBeGreaterThan(0);
+
+    await press('Favourites');
+    await settle();
+    // Favourites keeps fewer cells than Discover had here, so some are removed outright (the
+    // others FlashList reuses for new cards, and a report reaching one of those sees its new index).
+    const inTree = new Set(screen.container.queryAll(n => n.props.onLayout != null));
+    const removed = cells.filter(cell => !inTree.has(cell));
+    expect(removed.length).toBeGreaterThan(0);
+
+    // Card heights animate on the UI thread, so a cell's layout reports can still be in flight when
+    // the feed drops it; Fabric delivers them to the removed cell's last props all the same.
+    for (const cell of removed) {
+      expect(() => cell.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 100 } } })).not.toThrow();
     }
   });
 
