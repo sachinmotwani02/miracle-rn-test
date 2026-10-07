@@ -1,4 +1,4 @@
-import { TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
+import { CELL_GLIDE_LIMIT, TAB_RESOLVE, cellMoveDuration, resolveDelay, resolveFrame } from '../utils/tabResolve';
 
 jest.mock('react-native-worklets', () => jest.requireActual('react-native-worklets/src/mock'));
 
@@ -32,5 +32,17 @@ describe('tab switch resolve with a tuned look', () => {
 
   it('staggers by the given gap and count', () => {
     expect([0, 1, 2, 3].map(i => resolveDelay(i, { count: 2, stagger: 100 }))).toEqual([0, 100, null, null]);
+  });
+});
+
+describe('feed cells on a switch', () => {
+  it('glide over the height duration when a height change shifts them', () => {
+    expect(cellMoveDuration(22, 220)).toBe(220);
+    expect(cellMoveDuration(-88, 220)).toBe(220);
+  });
+
+  it('snap when FlashList hands them over from far down the list', () => {
+    expect(cellMoveDuration(CELL_GLIDE_LIMIT + 1, 220)).toBe(0);
+    expect(cellMoveDuration(-1400, 220)).toBe(0);
   });
 });

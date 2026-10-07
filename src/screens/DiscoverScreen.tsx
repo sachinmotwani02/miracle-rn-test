@@ -18,7 +18,7 @@ import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { ResolveLook, TAB_RESOLVE, animateNextLayout } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -26,6 +26,7 @@ import { TopTradesCarousel } from '../components/TopTradesCarousel';
 import { FeedTabs } from '../components/FeedTabs';
 import { TradeCard } from '../components/TradeCard';
 import { TabResolve, TabSoftenContext } from '../components/TabResolve';
+import { CellGlideContext, FeedCell } from '../components/FeedCell';
 import { BottomFade } from '../components/BottomFade';
 import { FloatingNavBar } from '../components/FloatingNavBar';
 import { SkyBar } from '../components/SkyBar';
@@ -166,12 +167,7 @@ function Discover({ latency }: { latency: Latency }) {
   const [resolveKey, setResolveKey] = useState(0);
   if (feed.phase === 'content' && feedTab !== shown.tab) {
     setFeedTab(shown.tab);
-    if (feedTab !== null) {
-      setResolveKey(k => k + 1);
-      // React re-runs this render at once with the new state and commits it: that commit swaps the
-      // cards' content, so their heights tween instead of jumping.
-      if (!reduced) animateNextLayout(look.height);
-    }
+    if (feedTab !== null) setResolveKey(k => k + 1);
   }
   const showing = feed.phase === 'content' ? feed : feedTab ? readResource<FeedItem[]>(`feed:${feedTab}`) : feed;
   const items = showing.phase === 'content' && showing.data ? showing.data : NO_ITEMS;
@@ -194,10 +190,17 @@ function Discover({ latency }: { latency: Latency }) {
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
   // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
+  // From the tap until the cards settle, the feed's cells carry a layout transition (FeedCell), so
+  // new heights ease in and the cards below glide. It is on before the new cards render, so the
+  // commit that swaps them already animates.
+  const [gliding, setGliding] = useState(false);
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
-      if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.easing }));
+      if (!reduced) {
+        pending.set(withTiming(1, { duration: look.soften, easing: look.easing }));
+        if (look.height > 0) setGliding(true);
+      }
       setSelection({ tab, switched: true });
     },
     [selection.tab, reduced, pending, look],
@@ -230,13 +233,19 @@ function Discover({ latency }: { latency: Latency }) {
     if (handedOff.current !== resolveKey) {
       handedOff.current = resolveKey;
       pending.set(0);
-      // FlashList measures the new heights in its layout effects (they run before this one) and
-      // re-renders the cells' positions right after this commit; that move tweens too.
-      if (!reduced) animateNextLayout(look.height);
     } else {
       pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
-  }, [softening, resolveKey, pending, look, reduced]);
+  }, [softening, resolveKey, pending, look]);
+  useEffect(() => {
+    if (!gliding || softening) return;
+    const id = setTimeout(() => setGliding(false), look.height + 150);
+    return () => clearTimeout(id);
+  }, [gliding, softening, resolveKey, look.height]);
+  const glide = useMemo(
+    () => (gliding ? { ms: look.height, easing: look.easing } : null),
+    [gliding, look.height, look.easing],
+  );
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -379,24 +388,27 @@ function Discover({ latency }: { latency: Latency }) {
           <SkyBackground scrollY={scrollY} />
           <View style={styles.list}>
             <TabSoftenContext.Provider value={soften}>
-              <AnimatedFlashList
-                ref={listRef}
-                data={items}
-                renderItem={renderItem}
-                keyExtractor={keyExtractor}
-                extraData={expanded}
-                ListHeaderComponent={header}
-                ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
-                ItemSeparatorComponent={Separator}
-                contentContainerStyle={{ paddingBottom: navClearance }}
-                showsVerticalScrollIndicator={false}
-                onScroll={onScroll}
-                scrollEventThrottle={16}
-                drawDistance={height}
-                // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
-                // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
-                maintainVisibleContentPosition={MVCP_OFF}
-              />
+              <CellGlideContext.Provider value={glide}>
+                <AnimatedFlashList
+                  ref={listRef}
+                  data={items}
+                  renderItem={renderItem}
+                  keyExtractor={keyExtractor}
+                  extraData={expanded}
+                  ListHeaderComponent={header}
+                  ListEmptyComponent={feed.phase === 'skeleton' ? <FeedSkeleton /> : null}
+                  ItemSeparatorComponent={Separator}
+                  CellRendererComponent={FeedCell}
+                  contentContainerStyle={{ paddingBottom: navClearance }}
+                  showsVerticalScrollIndicator={false}
+                  onScroll={onScroll}
+                  scrollEventThrottle={16}
+                  drawDistance={height}
+                  // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
+                  // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
+                  maintainVisibleContentPosition={MVCP_OFF}
+                />
+              </CellGlideContext.Provider>
             </TabSoftenContext.Provider>
           </View>
           <SkyBar bar={bar} feedLabel={feedLabel} menuOpen={menuOpen} onOpenMenu={openMenu} dropdownRef={dropdownRef} />

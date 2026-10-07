@@ -1,4 +1,3 @@
-import { LayoutAnimation } from 'react-native';
 import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
 
 /**
@@ -23,7 +22,7 @@ export const TAB_RESOLVE = {
   easing: Easing.bezier(0.23, 1, 0.32, 1),
   /**
    * The new feed's cards are often taller or shorter than the old ones (a note's line count): the
-   * change in height, and the cards below moving with it, animate over this many ms. 0 snaps.
+   * change in height, and the cards below moving with it, animate over this many ms (FeedCell). 0 snaps.
    */
   height: 220,
 };
@@ -42,12 +41,16 @@ export interface ResolveLook {
 }
 
 /**
- * Animates the next layout change on the UI thread: the cards' new heights and the cards below
- * moving to fit. FlashList keeps reusing the same cells (unlike its prepareForLayoutAnimationRender,
- * which turns recycling off and so rebuilds every card), so each card's frame tweens from old to new.
+ * How far a feed cell may move on a switch and still glide, in pt. Height changes shift the cells
+ * below by tens of points; FlashList also hands cells from anywhere in the list to new items,
+ * and one of those gliding in from far away would read as a card flying past, so it snaps.
  */
-export function animateNextLayout(ms: number) {
-  if (ms > 0) LayoutAnimation.configureNext({ duration: ms, update: { type: LayoutAnimation.Types.easeOut } });
+export const CELL_GLIDE_LIMIT = 160;
+
+/** How long a feed cell takes to reach its new height and place on a switch: `ms`, or 0 (snap) from far away. */
+export function cellMoveDuration(distance: number, ms: number): number {
+  'worklet';
+  return Math.abs(distance) <= CELL_GLIDE_LIMIT ? ms : 0;
 }
 
 /** Where a card stands at progress `k` (0 = fully soft, 1 = settled). */
