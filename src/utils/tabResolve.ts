@@ -1,3 +1,4 @@
+import { LayoutAnimation } from 'react-native';
 import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
 
 /**
@@ -20,6 +21,11 @@ export const TAB_RESOLVE = {
   blur: 12,
   /** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
   easing: Easing.bezier(0.23, 1, 0.32, 1),
+  /**
+   * The new feed's cards are often taller or shorter than the old ones (a note's line count): the
+   * change in height, and the cards below moving with it, animate over this many ms. 0 snaps.
+   */
+  height: 220,
 };
 
 /** Everything that shapes the resolve; the Dials' Tab switch panel hands the screen a live one. */
@@ -32,6 +38,16 @@ export interface ResolveLook {
   opacity: number;
   blur: number;
   easing: EasingFunctionFactory;
+  height: number;
+}
+
+/**
+ * Animates the next layout change on the UI thread: the cards' new heights and the cards below
+ * moving to fit. FlashList keeps reusing the same cells (unlike its prepareForLayoutAnimationRender,
+ * which turns recycling off and so rebuilds every card), so each card's frame tweens from old to new.
+ */
+export function animateNextLayout(ms: number) {
+  if (ms > 0) LayoutAnimation.configureNext({ duration: ms, update: { type: LayoutAnimation.Types.easeOut } });
 }
 
 /** Where a card stands at progress `k` (0 = fully soft, 1 = settled). */

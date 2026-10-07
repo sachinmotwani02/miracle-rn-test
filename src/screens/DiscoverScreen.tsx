@@ -18,7 +18,7 @@ import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { ResolveLook, TAB_RESOLVE } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE, animateNextLayout } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -64,6 +64,8 @@ const CARD_DIALS = {
   scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
   opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
   blur: [TAB_RESOLVE.blur, 0, 40, 1],
+  /** How long the cards' height changes take, ms; 0 snaps. */
+  height: [TAB_RESOLVE.height, 0, 600, 10],
   /** Stretches every duration and the stagger, to watch a switch frame by frame. */
   slowMo: [1, 1, 10, 0.5],
 } as const;
@@ -136,11 +138,40 @@ function Discover({ latency }: { latency: Latency }) {
     quiet: !cold,
   });
   const [feedTab, setFeedTab] = useState<TabKey | null>(null);
+  // Play switches tabs like a tap; onTab is declared below, so it goes through a ref.
+  const playNext = useRef(() => {});
+  const onDialAction = useCallback((action: string) => {
+    if (action === 'play') playNext.current();
+  }, []);
+  const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
+  const { soften: softenMs, duration, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay } = card;
+  const look = useMemo<ResolveLook>(
+    () => ({
+      soften: softenMs * slowMo,
+      duration: duration * slowMo,
+      stagger: stagger * slowMo,
+      count: cards,
+      scale,
+      opacity,
+      blur,
+      easing: TAB_RESOLVE.easing,
+      height: heightMs * slowMo,
+    }),
+    [softenMs, duration, stagger, cards, scale, opacity, blur, slowMo, heightMs],
+  );
+
+  const reduced = useReducedMotion();
+
   // A switch, to a feed loaded ahead or one that just landed, resolves the cards on screen in place.
   const [resolveKey, setResolveKey] = useState(0);
   if (feed.phase === 'content' && feedTab !== shown.tab) {
     setFeedTab(shown.tab);
-    if (feedTab !== null) setResolveKey(k => k + 1);
+    if (feedTab !== null) {
+      setResolveKey(k => k + 1);
+      // React re-runs this render at once with the new state and commits it: that commit swaps the
+      // cards' content, so their heights tween instead of jumping.
+      if (!reduced) animateNextLayout(look.height);
+    }
   }
   const showing = feed.phase === 'content' ? feed : feedTab ? readResource<FeedItem[]>(`feed:${feedTab}`) : feed;
   const items = showing.phase === 'content' && showing.data ? showing.data : NO_ITEMS;
@@ -160,31 +191,9 @@ function Discover({ latency }: { latency: Latency }) {
     }
   }, [firstFeedIn, firstTab, latency.tabFeed]);
 
-  // Play switches tabs like a tap; onTab is declared below, so it goes through a ref.
-  const playNext = useRef(() => {});
-  const onDialAction = useCallback((action: string) => {
-    if (action === 'play') playNext.current();
-  }, []);
-  const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
-  const { soften: softenMs, duration, stagger, cards, scale, opacity, blur, slowMo, autoPlay } = card;
-  const look = useMemo<ResolveLook>(
-    () => ({
-      soften: softenMs * slowMo,
-      duration: duration * slowMo,
-      stagger: stagger * slowMo,
-      count: cards,
-      scale,
-      opacity,
-      blur,
-      easing: TAB_RESOLVE.easing,
-    }),
-    [softenMs, duration, stagger, cards, scale, opacity, blur, slowMo],
-  );
-
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
   // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
-  const reduced = useReducedMotion();
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
@@ -221,10 +230,13 @@ function Discover({ latency }: { latency: Latency }) {
     if (handedOff.current !== resolveKey) {
       handedOff.current = resolveKey;
       pending.set(0);
+      // FlashList measures the new heights in its layout effects (they run before this one) and
+      // re-renders the cells' positions right after this commit; that move tweens too.
+      if (!reduced) animateNextLayout(look.height);
     } else {
       pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
-  }, [softening, resolveKey, pending, look]);
+  }, [softening, resolveKey, pending, look, reduced]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
