@@ -1,4 +1,16 @@
-import { PILL, moveStart, pillGlass, pillShape, pillSpring } from '../utils/pillMotion';
+import { layout } from '../theme';
+import {
+  PILL,
+  dragPillLeft,
+  dragStretch,
+  moveStart,
+  nearestTab,
+  pillGlass,
+  pillShape,
+  pillSpring,
+  stretchScale,
+  stretchedStart,
+} from '../utils/pillMotion';
 
 describe('pillShape', () => {
   const width = 56;
@@ -47,6 +59,45 @@ describe('moveStart', () => {
     const start = moveStart(x, 8, 240, 64 + width * 3, width, p);
     const after = pillShape(x - start, 64 + width * 3 - x, width, p);
     expect(after.scaleX).toBeCloseTo(before.scaleX);
+  });
+});
+
+describe('dragging', () => {
+  const width = 56;
+  const p = { amount: 0.28, easeIn: 1, reach: 1, squash: 0.5 };
+  const centers = layout.nav.slotCenters;
+  const tabs = [0, 1, 3, 4];
+
+  it('centres the held pill under the finger, between the end tabs', () => {
+    expect(dragPillLeft(150, width, 8, 240)).toBe(122);
+    expect(dragPillLeft(0, width, 8, 240)).toBe(8);
+    expect(dragPillLeft(400, width, 8, 240)).toBe(240);
+  });
+
+  it('stretches with the finger speed, either way, up to full', () => {
+    const d = { ...PILL.drag, fullSpeed: 1000 };
+    expect(dragStretch(0, d)).toBe(0);
+    expect(dragStretch(-500, d)).toBe(0.5);
+    expect(dragStretch(3000, d)).toBe(1);
+    expect(stretchScale(1, p).scaleX).toBeCloseTo(1.28);
+    expect(stretchScale(0, p)).toEqual({ scaleX: 1, scaleY: 1 });
+  });
+
+  it('settles on the nearest tab, never on the ghost', () => {
+    expect(nearestTab(centers[1] + 10, centers, tabs)).toBe(1);
+    // Right over the ghost, halfway between Explore and Stats: the first one wins.
+    expect(nearestTab(centers[2], centers, tabs)).toBe(1);
+    expect(nearestTab(centers[2] + 1, centers, tabs)).toBe(3);
+    expect(nearestTab(-50, centers, tabs)).toBe(0);
+    expect(nearestTab(999, centers, tabs)).toBe(4);
+  });
+
+  it('lets go keeping the stretch the pill had under the finger', () => {
+    const x = 100;
+    const target = 240;
+    const start = stretchedStart(x, target, 0.6, width, p);
+    expect(pillShape(x - start, target - x, width, p).scaleX).toBeCloseTo(stretchScale(0.6, p).scaleX);
+    expect(stretchedStart(x, 8, 0, width, p)).toBe(x);
   });
 });
 

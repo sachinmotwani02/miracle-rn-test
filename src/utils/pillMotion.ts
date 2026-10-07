@@ -33,12 +33,22 @@ export const PILL = {
     glow: 0.08,
     glowBlur: 6,
   },
+  /** Dragging the pill along the bar: it lifts, follows the finger and settles on the nearest tab. */
+  drag: {
+    /** Scale while held, so the pill shows round the finger that covers it. */
+    lift: 1.08,
+    /** How closely it follows the finger: the follow spring's duration, ms. */
+    follow: 90,
+    /** Finger speed, pt/s, at which the pill is fully stretched. */
+    fullSpeed: 900,
+  },
 } as const;
 
 type Numbers<T> = { -readonly [K in keyof T]: number };
 export type PillSpring = Numbers<typeof PILL.spring>;
 export type PillStretch = Numbers<typeof PILL.stretch>;
 export type PillGlass = Numbers<typeof PILL.glass>;
+export type PillDrag = Numbers<typeof PILL.drag>;
 
 /**
  * How stretched the pill is, 0..1, `traveled` pt into a move with `remaining` pt to go: it grows
@@ -51,13 +61,27 @@ export function stretchFactor(traveled: number, remaining: number, width: number
   return Math.min(growing, landing, 1);
 }
 
-/** Scale of the pill `traveled` pt into a move with `remaining` pt to go. */
-export function pillShape(traveled: number, remaining: number, width: number, p: PillStretch): { scaleX: number; scaleY: number } {
+/** Scale of the pill at stretch `t` (0..1). */
+export function stretchScale(t: number, p: PillStretch): { scaleX: number; scaleY: number } {
   'worklet';
-  const t = stretchFactor(traveled, remaining, width, p);
   // Smoothstep: no kink where the stretch starts, peaks or lets go.
   const scaleX = 1 + t * t * (3 - 2 * t) * p.amount;
   return { scaleX, scaleY: Math.pow(scaleX, -p.squash) };
+}
+
+/** Scale of the pill `traveled` pt into a move with `remaining` pt to go. */
+export function pillShape(traveled: number, remaining: number, width: number, p: PillStretch): { scaleX: number; scaleY: number } {
+  'worklet';
+  return stretchScale(stretchFactor(traveled, remaining, width, p), p);
+}
+
+/**
+ * Where a move to `target` counts its travel from so that it begins with the stretch `t` (0..1):
+ * `x` itself for a pill at rest, a little behind it for one already stretched.
+ */
+export function stretchedStart(x: number, target: number, t: number, width: number, p: PillStretch): number {
+  'worklet';
+  return x - Math.sign(target - x) * t * p.easeIn * width;
 }
 
 /**
@@ -65,12 +89,34 @@ export function pillShape(traveled: number, remaining: number, width: number, p:
  * starts a little behind it, so the new move picks up the stretch the pill already has.
  */
 export function moveStart(x: number, start: number, oldTarget: number, newTarget: number, width: number, p: PillStretch): number {
-  const t = stretchFactor(x - start, oldTarget - x, width, p);
-  return x - Math.sign(newTarget - x) * t * p.easeIn * width;
+  return stretchedStart(x, newTarget, stretchFactor(x - start, oldTarget - x, width, p), width, p);
+}
+
+/** Pill left x for a finger at bar-local `fingerX`: centred under it, kept between `min` and `max`. */
+export function dragPillLeft(fingerX: number, width: number, min: number, max: number): number {
+  'worklet';
+  return Math.min(Math.max(fingerX - width / 2, min), max);
+}
+
+/** Stretch (0..1) of a dragged pill moving at `velocity` pt/s. */
+export function dragStretch(velocity: number, p: PillDrag): number {
+  'worklet';
+  return Math.min(Math.abs(velocity) / Math.max(p.fullSpeed, 1e-6), 1);
+}
+
+/** Of `tabs`, the one whose centre (`centers[tab]`) is nearest bar-local `x`; ties go to the first. */
+export function nearestTab(x: number, centers: readonly number[], tabs: readonly number[]): number {
+  'worklet';
+  let best = tabs[0];
+  for (const tab of tabs) {
+    if (Math.abs(centers[tab] - x) < Math.abs(centers[best] - x)) best = tab;
+  }
+  return best;
 }
 
 /** Reanimated spring config; `slowMo` stretches it out for inspecting the motion. */
 export function pillSpring(p: PillSpring, slowMo = 1): { duration: number; dampingRatio: number } {
+  'worklet';
   return { duration: p.duration * slowMo, dampingRatio: 1 - p.bounce };
 }
 

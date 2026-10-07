@@ -18,9 +18,11 @@ import Animated, {
 import { Image } from 'expo-image';
 import { colors } from '../theme';
 import { haptic } from '../utils/haptics';
+import { rareOnEveryTap } from '../dev/rareStyles';
 import { SwirlLayer, burstSwirl, resetSwirl, useSwirl } from './MascotSwirl';
 import {
   BREATH,
+  RARE_AFTER,
   SPARKLE_MS,
   TrailRing,
   breathCurve,
@@ -104,6 +106,8 @@ const BLINK_OPEN = { duration: 130, easing: Easing.out(Easing.quad) };
 // Reanimated 4 springs default to mass 4, so every config here spells out mass 1.
 const DART = { stiffness: 500, damping: 26, mass: 1 };
 const DRIFT_BACK = { stiffness: 220, damping: 20, mass: 1 };
+/** Following a dragged pill: as quick as a dart but critically damped, so it tracks without wobbling. */
+const WATCH = { stiffness: 500, damping: 45, mass: 1 };
 /** A tab change gets a barely-there hop: 1.5 pt up, then a well-damped settle with no bounce-back. */
 const TAB_HOP = 1.5;
 const HOP_UP = { duration: 120, easing: Easing.out(Easing.quad) };
@@ -153,6 +157,14 @@ const blinkTwice = () =>
 export interface MascotHandle {
   /** Glance toward a tapped tab: -1 to the left, 1 to the right. */
   glance: (direction: number) => void;
+}
+
+/** Something for the ghost to keep its eyes on, such as the nav pill while it is dragged. */
+export interface MascotWatch {
+  /** Where it is, -1 (far left) .. 1 (far right). */
+  x: SharedValue<number>;
+  /** Whether to watch it now. */
+  on: SharedValue<boolean>;
 }
 
 /**
@@ -225,10 +237,10 @@ function useIdleFace(
 
 /**
  * The ghost in the nav bar. Not a tab but a toy: it breathes, blinks and looks around on its
- * own, glances toward tabs when the nav bar asks, and does a full turn when tapped (every fourth
- * tap, a rare double spin inside colourful orbiting rings).
+ * own, glances toward tabs when the nav bar asks, watches the pill while it is dragged, and does
+ * a full turn when tapped (every fourth tap, a rare double spin inside colourful orbiting rings).
  */
-export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
+export function Mascot({ ref, watch }: { ref?: React.Ref<MascotHandle>; watch?: MascotWatch }) {
   const reduceMotion = useReducedMotion();
   const { phase, depth, exertion } = useBreath(!reduceMotion);
 
@@ -252,6 +264,20 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
 
   const busy = useRef(false);
   useIdleFace(!reduceMotion, busy, blink, gazeX, gazeY);
+
+  // Watching: the eyes (and the head a little) follow what it watches, eyes a touch wide with
+  // interest, and idle glances are held off. Letting go eases back; a tab glance picks up from there.
+  const noWatchX = useSharedValue(0);
+  const noWatchOn = useSharedValue(false);
+  const watchX = watch?.x ?? noWatchX;
+  const watchOn = watch?.on ?? noWatchOn;
+  const watching = useDerivedValue(() => !reduceMotion && watchOn.value);
+  const watchLook = useDerivedValue(() => withSpring(watching.value ? watchX.value : 0, WATCH));
+  const attention = useDerivedValue(() => withTiming(watching.value ? 1 : 0, { duration: 160 }));
+  /** Where it looks on purpose, -1..1: at a tapped tab, or at what it watches. */
+  const heading = useDerivedValue(() => clamp(look.value + watchLook.value, -1, 1));
+  /** The idle gaze, quieted while it pays attention. */
+  const idleX = useDerivedValue(() => gazeX.value * (1 - attention.value));
 
   const target = useRef(0);
   const queued = useRef(0);
@@ -447,7 +473,8 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
       return;
     }
     const landed = Date.now() >= landedAt.current;
-    const action = tapAction(turns.current, landed, queued.current, MAX_TURNS);
+    // The craft showcase's rare spins view counts every tap as the fourth.
+    const action = tapAction(rareOnEveryTap() ? RARE_AFTER : turns.current, landed, queued.current, MAX_TURNS);
     if (action === 'rare') {
       rareSpin();
       return;
@@ -530,16 +557,17 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
     };
   });
 
-  // Where the eyes point, -1..1: a tab glance overrides idle drifting and the dizzy swirl rides on top.
+  // Where the eyes point, -1..1: a glance or watching overrides idle drifting and the dizzy swirl
+  // rides on top.
   const gaze = useDerivedValue(() => {
     const swirl = dizzyOffset(dizzy.value);
-    const x = look.value + gazeX.value * (1 - Math.min(1, Math.abs(look.value))) + swirl.x;
-    return { x: clamp(x, -1, 1), y: clamp(gazeY.value + swirl.y, -1, 1) };
+    const x = heading.value + idleX.value * (1 - Math.abs(heading.value)) + swirl.x;
+    return { x: clamp(x, -1, 1), y: clamp(gazeY.value * (1 - attention.value) + swirl.y, -1, 1) };
   });
 
   // How far the ghost has turned about its vertical axis; the head also follows the eyes a little.
   const pose = useDerivedValue(() =>
-    turnPose(spin.value + HEAD_FOLLOW_LOOK * look.value + HEAD_FOLLOW_GAZE * gazeX.value, FACE_OFFSET),
+    turnPose(spin.value + HEAD_FOLLOW_LOOK * heading.value + HEAD_FOLLOW_GAZE * idleX.value, FACE_OFFSET),
   );
 
   // Side-on the cloud is narrower (it has depth), it never collapses to a flat card's edge.
@@ -559,7 +587,7 @@ export function Mascot({ ref }: { ref?: React.Ref<MascotHandle> }) {
   }));
 
   const ballStyle = useAnimatedStyle(() => {
-    const grow = 1 + 0.2 * wide.value;
+    const grow = 1 + 0.2 * Math.max(wide.value, attention.value);
     return {
       transform: [
         // The lid closes slightly low, like a real one.
