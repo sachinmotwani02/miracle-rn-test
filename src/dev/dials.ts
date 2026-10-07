@@ -206,3 +206,6 @@ export function useDials<C extends DialConfig>(
   }, [name, panel, onAction]);
   return valuesOf(panels.get(name) ?? panel) as DialValues<C>;
 }
+
+// Dev builds also reach the store from the console or a script: `__dials.set('Card animation', 'curve', 2)`.
+if (__DEV__) (globalThis as { __dials?: unknown }).__dials = { set: setDial, reset: resetDials, snapshot: dialsSnapshot };

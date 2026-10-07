@@ -27,6 +27,25 @@ export const TAB_RESOLVE = {
   height: 220,
 };
 
+/**
+ * Ease-out curves for the resolve, from the one that sharpens in its first frames to one that
+ * takes its whole duration to arrive. With `snap` (quint) a 300 ms resolve is 40% done at 30 ms
+ * and 70% at 60 ms, so the sharpening reads in about four frames; `smooth` (cubic) is half done
+ * at 60 ms and still moving at 200 ms. The Dials' Curve slider indexes this list.
+ */
+export const RESOLVE_CURVES = [
+  { name: 'snap', easing: Easing.bezier(0.23, 1, 0.32, 1) },
+  { name: 'quick', easing: Easing.bezier(0.25, 1, 0.5, 1) },
+  { name: 'smooth', easing: Easing.bezier(0.33, 1, 0.68, 1) },
+  { name: 'gentle', easing: Easing.bezier(0.61, 1, 0.88, 1) },
+] as const;
+
+/** The curve at `index` in RESOLVE_CURVES, clamped; fractional dial values round down. */
+export function resolveEasing(index: number): EasingFunctionFactory {
+  const i = Math.min(Math.max(Math.floor(index), 0), RESOLVE_CURVES.length - 1);
+  return RESOLVE_CURVES[i].easing;
+}
+
 /** Everything that shapes the resolve; the Dials' Tab switch panel hands the screen a live one. */
 export interface ResolveLook {
   soften: number;

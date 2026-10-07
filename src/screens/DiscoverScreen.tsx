@@ -13,12 +13,12 @@ import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
-import { hideDials, useDials } from '../dev/dials';
+import { hideDials, setDial, useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { ResolveLook, TAB_RESOLVE } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE, resolveEasing } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -57,8 +57,14 @@ const SKELETON_DIALS = {
 const CARD_DIALS = {
   play: { type: 'action', label: 'Play' },
   autoPlay: true,
+  /** Whole looks to compare in one tap; Reset is the shipped one. */
+  focus: { type: 'action', label: 'Focus' },
+  whisper: { type: 'action', label: 'Whisper' },
+  deep: { type: 'action', label: 'Deep' },
   soften: [TAB_RESOLVE.soften, 0, 600, 10],
   duration: [TAB_RESOLVE.duration, 50, 1000, 10],
+  /** Ease-out of the resolve, an index into RESOLVE_CURVES: 0 snap, 1 quick, 2 smooth, 3 gentle. */
+  curve: [0, 0, 3, 1],
   stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
   cards: [TAB_RESOLVE.count, 0, 8, 1],
   scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
@@ -69,6 +75,18 @@ const CARD_DIALS = {
   /** Stretches every duration and the stagger, to watch a switch frame by frame. */
   slowMo: [1, 1, 10, 0.5],
 } as const;
+
+/**
+ * Three looks for the resolve, each a whole set of dials. Focus keeps the shipped softness but
+ * lets the sharpening take its time (a smooth curve over 420 ms, so it reads as coming into
+ * focus rather than a cut); Whisper is the lightest touch that still registers; Deep sinks the
+ * cards further and surfaces them slowly, for a switch with presence.
+ */
+const CARD_PRESETS: Record<string, Record<string, number>> = {
+  focus: { soften: 160, duration: 420, curve: 2, stagger: 40, cards: 5, scale: 0.975, opacity: 0.5, blur: 12, height: 220 },
+  whisper: { soften: 140, duration: 320, curve: 1, stagger: 35, cards: 5, scale: 0.985, opacity: 0.65, blur: 8, height: 200 },
+  deep: { soften: 200, duration: 520, curve: 3, stagger: 55, cards: 5, scale: 0.96, opacity: 0.4, blur: 14, height: 260 },
+};
 
 interface Latency {
   portfolio: number;
@@ -142,9 +160,11 @@ function Discover({ latency }: { latency: Latency }) {
   const playNext = useRef(() => {});
   const onDialAction = useCallback((action: string) => {
     if (action === 'play') playNext.current();
+    const preset = CARD_PRESETS[action];
+    if (preset) for (const [key, value] of Object.entries(preset)) setDial('Card animation', key, value);
   }, []);
   const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
-  const { soften: softenMs, duration, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay } = card;
+  const { soften: softenMs, duration, curve, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay } = card;
   const look = useMemo<ResolveLook>(
     () => ({
       soften: softenMs * slowMo,
@@ -154,10 +174,10 @@ function Discover({ latency }: { latency: Latency }) {
       scale,
       opacity,
       blur,
-      easing: TAB_RESOLVE.easing,
+      easing: resolveEasing(curve),
       height: heightMs * slowMo,
     }),
-    [softenMs, duration, stagger, cards, scale, opacity, blur, slowMo, heightMs],
+    [softenMs, duration, curve, stagger, cards, scale, opacity, blur, slowMo, heightMs],
   );
 
   const reduced = useReducedMotion();
