@@ -141,8 +141,19 @@ function Discover({ latency }: { latency: Latency }) {
   const [shown, setShown] = useState(selection);
   useEffect(() => {
     if (shown === selection) return;
-    const id = requestAnimationFrame(() => setShown(selection));
-    return () => cancelAnimationFrame(id);
+    let shownYet = false;
+    const show = () => {
+      if (shownYet) return;
+      shownYet = true;
+      setShown(selection);
+    };
+    const frame = requestAnimationFrame(show);
+    // A browser tab in the background gets no frames at all; don't wait on one past this.
+    const timer = setTimeout(show, 50);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
   }, [selection, shown]);
   const [firstTab] = useState(selection.tab);
   const [nav, setNav] = useState(0);
