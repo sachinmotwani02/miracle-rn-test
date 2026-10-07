@@ -158,7 +158,8 @@ describe('switching feed tabs', () => {
     expect(showsDiscoverCards()).toBe(true);
     expect(resolving()).toBeGreaterThan(0);
 
-    await act(() => jest.advanceTimersByTimeAsync(1000));
+    // Following lands at 700 ms; the last of the three cards settles about 330 ms after that.
+    await act(() => jest.advanceTimersByTimeAsync(750));
     expect(showsDiscoverCards()).toBe(false);
     expect(resolving()).toBeGreaterThan(0);
   });

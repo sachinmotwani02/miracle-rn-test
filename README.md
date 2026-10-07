@@ -179,10 +179,11 @@ touch and screen readers. Spec: `docs/superpowers/specs/2026-10-06-sky-bar-heade
   100 ms ease-out (more than half of it on the first frame), and a loaded feed drops into the cards
   already on screen: FlashList recycles them, so nothing is rebuilt, and the list keeps its scroll
   position for the sky bar. The cards answer the tap itself: the press handler starts them
-  softening (a faint blur, 0.97 scale, 45% opacity, 160 ms) on the UI thread, before React renders
-  anything, while the new feed renders into them underneath. When it lands, each of the first five
-  sharpens back from wherever the softening had got to, over 300 ms, 45 ms apart, with the same
-  strong ease-out. One motion from the tap, and the time spent soft is time the render takes anyway,
+  softening (a faint blur, 0.96 scale, 40% opacity, 160 ms) on the UI thread, before React renders
+  anything, while the new feed renders into them underneath. When it lands, each of the first three
+  sharpens back from wherever the softening had got to, over 190 ms, 45 ms apart, on a cubic
+  ease-out that is still moving at the end (the quint snap of the entrance read as a cut). One
+  motion from the tap, and the time spent soft is time the render takes anyway,
   so nothing waits on the animation; tapped away and back before the cards change, they ease back.
   Only what is inside a card softens: its white shell stays solid and its edge crisp (a faded shell
   let the sky show through and turned the cards into blue frosted panes). The blur is an expo-blur

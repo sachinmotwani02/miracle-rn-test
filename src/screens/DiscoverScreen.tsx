@@ -64,7 +64,7 @@ const CARD_DIALS = {
   soften: [TAB_RESOLVE.soften, 0, 600, 10],
   duration: [TAB_RESOLVE.duration, 50, 1000, 10],
   /** Ease-out of the resolve, an index into RESOLVE_CURVES: 0 snap, 1 quick, 2 smooth, 3 gentle. */
-  curve: [0, 0, 3, 1],
+  curve: [TAB_RESOLVE.curve, 0, 3, 1],
   stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
   cards: [TAB_RESOLVE.count, 0, 8, 1],
   scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
