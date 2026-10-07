@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# AI tooling and working notes (kept locally, not part of the submission)
+AGENTS.md
+CLAUDE.md
+.claude/
+docs/superpowers/
