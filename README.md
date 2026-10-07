@@ -1,6 +1,13 @@
 # Miracle — Discover
 
-A React Native recreation of Miracle’s Discover feed, built with Expo SDK 57 and TypeScript.
+A React Native recreation of Miracle’s Discover feed, built with Expo SDK 57 and TypeScript, with a floating nav bar and a mascot that pays attention to you.
+
+<p align="center">
+  <a href="assets/readme-assets/hero.mp4">
+    <img src="assets/readme-assets/hero.gif" width="560" alt="A 40 second tour of the Discover screen on an iPhone: the feed loads in, tabs switch, the feed selector opens, the header returns on scroll, and the ghost in the nav bar reacts" />
+  </a>
+</p>
+<p align="center"><sub>Full tour · <a href="assets/readme-assets/hero.mp4">hero.mp4</a> (1080 × 1080, 60 fps, 40 s)</sub></p>
 
 [Figma design](https://www.figma.com/design/JbobRQFbjv9tU37hT4ak9a/Untitled?node-id=694-310) · [Assignment brief](docs/reference/brief.pdf) · [Reference image](docs/reference/figma-discover@2x.png)
 
@@ -28,6 +35,44 @@ npm run web
 - **Tap the ghost:** it spins, reacts to repeated taps, and performs a special spin every fourth tap. It also looks toward the active destination and follows the dragged pill.
 
 This is a single-screen demo with mock data. Deposit provides press feedback; the bottom bar changes its selected state without opening other screens. The ghost is an independent interaction.
+
+## Recordings
+
+### The nav bar
+
+The pill stretches toward its destination and settles with a spring. The ghost turns to look at the active tab, and when the pill is dragged, the ghost follows the finger.
+
+<p align="center">
+  <a href="assets/readme-assets/nav.mp4">
+    <img src="assets/readme-assets/nav.gif" width="720" alt="The active pill moving between the five nav icons by tap and by drag, with the ghost turning toward it" />
+  </a>
+</p>
+
+The same motion at a fraction of the speed, recorded from the craft showcase. The pill stretches as it leaves, squashes as it lands, and the ghost tilts a beat later.
+
+<p align="center">
+  <a href="assets/readme-assets/nav-slowmo.mp4">
+    <img src="assets/readme-assets/nav-slowmo.gif" width="720" alt="Slow-motion close-up of the pill stretching from Home to Explore and the ghost turning toward it" />
+  </a>
+</p>
+
+### Rare ghost spins
+
+Every fourth tap on the ghost plays one of the rare spins: a pirouette, a swirl trail, a halo toss. This prototype grid shows every look, one frame per tap, with every tap forced rare.
+
+<p align="center">
+  <a href="assets/readme-assets/rare-animations-prototype.mp4">
+    <img src="assets/readme-assets/rare-spins.gif" width="720" alt="A grid of nav bars, each ghost performing a different rare spin" />
+  </a>
+</p>
+
+### Android
+
+The same screen on a Samsung phone. Android skips the native blur and uses a denser fill for the glass surfaces and a plain gradient under the nav bar.
+
+<p align="center">
+  <img src="assets/readme-assets/android-screenshot.jpg" width="300" alt="The Discover screen on an Android phone: portfolio header, top trades carousel, feed tabs, trade cards, and the floating nav bar" />
+</p>
 
 ## Design and implementation
 
@@ -62,17 +107,16 @@ npm run lint
 npm test -- --runInBand
 ```
 
-The 7 October 2026 review passed typecheck, lint, all 176 tests, and JavaScript exports for iOS and Android. Browser checks covered 320 pt and 393 pt widths. Native frame-rate measurements and a real-device recording are still outstanding; bundle exports do not establish native performance.
+The 7 October 2026 review passed typecheck, lint, all 176 tests, and JavaScript exports for iOS and Android. Browser checks covered 320 pt and 393 pt widths. The recordings above come from a real iPhone and a real Android phone; frame-rate measurements on device are still outstanding.
 
 ## Next steps
 
 - Finish menu selection cancellation and sparkline replay behavior when list cells are reused.
 - Tighten the remaining Figma differences, including the bottom fade and reconstructed vectors.
-- Verify larger text, screen readers, rapid gestures, and scrolling performance on iPhone and Android; record the result.
+- Verify larger text, screen readers, rapid gestures, and scrolling performance on iPhone and Android with instrumentation; record the numbers.
 
 ## Development tools
 
-Set `SHOW_DIALS` to `true` in `App.tsx` to tune animation and loading values in development. With the web server running, open `/craft.html` for close-up recording and slow-motion playback.
+Set `SHOW_DIALS` to `true` in `App.tsx` to tune animation and loading values in development. With the web server running, open `/craft.html` for close-up recording and slow-motion playback; the nav close-ups above were recorded there.
 
 Detailed notes: [screen design](docs/superpowers/specs/2026-10-05-discover-feed-design.md), [mascot motion](docs/superpowers/specs/2026-10-05-ghost-mascot-motion-design.md), [sky header](docs/superpowers/specs/2026-10-06-sky-bar-header-design.md), and [loading states](docs/superpowers/specs/2026-10-06-feed-skeleton-design.md).
-
