@@ -2,6 +2,7 @@ import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMe
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import Animated, {
+  Easing,
   useAnimatedScrollHandler,
   useComposedEventHandler,
   useReducedMotion,
@@ -18,7 +19,7 @@ import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { TAB_RESOLVE } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -46,6 +47,31 @@ const SKELETON_DIALS = {
   },
   holdLoading: false,
   replay: { type: 'action', label: 'Replay cold start' },
+} as const;
+
+/** Live controls for the tab switch resolve in dev builds; defaults come from TAB_RESOLVE. */
+const TAB_SWITCH_DIALS = {
+  timing: {
+    soften: [TAB_RESOLVE.soften, 0, 600, 10],
+    duration: [TAB_RESOLVE.duration, 50, 1000, 10],
+    stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
+    count: [TAB_RESOLVE.count, 0, 8, 1],
+  },
+  look: {
+    scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
+    opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
+    blur: [TAB_RESOLVE.blur, 0, 40, 1],
+  },
+  curve: {
+    x1: [TAB_RESOLVE.curve.x1, 0, 1, 0.01],
+    y1: [TAB_RESOLVE.curve.y1, -0.5, 1.5, 0.01],
+    x2: [TAB_RESOLVE.curve.x2, 0, 1, 0.01],
+    y2: [TAB_RESOLVE.curve.y2, -0.5, 1.5, 0.01],
+  },
+  /** Stretches every duration and the stagger, to watch a switch frame by frame. */
+  slowMo: [1, 1, 10, 0.5],
+  previousTab: { type: 'action', label: '← Tab' },
+  nextTab: { type: 'action', label: 'Tab →' },
 } as const;
 
 interface Latency {
@@ -140,6 +166,23 @@ function Discover({ latency }: { latency: Latency }) {
     }
   }, [firstFeedIn, firstTab, latency.tabFeed]);
 
+  // The panel's buttons switch tabs like a tap; onTab is declared below, so they go through a ref.
+  const dialAction = useRef<(action: string) => void>(() => {});
+  const onDialAction = useCallback((action: string) => dialAction.current(action), []);
+  const dials = useDials('Tab switch', TAB_SWITCH_DIALS, { onAction: onDialAction });
+  const { timing, look: lookDials, curve, slowMo } = dials;
+  const look = useMemo<ResolveLook>(
+    () => ({
+      ...lookDials,
+      soften: timing.soften * slowMo,
+      duration: timing.duration * slowMo,
+      stagger: timing.stagger * slowMo,
+      count: timing.count,
+      easing: Easing.bezier(curve.x1, curve.y1, curve.x2, curve.y2),
+    }),
+    [timing, lookDials, curve, slowMo],
+  );
+
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
   // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
@@ -147,13 +190,20 @@ function Discover({ latency }: { latency: Latency }) {
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
-      if (!reduced) pending.set(withTiming(1, { duration: TAB_RESOLVE.soften, easing: TAB_RESOLVE.easing }));
+      if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.easing }));
       setSelection({ tab, switched: true });
     },
-    [selection.tab, reduced, pending],
+    [selection.tab, reduced, pending, look],
   );
+  useEffect(() => {
+    dialAction.current = action => {
+      const i = TABS.findIndex(t => t.key === selection.tab);
+      const step = action === 'nextTab' ? 1 : action === 'previousTab' ? -1 : 0;
+      if (step) onTab(TABS[(i + step + TABS.length) % TABS.length].key);
+    };
+  }, [onTab, selection.tab]);
   const softening = feedTab !== null && selection.tab !== feedTab;
-  const soften = useMemo(() => ({ pending, softening }), [pending, softening]);
+  const soften = useMemo(() => ({ pending, softening, look }), [pending, softening, look]);
   // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken
   // over from `pending` (their layout effects run first), so it drops at once; with no resolve (tapped
   // away and back before the cards changed) they ease back to sharp.
@@ -164,9 +214,9 @@ function Discover({ latency }: { latency: Latency }) {
       handedOff.current = resolveKey;
       pending.set(0);
     } else {
-      pending.set(withTiming(0, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing }));
+      pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
-  }, [softening, resolveKey, pending]);
+  }, [softening, resolveKey, pending, look]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));

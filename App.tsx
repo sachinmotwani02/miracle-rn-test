@@ -7,7 +7,7 @@ import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { FONTS } from './src/theme/fonts';
 
 /** Flip to true to bring back the Dials chip for tuning animations. */
-const SHOW_DIALS = false;
+const SHOW_DIALS = true;
 
 export default function App() {
   // iOS has no fonts to load, so it renders on the first frame. If loading fails, the text falls

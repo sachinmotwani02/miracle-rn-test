@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, layout } from '../theme';
-import { TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE, resolveDelay, resolveFrame } from '../utils/tabResolve';
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
@@ -23,10 +23,12 @@ const CAN_BLUR = Platform.OS !== 'android';
  * The screen's side of the resolve. `pending` (0 = sharp, 1 = fully soft) starts rising on the tap,
  * straight from the press handler, so the cards soften on the UI thread while the new feed renders.
  * `softening` is true from the tap until the tapped feed is on screen; it mounts the blur overlays.
+ * `look` is TAB_RESOLVE, or the Dials' live values in a dev build.
  */
 export interface TabSoften {
   pending: SharedValue<number>;
   softening: boolean;
+  look: ResolveLook;
 }
 
 export const TabSoftenContext = createContext<TabSoften | null>(null);
@@ -49,13 +51,15 @@ interface Props {
 export function TabResolve({ resolveKey, index, children }: Props) {
   const soften = useContext(TabSoftenContext);
   const reduced = useReducedMotion();
-  const delay = resolveDelay(index);
+  const look = soften?.look ?? TAB_RESOLVE;
+  const delay = resolveDelay(index, look);
   const takesPart = delay !== null && !reduced;
   const progress = useSharedValue(1);
   const sharp = useSharedValue(0);
   const pending = soften && takesPart ? soften.pending : sharp;
   const [seenKey, setSeenKey] = useState(resolveKey);
-  const [run, setRun] = useState<{ id: number; delay: number } | null>(null);
+  // A run keeps the timing it started with, so a dial moved mid-run applies from the next switch.
+  const [run, setRun] = useState<{ id: number; delay: number; duration: number; easing: ResolveLook['easing'] } | null>(null);
   // The blur stays up while the screen eases `pending` back (tapped away and back before the cards
   // changed), so it fades with the scale and the opacity instead of vanishing in one frame.
   const softening = !!soften?.softening;
@@ -70,7 +74,7 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   // while mounted is a switch.
   if (resolveKey !== seenKey) {
     setSeenKey(resolveKey);
-    if (takesPart) setRun({ id: resolveKey, delay });
+    if (takesPart) setRun({ id: resolveKey, delay, duration: look.duration, easing: look.easing });
   }
 
   // Before paint, and before the screen lets go of `pending` (parents' layout effects run after
@@ -79,29 +83,29 @@ export function TabResolve({ resolveKey, index, children }: Props) {
   useLayoutEffect(() => {
     if (!run) return;
     progress.set(1 - pending.get());
-    progress.set(withDelay(run.delay, withTiming(1, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing })));
+    progress.set(withDelay(run.delay, withTiming(1, { duration: run.duration, easing: run.easing })));
   }, [run, progress, pending]);
 
   useEffect(() => {
     if (!run) return;
-    const id = setTimeout(() => setRun(null), run.delay + TAB_RESOLVE.duration + 50);
+    const id = setTimeout(() => setRun(null), run.delay + run.duration + 50);
     return () => clearTimeout(id);
   }, [run]);
 
   useEffect(() => {
     if (!settling) return;
-    const id = setTimeout(() => setSettling(false), TAB_RESOLVE.duration + 50);
+    const id = setTimeout(() => setSettling(false), look.duration + 50);
     return () => clearTimeout(id);
-  }, [settling]);
+  }, [settling, look.duration]);
 
   const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: resolveFrame(Math.min(progress.value, 1 - pending.value)).scale }],
+    transform: [{ scale: resolveFrame(Math.min(progress.value, 1 - pending.value), look).scale }],
   }));
   const fadeStyle = useAnimatedStyle(() => ({
-    opacity: resolveFrame(Math.min(progress.value, 1 - pending.value)).opacity,
+    opacity: resolveFrame(Math.min(progress.value, 1 - pending.value), look).opacity,
   }));
   const blurProps = useAnimatedProps(() => ({
-    intensity: resolveFrame(Math.min(progress.value, 1 - pending.value)).intensity,
+    intensity: resolveFrame(Math.min(progress.value, 1 - pending.value), look).intensity,
   }));
 
   const blurring = CAN_BLUR && takesPart && (run !== null || softening || settling);

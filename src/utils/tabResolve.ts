@@ -1,4 +1,7 @@
-import { Easing } from 'react-native-reanimated';
+import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
+
+/** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
+const CURVE = { x1: 0.23, y1: 1, x2: 0.32, y2: 1 };
 
 /**
  * The tab switch "resolve". On the tap itself the cards on screen start to soften (slightly small,
@@ -18,22 +21,34 @@ export const TAB_RESOLVE = {
   opacity: 0.45,
   /** expo-blur intensity when fully soft; 12 is a 2.4 px blur on web (intensity x 0.2 px). */
   blur: 12,
-  /** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
-  easing: Easing.bezier(0.23, 1, 0.32, 1),
+  curve: CURVE,
+  easing: Easing.bezier(CURVE.x1, CURVE.y1, CURVE.x2, CURVE.y2),
 };
 
+/** Everything that shapes the resolve; the Dials' Tab switch panel hands the screen a live one. */
+export interface ResolveLook {
+  soften: number;
+  duration: number;
+  stagger: number;
+  count: number;
+  scale: number;
+  opacity: number;
+  blur: number;
+  easing: EasingFunctionFactory;
+}
+
 /** Where a card stands at progress `k` (0 = fully soft, 1 = settled). */
-export function resolveFrame(k: number) {
+export function resolveFrame(k: number, look: Pick<ResolveLook, 'opacity' | 'scale' | 'blur'> = TAB_RESOLVE) {
   'worklet';
   const t = Math.min(Math.max(k, 0), 1);
   return {
-    opacity: TAB_RESOLVE.opacity + (1 - TAB_RESOLVE.opacity) * t,
-    scale: TAB_RESOLVE.scale + (1 - TAB_RESOLVE.scale) * t,
-    intensity: TAB_RESOLVE.blur * (1 - t),
+    opacity: look.opacity + (1 - look.opacity) * t,
+    scale: look.scale + (1 - look.scale) * t,
+    intensity: look.blur * (1 - t),
   };
 }
 
 /** When the card at `index` starts resolving, in ms after the new content lands; null if it sits it out. */
-export function resolveDelay(index: number): number | null {
-  return index < TAB_RESOLVE.count ? index * TAB_RESOLVE.stagger : null;
+export function resolveDelay(index: number, look: Pick<ResolveLook, 'count' | 'stagger'> = TAB_RESOLVE): number | null {
+  return index < look.count ? index * look.stagger : null;
 }
