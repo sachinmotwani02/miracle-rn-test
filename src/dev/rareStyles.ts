@@ -23,6 +23,17 @@ export function setRareStyle(style: RareStyle) {
   listeners.forEach(listener => listener());
 }
 
+/** The rare spins view plays the rare spin on every tap instead of every fourth. */
+let everyTap = false;
+
+export function rareOnEveryTap(): boolean {
+  return everyTap;
+}
+
+export function setRareOnEveryTap(on: boolean) {
+  everyTap = on;
+}
+
 export function subscribeRareStyle(listener: () => void): () => void {
   listeners.add(listener);
   return () => {

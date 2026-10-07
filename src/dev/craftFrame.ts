@@ -1,4 +1,4 @@
-import { RareStyle, setRareStyle } from './rareStyles';
+import { RareStyle, setRareOnEveryTap, setRareStyle } from './rareStyles';
 
 /**
  * The app's half of the craft showcase (public/craft.html), which frames the app in an iframe to
@@ -122,7 +122,11 @@ function install(initial: number): CraftFrame {
 if (typeof document !== 'undefined' && typeof location !== 'undefined' && window.parent !== window && new URLSearchParams(location.search).has('craft-frame')) {
   const parent = window.parent as unknown as CraftParent;
   (window as unknown as { __craft: CraftFrame }).__craft = install(parent.__craftSpeed ?? 1);
-  setRareStyle(parent.__craftRare ?? 'orbit');
+  // The rare spins view shows each look in its own frame (`&rare=silk`).
+  const rare = new URLSearchParams(location.search).get('rare') as RareStyle | null;
+  setRareStyle(rare ?? parent.__craftRare ?? 'orbit');
+  // ...and there every tap plays the rare spin.
+  setRareOnEveryTap(rare !== null);
   // The page zooms the frame on every camera frame, which changes only the pixel ratio but fires
   // `resize`; React Native Web would re-render the screen each time. The frame's size never
   // changes, so those events stop here (registered before anything else listens).

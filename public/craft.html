@@ -32,7 +32,7 @@
   body.touch-mode #stage, body.touch-mode #stage * { cursor: none !important; }
 
   /* A soft fingertip instead of the pointer: squeezes while pressed, leaves a ripple on release. */
-  .touch { position: fixed; left: 0; top: 0; width: var(--touch, 40px); height: var(--touch, 40px); margin: calc(var(--touch, 40px) / -2) 0 0 calc(var(--touch, 40px) / -2);
+  .touch { position: fixed; left: 0; top: 0; width: calc(var(--touch, 40px) * var(--ts, 1)); height: calc(var(--touch, 40px) * var(--ts, 1)); margin: calc(calc(var(--touch, 40px) * var(--ts, 1)) / -2) 0 0 calc(calc(var(--touch, 40px) * var(--ts, 1)) / -2);
            border-radius: 50%; pointer-events: none; z-index: 20; opacity: 0;
            background: rgba(150, 157, 170, 0.34); border: 1.5px solid rgba(255, 255, 255, 0.8);
            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16), 0 0 0 0.5px rgba(0, 0, 0, 0.1);
@@ -40,10 +40,53 @@
            transition: opacity 160ms ease, transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 140ms ease; }
   .touch.shown { opacity: 1; }
   .touch.down { transform: scale(0.8); background: rgba(140, 147, 160, 0.55); transition-duration: 160ms, 90ms, 90ms; }
-  .ripple { position: fixed; left: 0; top: 0; width: var(--touch, 40px); height: var(--touch, 40px); margin: calc(var(--touch, 40px) / -2) 0 0 calc(var(--touch, 40px) / -2);
+  .ripple { position: fixed; left: 0; top: 0; width: calc(var(--touch, 40px) * var(--ts, 1)); height: calc(var(--touch, 40px) * var(--ts, 1)); margin: calc(calc(var(--touch, 40px) * var(--ts, 1)) / -2) 0 0 calc(calc(var(--touch, 40px) * var(--ts, 1)) / -2);
             border-radius: 50%; pointer-events: none; z-index: 19; border: 2px solid rgba(150, 157, 170, 0.7);
             box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.08); animation: ripple 420ms cubic-bezier(0.23, 1, 0.32, 1) forwards; }
-  @keyframes ripple { from { transform: scale(0.8); opacity: 0.9; } to { transform: scale(1.9); opacity: 0; } }
+  /* The cursor's position rides this wrapper as a transform, so the smoothed path is subpixel-exact. */
+  #touchPos { position: fixed; left: 0; top: 0; width: 0; height: 0; pointer-events: none; z-index: 20; will-change: transform; }
+  #touchPos .touch { position: absolute; }
+  /* Hover opacity: how much of the circle follows the mouse (0 = only the tap shows). A press and
+     its ripple always draw at full strength. */
+  #touchPos .touch.shown:not(.down) { opacity: var(--hover, 1); transition-duration: 140ms, 140ms, 140ms; }
+  #touchPos .touch.shown.down { opacity: 1; transition-duration: 40ms, 90ms, 90ms; }
+
+  /* Rare spins view: the shipped look beside the rejected ones, each a live app. */
+  #rareView { position: absolute; inset: 0; display: none; }
+  body.view-rare #rareView { display: block; }
+  body.view-rare #cam { visibility: hidden; }
+  .panel { position: absolute; overflow: hidden; border-radius: 20px; background: #fff; }
+  .panel .pcam { position: absolute; left: 0; top: 0; }
+  .panel iframe { display: block; width: 390px; height: 844px; border: 0; background: #fff; }
+  .plabel { position: absolute; left: 14px; top: 14px; padding: 6px 11px; border-radius: 999px; pointer-events: none;
+            font: 600 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; letter-spacing: 0.1px;
+            color: rgba(255, 255, 255, 0.95); background: rgba(18, 19, 24, 0.55);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .plabel span { font-weight: 400; color: rgba(255, 255, 255, 0.62); }
+  body.no-labels .plabel { display: none; }
+  @keyframes ripple { from { transform: scale(0.8); opacity: 0.9; } to { transform: scale(var(--ripple-to, 1.9)); opacity: 0; } }
+
+  /* Glass: a frosted lens that blurs and brightens what is under it. */
+  body.cur-glass { --touch: 48px; }
+  body.cur-glass .touch { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.55);
+                          backdrop-filter: blur(6px) saturate(1.6) brightness(1.06); -webkit-backdrop-filter: blur(6px) saturate(1.6) brightness(1.06);
+                          box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.65), inset 0 -1px 2px rgba(0, 0, 0, 0.1), 0 4px 14px rgba(0, 0, 0, 0.16); }
+  body.cur-glass .touch.down { transform: scale(0.86); background: rgba(255, 255, 255, 0.24); }
+  body.cur-glass .ripple { border: 0; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75), 0 0 14px rgba(255, 255, 255, 0.45); }
+
+  /* Dot: small and precise, with a wide ripple so the tap still reads. */
+  body.cur-dot { --touch: 16px; --ripple-to: 3.4; }
+  body.cur-dot .touch { background: #fff; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none;
+                        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 5px rgba(0, 0, 0, 0.3); }
+  body.cur-dot .touch.down { transform: scale(0.7); background: #fff; }
+  body.cur-dot .ripple { border: 1.5px solid rgba(255, 255, 255, 0.95); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
+
+  /* Ring: a hollow outline that fills in while pressed. */
+  body.cur-ring { --touch: 36px; }
+  body.cur-ring .touch { background: transparent; border: 2px solid rgba(255, 255, 255, 0.95); backdrop-filter: none; -webkit-backdrop-filter: none;
+                         box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.18); }
+  body.cur-ring .touch.down { transform: scale(0.85); background: rgba(255, 255, 255, 0.4); }
+  body.cur-ring .ripple { border: 2px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.12); }
 
   #ui { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 10;
         display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px;
@@ -70,7 +113,7 @@
 </style>
 </head>
 <body>
-<div id="stage"><div id="sky"></div><div id="cam"><iframe id="frame" title="App"></iframe></div></div>
+<div id="stage"><div id="sky"></div><div id="cam"><iframe id="frame" title="App"></iframe></div><div id="rareView"></div></div>
 <div id="status"></div>
 
 <div id="ui">
@@ -82,8 +125,12 @@
     <button id="aspect" title="Frame aspect (X)"><kbd>X</kbd><span></span></button>
     <button id="bg" title="Background (B)"><kbd>B</kbd><span></span></button>
     <button id="glass" title="The nav bar's glass as iOS draws it (G)"><kbd>G</kbd>Glass</button>
-    <button id="rare" title="The rare spin's look: today's orbit rings, or the rejected silk ribbon and sparkle comets (V)"><kbd>V</kbd><span></span></button>
-    <button id="touchBtn" title="Soft touch cursor (T)"><kbd>T</kbd>Touch</button>
+    <button id="rareBtn" title="Rare spins: the shipped orbit rings beside the rejected silk ribbon and sparkle comets (V)"><kbd>V</kbd>Rare spins</button>
+    <button id="labels" title="Labels on the rare spins view (L)"><kbd>L</kbd>Labels</button>
+    <button id="touchBtn" title="Touch cursor: Soft, Glass, Dot, Ring or off (T)"><kbd>T</kbd><span></span></button>
+    <button id="smooth" title="Cursor smoothing: Off, Light, Smooth, Glide (M)"><kbd>M</kbd><span></span></button>
+    <button id="size" title="Cursor size: S, M, L, XL ([ and ])"><kbd>[ ]</kbd><span></span></button>
+    <button id="hover" title="Cursor opacity while moving: 0% shows only the tap (O)"><kbd>O</kbd><span></span></button>
     <button id="cold" title="Cold start: bones, glint, reveal (C)"><kbd>C</kbd>Cold start</button>
     <button id="clean" title="Hide controls and cursor (H)"><kbd>H</kbd>Record mode</button>
     <button id="helpBtn" title="Shortcuts (?)"><kbd>?</kbd>Keys</button>
@@ -98,20 +145,24 @@
     <dt>− / =</dt><dd>Zoom out / in</dd>
     <dt>, / .</dt><dd>Slower / faster (1×, ½×, ¼×, ⅒×)</dd>
     <dt>X / B / G</dt><dd>Frame aspect / background / glass</dd>
-    <dt>V</dt><dd>Rare spin look: Orbit (shipped), Silk, Comets (rejected)</dd>
-    <dt>T</dt><dd>Touch cursor: a soft fingertip with a tap ripple</dd>
+    <dt>V</dt><dd>Rare spins view: Orbit (shipped), Silk and Comets (rejected) side by side, the rare spin on every tap; V or a digit to leave</dd>
+    <dt>L</dt><dd>Labels on the rare spins view</dd>
+    <dt>T</dt><dd>Touch cursor: Soft, Glass, Dot, Ring, off (each presses and ripples)</dd>
+    <dt>M</dt><dd>Cursor smoothing: Off, Light (default), Smooth, Glide</dd>
+    <dt>[ / ]</dt><dd>Cursor size: S, M, L, XL</dd>
+    <dt>O</dt><dd>Cursor opacity while moving: 0% (just the tap pulse, default), 25, 50, 75, 100%</dd>
     <dt>H</dt><dd>Record mode: no controls (H again to leave); the touch cursor stays</dd>
   </dl>
   <h2>Taps, so the cursor stays out of shot</h2>
   <dl>
-    <dt>Space</dt><dd>Tap the ghost (every 4th tap: the rare spin; the status shows the count)</dd>
+    <dt>Space</dt><dd>Tap the ghost (every 4th tap: the rare spin); in the rare spins view, every tap plays it on all three</dd>
     <dt>Q W E R</dt><dd>Nav: Home, Explore, Stats, Profile</dd>
     <dt>A S D F</dt><dd>Feed: Discover, Following, Rising, Favourites</dd>
     <dt>N</dt><dd>Read more / Show less on the top card</dd>
     <dt>P</dt><dd>Press Deposit</dd>
     <dt>C</dt><dd>Cold start</dd>
   </dl>
-  <p>Clicking and scrolling the app work as usual. The camera moves in real time; slow motion only slows the app.</p>
+  <p>Keyboard taps glide the cursor to their target first, like a hand would. Clicking and scrolling the app work as usual. The camera moves in real time; slow motion only slows the app.</p>
 </div>
 
 <script>
@@ -135,14 +186,18 @@
   const SPEED_LABEL = { 1: '1×', 0.5: '½×', 0.25: '¼×', 0.1: '⅒×' };
   const ASPECTS = [['Fill', 0], ['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1], ['4:5', 4 / 5]];
   const BGS = [['Dark', ''], ['Light', 'bg-light'], ['Sky', 'bg-sky']];
-  const RARES = [['orbit', 'Orbit'], ['silk', 'Silk'], ['comets', 'Comets']];
   const MOVE_MS = 900;
   const NUDGE_MS = 260;
 
   const $ = (id) => document.getElementById(id);
   const stage = $('stage'), cam = $('cam'), frame = $('frame');
-  const state = { shot: 0, speed: 1, aspect: 0, bg: 0, glass: true, rare: 0, touch: true };
+  const CURSORS = [['soft', 'Soft'], ['glass', 'Glass'], ['dot', 'Dot'], ['ring', 'Ring'], ['off', 'Off']];
+  const state = { shot: 0, speed: 1, aspect: 0, bg: 0, glass: true, cursor: 0, smooth: 1, size: 1, hover: 0, view: 'main', labels: true };
   try { Object.assign(state, JSON.parse(localStorage.getItem('craft') || '{}')); } catch {}
+  if (!(state.smooth >= 0 && state.smooth < 4)) state.smooth = 1;
+  if (!(state.size >= 0 && state.size < 4)) state.size = 1;
+  if (!(state.hover >= 0 && state.hover < 5)) state.hover = state.pulseOnly === false ? 4 : 0;
+  delete state.pulseOnly;
   const save = () => { try { localStorage.setItem('craft', JSON.stringify(state)); } catch {} };
 
   // ----- Camera: a view is a centre (cx, cy, in pt) and a zoom z (stage px per pt).
@@ -198,6 +253,7 @@
   let last = performance.now();
   function tick(t) {
     const dt = Math.min(64, t - last); last = t;
+    stepCursor(dt);
     if (move) {
       const u = Math.min(1, (t - move.start) / move.ms), k = ease(u);
       view = {
@@ -219,18 +275,21 @@
     requestAnimationFrame(tick);
   }
 
-  // ----- The app inside the frame.
-  const doc = () => frame.contentDocument;
-  const win = () => frame.contentWindow;
-  const byLabel = (label) => doc()?.querySelector(`[aria-label="${label}"]`);
+  // ----- The apps: the main frame, and in the rare spins view one frame per look.
+  const main = { el: frame, rare: 'orbit' };
+  const panels = [];
+  const frames = () => (state.view === 'rare' ? panels : [main]);
+  const docOf = (f) => f.el.contentDocument;
+  const winOf = (f) => f.el.contentWindow;
+  const byLabel = (f, label) => docOf(f)?.querySelector(`[aria-label="${label}"]`);
   function pillRect() {
-    const pill = byLabel('Home')?.parentElement?.previousElementSibling;
+    const pill = byLabel(main, 'Home')?.parentElement?.previousElementSibling;
     return pill ? pill.getBoundingClientRect() : null;
   }
   /** Leaf elements showing exactly one of `texts`, on screen and above the nav bar, top first. */
-  function visibleText(texts) {
-    const d = doc(); if (!d) return [];
-    const vh = win().innerHeight;
+  function visibleText(f, texts) {
+    const d = docOf(f); if (!d) return [];
+    const vh = winOf(f).innerHeight;
     return [...d.querySelectorAll('div, span')].filter((e) => {
       if (e.childElementCount || !texts.includes(e.textContent)) return false;
       const r = e.getBoundingClientRect();
@@ -238,90 +297,219 @@
     }).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
   }
   /** A tap as React Native Web's Pressability expects it: pointer and mouse down, then up and click. */
-  let ghostTaps = 0;
-  function tap(el) {
-    if (!el) return;
-    showTap(el);
-    if (el.getAttribute('aria-label') === 'Ghost') { ghostTaps = (ghostTaps + 1) % 4; render(); }
-    const W = win(), r = el.getBoundingClientRect();
+  function press(f, el, phase) {
+    const W = winOf(f), r = el.getBoundingClientRect();
     const o = { bubbles: true, cancelable: true, composed: true, view: W, clientX: r.x + r.width / 2, clientY: r.y + r.height / 2,
                 pointerId: 1, pointerType: 'mouse', isPrimary: true, button: 0 };
-    el.dispatchEvent(new W.PointerEvent('pointerdown', { ...o, buttons: 1 }));
-    el.dispatchEvent(new W.MouseEvent('mousedown', { ...o, buttons: 1 }));
-    setTimeout(() => {
+    if (phase === 'down') {
+      el.dispatchEvent(new W.PointerEvent('pointerdown', { ...o, buttons: 1 }));
+      el.dispatchEvent(new W.MouseEvent('mousedown', { ...o, buttons: 1 }));
+    } else {
       el.dispatchEvent(new W.PointerEvent('pointerup', { ...o, buttons: 0 }));
       el.dispatchEvent(new W.MouseEvent('mouseup', { ...o, buttons: 0 }));
       el.dispatchEvent(new W.MouseEvent('click', { ...o, buttons: 0 }));
-    }, 80);
+    }
   }
-  const feedTab = (label) => tap(visibleText([label]).pop());
+  const TAP_HOLD = 80;
+  let ghostTaps = 0;
+  /**
+   * A keyboard tap on whatever `find` returns in each app. With the cursor on screen in the main view
+   * it glides there first and taps like a finger; otherwise a touch is drawn on each target.
+   */
+  function tapEach(find) {
+    const hits = frames().map((f) => [f, find(f)]).filter(([, el]) => el);
+    if (!hits.length) return;
+    if (hits.some(([, el]) => el.getAttribute('aria-label') === 'Ghost')) { ghostTaps = (ghostTaps + 1) % 4; render(); }
+    if (hits.length === 1 && cursor.visible && touchOn() && state.view === 'main') return glideTap(...hits[0]);
+    for (const [f, el] of hits) {
+      showTap(f, el);
+      press(f, el, 'down');
+      setTimeout(() => press(f, el, 'up'), TAP_HOLD);
+    }
+  }
+  const tapLabel = (label) => tapEach((f) => byLabel(f, label));
+  const tapText = (texts, last) => tapEach((f) => { const hits = visibleText(f, texts); return last ? hits.pop() : hits[0]; });
 
   // The nav bar's glass as iOS draws it (the feed blurred behind an 80% fill); web otherwise gets
-  // Android's denser fill. Also hides the cursor inside the app in record mode.
-  function decorate() {
-    const d = doc(); if (!d || !d.head) return;
-    const home = byLabel('Home');
+  // Android's denser fill. Also hides the real cursor inside the apps while the touch cursor is on.
+  function decorate(f) {
+    const d = docOf(f); if (!d || !d.head) return;
+    const home = byLabel(f, 'Home');
     if (home) {
       const bar = home.parentElement.parentElement;
       const fill = bar.firstElementChild;
       bar.style.backdropFilter = bar.style.webkitBackdropFilter = state.glass ? 'blur(8px)' : '';
       fill.style.backgroundColor = state.glass ? 'rgba(34, 36, 42, 0.8)' : '';
-      // The rejected rare looks reach past the bar (the silk floats up, the confetti flies out), so
-      // the bar stops clipping while one is on; the fill keeps the bar's rounded shape.
-      const unclip = RARES[state.rare][0] !== 'orbit';
+      // The rejected looks reach past the bar (the silk floats up, the confetti flies out), so their
+      // bars stop clipping; the fill keeps the bar's rounded shape.
+      const unclip = f.rare !== 'orbit';
       bar.style.overflow = unclip ? 'visible' : '';
       fill.style.borderRadius = unclip ? getComputedStyle(bar).borderRadius : '';
     }
     let style = d.getElementById('craft-style');
     if (!style) { style = d.createElement('style'); style.id = 'craft-style'; d.head.appendChild(style); }
-    const css = document.body.classList.contains('clean') || state.touch ? '*, *::before, *::after { cursor: none !important; }' : '';
+    // The page's shortcuts are key presses, which make Chrome draw its focus ring round whatever
+    // was last clicked in the app; a recording never wants that ring.
+    const noFocusRing = '*:focus, *:focus-visible { outline: none !important; }';
+    const noCursor = document.body.classList.contains('clean') || touchOn() ? ' *, *::before, *::after { cursor: none !important; }' : '';
+    const css = noFocusRing + noCursor;
     if (style.textContent !== css) style.textContent = css;
     if (!stage.style.getPropertyValue('--sky')) {
       const sky = [...d.images].find((i) => /sky/i.test(i.src));
       if (sky) stage.style.setProperty('--sky', `url("${sky.src}")`);
     }
   }
-  setInterval(decorate, 400);
+  const decorateAll = () => [main, ...panels].forEach(decorate);
+  setInterval(decorateAll, 400);
 
   function setSpeed(s) {
     state.speed = s; save();
     window.__craftSpeed = s;
-    win()?.__craft?.setTimeScale(s);
+    [main, ...panels].forEach((f) => winOf(f)?.__craft?.setTimeScale(s));
     render();
   }
+  const frameSrc = (f) => '/?craft-frame' + (f.rare !== 'orbit' || f !== main ? '&rare=' + f.rare : '') + '&t=' + Date.now();
   function coldStart() {
     window.__craftSpeed = state.speed;
-    window.__craftRare = RARES[state.rare][0];
     ghostTaps = 0;
-    frame.src = '/?craft-frame&t=' + Date.now();
-  }
-  frame.addEventListener('load', () => {
-    win()?.__craft?.setTimeScale(state.speed);
-    win()?.__craft?.setRareStyle(RARES[state.rare][0]);
-    ghostTaps = 0;
-    decorate();
-    listenInFrame();
+    frames().forEach((f) => { f.el.src = frameSrc(f); });
     render();
-  });
-
-  function cycleRare() {
-    state.rare = (state.rare + 1) % RARES.length; save();
-    window.__craftRare = RARES[state.rare][0];
-    win()?.__craft?.setRareStyle(RARES[state.rare][0]);
-    decorate(); render();
   }
+  function watch(f) {
+    f.el.addEventListener('load', () => {
+      winOf(f)?.__craft?.setTimeScale(state.speed);
+      decorate(f);
+      listenInFrame(f);
+      if (state.view === 'rare' ? f === panels[0] : f === main) { ghostTaps = 0; render(); }
+    });
+  }
+  watch(main);
 
-  // ----- The touch cursor: a soft circle that follows the mouse over the page and the app.
+  // ----- Rare spins view: the shipped orbit rings beside the rejected silk ribbon and sparkle comets.
+  const LOOKS = [['orbit', 'Orbit rings', 'shipped'], ['silk', 'Silk ribbon', 'explored'], ['comets', 'Sparkle comets', 'explored']];
+  // Each panel keeps the ghost and the room its swirl needs in view (pt round the ghost).
+  const RARE_REGION = { cx: 195, cy: 768, w: 150, h: 170 };
+  /** Panel shape, height over width: tall enough for the silk floating up, no taller. */
+  const PANEL_ASPECT = 1.3;
+  function buildPanels() {
+    if (panels.length) return;
+    for (const [rare, name, note] of LOOKS) {
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.innerHTML = `<div class="pcam"><iframe title="${name}"></iframe></div><div class="plabel">${name} <span>· ${note}</span></div>`;
+      $('rareView').appendChild(panel);
+      const f = { el: panel.querySelector('iframe'), rare, panel, pcam: panel.querySelector('.pcam') };
+      panels.push(f);
+      watch(f);
+      f.el.src = frameSrc(f);
+    }
+  }
+  function layoutPanels() {
+    if (!panels.length) return;
+    const n = panels.length, gap = Math.round(Math.min(stageW, stageH) * 0.03);
+    const across = stageW >= stageH;
+    let pw = across ? (stageW - gap * (n + 1)) / n : stageW - gap * 2;
+    let ph = across ? stageH - gap * 2 : (stageH - gap * (n + 1)) / n;
+    if (across) ph = Math.min(ph, pw * PANEL_ASPECT); else pw = Math.min(pw, ph / PANEL_ASPECT * 1.6);
+    // The row (or column) of panels sits centred on the stage.
+    const x0 = across ? (stageW - (n * pw + (n - 1) * gap)) / 2 : (stageW - pw) / 2;
+    const y0 = across ? (stageH - ph) / 2 : (stageH - (n * ph + (n - 1) * gap)) / 2;
+    const r = RARE_REGION, z = Math.min(pw / r.w, ph / r.h);
+    panels.forEach((f, i) => {
+      Object.assign(f.panel.style, {
+        left: (across ? x0 + i * (pw + gap) : x0) + 'px', top: (across ? y0 : y0 + i * (ph + gap)) + 'px',
+        width: pw + 'px', height: ph + 'px', borderRadius: Math.round(Math.min(pw, ph) * 0.06) + 'px',
+      });
+      let left = pw / 2 - r.cx * z, top = ph / 2 - r.cy * z;
+      left = Math.min(0, Math.max(pw - PHONE.w * z, left));
+      top = Math.min(0, Math.max(ph - PHONE.h * z, top));
+      f.el.style.zoom = z;
+      f.pcam.style.left = left + 'px';
+      f.pcam.style.top = top + 'px';
+    });
+  }
+  function setView(v) {
+    if (state.view === v) return;
+    state.view = v; save();
+    document.body.classList.toggle('view-rare', v === 'rare');
+    if (v === 'rare') { buildPanels(); layoutPanels(); }
+    ghostTaps = 0;
+    render();
+  }
+  const toggleRare = () => setView(state.view === 'rare' ? 'main' : 'rare');
+  const toggleLabels = () => { state.labels = !state.labels; save(); document.body.classList.toggle('no-labels', !state.labels); render(); };
+
+  // ----- The touch cursor: a soft circle that follows the mouse over the page and the apps.
+  // Smoothing is a 1€ filter (Casiez et al.): its cutoff rises with speed, so slow, careful moves lose
+  // their jitter while fast ones follow with next to no lag. Glide adds a critically damped spring on
+  // top for a slower, cinematic path. A press tightens either one so the tap lands where it acts.
+  const SMOOTHING = [
+    ['Off', null],
+    ['Light', { minCutoff: 4, beta: 0.03 }],
+    ['Smooth', { minCutoff: 1.6, beta: 0.012 }],
+    ['Glide', { minCutoff: 1.6, beta: 0.012, spring: 16 }],
+  ];
+  const SIZES = [['S', 0.7], ['M', 1], ['L', 1.35], ['XL', 1.8]];
+  const HOVER = [0, 0.25, 0.5, 0.75, 1];
+  const PRESS_TIGHTEN = 3;
+  function touchOn() { return CURSORS[state.cursor]?.[0] !== 'off'; }
+  function applyCursor() {
+    if (!CURSORS[state.cursor]) state.cursor = 0;
+    for (const [name] of CURSORS) document.body.classList.toggle('cur-' + name, name === CURSORS[state.cursor][0]);
+    document.body.classList.toggle('touch-mode', touchOn());
+    document.body.style.setProperty('--ts', SIZES[state.size][1]);
+    document.body.style.setProperty('--hover', HOVER[state.hover]);
+  }
+  const touchPos = document.createElement('div');
+  touchPos.id = 'touchPos';
   const touch = document.createElement('div');
   touch.className = 'touch';
-  document.body.appendChild(touch);
-  let pointer = null;
-  function placeTouch(x, y) {
-    pointer = { x, y };
-    touch.style.transform = '';
-    touch.style.left = x + 'px';
-    touch.style.top = y + 'px';
-    touch.classList.toggle('shown', state.touch);
+  touchPos.appendChild(touch);
+  document.body.appendChild(touchPos);
+  // raw: the pointer (or a glide's path); f: filtered; x/y: drawn, with the spring's velocity.
+  // real: where the mouse really is; parked: set after a keyboard tap, until the mouse really moves.
+  const cursor = { visible: false, rawX: 0, rawY: 0, fx: 0, fy: 0, speed: 0, lastRawX: 0, lastRawY: 0, x: 0, y: 0, vx: 0, vy: 0,
+                   realX: 0, realY: 0, glide: null, parked: false };
+  function snapTo(x, y) {
+    Object.assign(cursor, { rawX: x, rawY: y, fx: x, fy: y, lastRawX: x, lastRawY: y, x, y, vx: 0, vy: 0, speed: 0 });
+  }
+  function aim(x, y) {
+    // Chrome also sends mousemove when content moves under a still pointer: only a real move
+    // (a few px) takes the cursor back from a keyboard tap, and a glide always finishes.
+    const moved = Math.hypot(x - cursor.realX, y - cursor.realY) > 3;
+    cursor.realX = x; cursor.realY = y;
+    if (cursor.glide || (cursor.parked && !moved && cursor.visible)) return;
+    cursor.parked = false;
+    if (!cursor.visible) snapTo(x, y);
+    cursor.rawX = x; cursor.rawY = y;
+    cursor.visible = true;
+    touch.classList.toggle('shown', touchOn());
+  }
+  function hideCursor() { cursor.visible = false; touch.classList.remove('shown'); }
+  const lowPass = (cutoff, dt) => 1 / (1 + 1 / (2 * Math.PI * cutoff * dt));
+  function stepAxis(x, v, target, w, dt) {
+    const y = x - target, e = Math.exp(-w * dt), k = (v + w * y) * dt;
+    return [target + (y + k) * e, (v - w * k) * e];
+  }
+  function stepCursor(dtMs) {
+    const dt = Math.max(dtMs, 1) / 1000;
+    if (cursor.glide) cursor.glide(dtMs);
+    const p = SMOOTHING[state.smooth][1];
+    const tight = touch.classList.contains('down') ? PRESS_TIGHTEN : 1;
+    if (!p) { cursor.x = cursor.fx = cursor.rawX; cursor.y = cursor.fy = cursor.rawY; }
+    else {
+      const raw = Math.hypot(cursor.rawX - cursor.lastRawX, cursor.rawY - cursor.lastRawY) / dt;
+      cursor.speed += (raw - cursor.speed) * lowPass(1, dt);
+      const a = lowPass((p.minCutoff + p.beta * cursor.speed) * tight, dt);
+      cursor.fx += (cursor.rawX - cursor.fx) * a;
+      cursor.fy += (cursor.rawY - cursor.fy) * a;
+      if (p.spring) {
+        [cursor.x, cursor.vx] = stepAxis(cursor.x, cursor.vx, cursor.fx, p.spring * tight, dt);
+        [cursor.y, cursor.vy] = stepAxis(cursor.y, cursor.vy, cursor.fy, p.spring * tight, dt);
+      } else { cursor.x = cursor.fx; cursor.y = cursor.fy; }
+    }
+    cursor.lastRawX = cursor.rawX; cursor.lastRawY = cursor.rawY;
+    touchPos.style.transform = `translate3d(${cursor.x}px, ${cursor.y}px, 0)`;
   }
   function ripple(x, y) {
     const r = document.createElement('div');
@@ -331,43 +519,75 @@
     document.body.appendChild(r);
     r.addEventListener('animationend', () => r.remove());
   }
-  const overControls = (el) => !!el?.closest?.('#ui, #help');
-  addEventListener('mousemove', (e) => {
-    if (overControls(e.target)) { touch.classList.remove('shown'); return; }
-    placeTouch(e.clientX, e.clientY);
-  });
-  addEventListener('mousedown', (e) => { if (state.touch && !overControls(e.target)) touch.classList.add('down'); });
-  addEventListener('mouseup', (e) => {
+  const pressDown = () => { if (touchOn()) touch.classList.add('down'); };
+  function pressUp() {
     if (!touch.classList.contains('down')) return;
     touch.classList.remove('down');
-    if (state.touch) ripple(e.clientX, e.clientY);
+    if (touchOn()) ripple(cursor.x, cursor.y);
+  }
+  const overControls = (el) => !!el?.closest?.('#ui, #help');
+  addEventListener('mousemove', (e) => {
+    if (overControls(e.target)) return hideCursor();
+    aim(e.clientX, e.clientY);
   });
-  document.documentElement.addEventListener('mouseleave', () => touch.classList.remove('shown'));
-  // Inside the app: its coordinates mapped through the frame's zoom onto the page.
-  function fromFrame(x, y) {
-    const r = frame.getBoundingClientRect(), k = r.width / PHONE.w;
+  addEventListener('mousedown', (e) => { if (!overControls(e.target)) pressDown(); });
+  addEventListener('mouseup', pressUp);
+  // Leaving the window (moving into an app frame is not leaving: the frame reports those moves).
+  document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) hideCursor(); });
+  // Inside an app: its coordinates mapped through the frame's zoom onto the page.
+  function fromFrame(f, x, y) {
+    const r = f.el.getBoundingClientRect(), k = r.width / PHONE.w;
     return { x: r.left + x * k, y: r.top + y * k };
   }
-  function listenInFrame() {
-    const d = doc(); if (!d || d.__craftTouch) return;
+  function listenInFrame(f) {
+    const d = docOf(f); if (!d || d.__craftTouch) return;
     d.__craftTouch = true;
-    d.addEventListener('mousemove', (e) => { const p = fromFrame(e.clientX, e.clientY); placeTouch(p.x, p.y); }, true);
-    d.addEventListener('mousedown', (e) => { if (e.isTrusted && state.touch) touch.classList.add('down'); }, true);
+    d.addEventListener('mousemove', (e) => { const p = fromFrame(f, e.clientX, e.clientY); aim(p.x, p.y); }, true);
+    d.addEventListener('mousedown', (e) => { if (e.isTrusted) pressDown(); }, true);
     d.addEventListener('mouseup', (e) => {
       if (!e.isTrusted) return;
-      if (e.target.closest?.('[aria-label="Ghost"]')) { ghostTaps = (ghostTaps + 1) % 4; render(); }
-      if (!touch.classList.contains('down')) return;
-      touch.classList.remove('down');
-      const p = fromFrame(e.clientX, e.clientY);
-      if (state.touch) ripple(p.x, p.y);
+      if (e.target.closest?.('[aria-label="Ghost"]') && f === frames()[0]) { ghostTaps = (ghostTaps + 1) % 4; render(); }
+      pressUp();
     }, true);
-    d.addEventListener('mouseleave', () => touch.classList.remove('shown'), true);
+    // Out of the frame: only hide if that also left the window (the frame can reach its edge).
+    d.addEventListener('mouseout', (e) => {
+      if (e.relatedTarget) return;
+      const p = fromFrame(f, e.clientX, e.clientY);
+      if (p.x <= 0 || p.y <= 0 || p.x >= innerWidth - 1 || p.y >= innerHeight - 1) hideCursor();
+    });
   }
-  /** A keyboard tap drawn as a touch on its target: lands, squeezes, lifts with a ripple. */
-  function showTap(el) {
-    if (!state.touch || !el) return;
+  /**
+   * The cursor travels to the target like a hand would (an eased path, longer for longer reaches),
+   * then taps it: down, a short hold, up with a ripple.
+   */
+  function glideTap(f, el) {
     const b = el.getBoundingClientRect();
-    const p = fromFrame(b.x + b.width / 2, b.y + b.height / 2);
+    const to = fromFrame(f, b.x + b.width / 2, b.y + b.height / 2);
+    const from = { x: cursor.x, y: cursor.y };
+    const ms = Math.min(650, 240 + Math.hypot(to.x - from.x, to.y - from.y) * 0.45);
+    let t = 0, settle = 0;
+    const go = (dtMs) => {
+      t = Math.min(1, t + dtMs / ms);
+      const k = ease(t);
+      cursor.rawX = from.x + (to.x - from.x) * k;
+      cursor.rawY = from.y + (to.y - from.y) * k;
+      if (t < 1) return;
+      // Arrive before pressing: the smoothing trails the path by a few px at the end.
+      settle += dtMs;
+      if (Math.hypot(cursor.x - to.x, cursor.y - to.y) > 0.75 && settle < 260) return;
+      cursor.glide = null;
+      cursor.parked = true;
+      pressDown();
+      press(f, el, 'down');
+      setTimeout(() => { press(f, el, 'up'); pressUp(); }, TAP_HOLD + 40);
+    };
+    cursor.glide = go;
+  }
+  /** A tap drawn where no cursor is: a touch lands on the target, squeezes and lifts with a ripple. */
+  function showTap(f, el) {
+    if (!touchOn() || !el) return;
+    const b = el.getBoundingClientRect();
+    const p = fromFrame(f, b.x + b.width / 2, b.y + b.height / 2);
     const t = document.createElement('div');
     t.className = 'touch';
     t.style.left = p.x + 'px';
@@ -380,18 +600,21 @@
     });
   }
   function toggleTouch() {
-    state.touch = !state.touch; save();
-    document.body.classList.toggle('touch-mode', state.touch);
-    if (pointer) placeTouch(pointer.x, pointer.y);
-    decorate(); render();
+    state.cursor = (state.cursor + 1) % CURSORS.length; save();
+    applyCursor();
+    touch.classList.toggle('shown', touchOn() && cursor.visible);
+    decorateAll(); render();
   }
+  const cycleSmooth = () => { state.smooth = (state.smooth + 1) % SMOOTHING.length; save(); render(); };
+  const cycleHover = () => { state.hover = (state.hover + 1) % HOVER.length; save(); applyCursor(); render(); };
+  const resize = (step) => { state.size = Math.max(0, Math.min(SIZES.length - 1, state.size + step)); save(); applyCursor(); render(); };
 
   // ----- Controls.
   const shotsEl = $('shots'), speedsEl = $('speeds');
   SHOTS.forEach((s, i) => {
     const b = document.createElement('button');
     b.innerHTML = `<kbd>${s.key}</kbd>${s.name}`;
-    b.onclick = (e) => goTo(i, e.shiftKey);
+    b.onclick = (e) => { setView('main'); goTo(i, e.shiftKey); };
     shotsEl.appendChild(b);
   });
   SPEEDS.forEach((s) => {
@@ -401,16 +624,20 @@
     b.onclick = () => setSpeed(s);
     speedsEl.appendChild(b);
   });
-  const toggleGlass = () => { state.glass = !state.glass; save(); decorate(); render(); };
+  const toggleGlass = () => { state.glass = !state.glass; save(); decorateAll(); render(); };
   const cycleAspect = () => { state.aspect = (state.aspect + 1) % ASPECTS.length; save(); relayout(); };
   const cycleBg = () => { state.bg = (state.bg + 1) % BGS.length; save(); render(); };
-  const toggleClean = () => { document.body.classList.toggle('clean'); decorate(); };
+  const toggleClean = () => { document.body.classList.toggle('clean'); decorateAll(); };
   const toggleHelp = () => $('help').classList.toggle('open');
   $('aspect').onclick = cycleAspect;
   $('bg').onclick = cycleBg;
   $('glass').onclick = toggleGlass;
-  $('rare').onclick = cycleRare;
+  $('rareBtn').onclick = toggleRare;
+  $('labels').onclick = toggleLabels;
   $('touchBtn').onclick = toggleTouch;
+  $('smooth').onclick = cycleSmooth;
+  $('hover').onclick = cycleHover;
+  $('size').onclick = (e) => resize(e.shiftKey ? -1 : state.size === SIZES.length - 1 ? -(SIZES.length - 1) : 1);
   $('cold').onclick = coldStart;
   $('clean').onclick = toggleClean;
   $('helpBtn').onclick = toggleHelp;
@@ -420,56 +647,70 @@
   function relayout() {
     layoutStage();
     target = shotView(SHOTS[state.shot]); view = { ...target }; move = null;
-    apply(view); render();
+    apply(view); layoutPanels(); render();
   }
 
   function render() {
-    [...shotsEl.children].forEach((b, i) => b.classList.toggle('on', i === state.shot));
+    const rare = state.view === 'rare';
+    [...shotsEl.children].forEach((b, i) => b.classList.toggle('on', !rare && i === state.shot));
     [...speedsEl.children].forEach((b, i) => b.classList.toggle('on', SPEEDS[i] === state.speed));
     $('aspect').querySelector('span').textContent = ASPECTS[state.aspect][0];
     $('bg').querySelector('span').textContent = BGS[state.bg][0];
     $('glass').classList.toggle('on', state.glass);
-    $('rare').querySelector('span').textContent = 'Rare: ' + RARES[state.rare][1];
-    $('touchBtn').classList.toggle('on', state.touch);
+    $('rareBtn').classList.toggle('on', rare);
+    $('labels').classList.toggle('on', state.labels);
+    $('labels').style.display = rare ? '' : 'none';
+    $('touchBtn').classList.toggle('on', touchOn());
+    $('touchBtn').querySelector('span').textContent = 'Touch: ' + CURSORS[state.cursor][1];
+    $('smooth').querySelector('span').textContent = 'Path: ' + SMOOTHING[state.smooth][0];
+    $('size').querySelector('span').textContent = 'Size: ' + SIZES[state.size][0];
+    $('hover').querySelector('span').textContent = 'Opacity: ' + Math.round(HOVER[state.hover] * 100) + '%';
     stage.className = BGS[state.bg][1];
-    const toRare = ghostTaps === 3 ? 'next ghost tap is the rare spin' : `rare spin in ${4 - ghostTaps} ghost taps`;
-    $('status').innerHTML = `<b>${SHOTS[state.shot].name}</b> · ${SPEED_LABEL[state.speed]} · ${ASPECTS[state.aspect][0]} · ${RARES[state.rare][1]} · ${toRare}`;
+    const toRare = rare ? 'every ghost tap plays the rare spin'
+      : ghostTaps === 3 ? 'next ghost tap is the rare spin' : `rare spin in ${4 - ghostTaps} ghost taps`;
+    const where = rare ? 'Rare spins' : SHOTS[state.shot].name;
+    $('status').innerHTML = `<b>${where}</b> · ${SPEED_LABEL[state.speed]} · ${ASPECTS[state.aspect][0]} · ${toRare}`;
   }
 
   const DIGITS = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0'];
   function onKey(key, shift, code) {
     const shot = DIGITS.indexOf(code);
-    if (shot >= 0) { goTo(shot, shift); return true; }
+    if (shot >= 0) { setView('main'); goTo(shot, shift); return true; }
     const k = key.length === 1 ? key.toLowerCase() : key;
-    const step = 0.1;
+    const step = 0.1, cam = state.view === 'main';
     switch (k) {
-      case 'ArrowLeft': nudge(-stageW * step, 0, 1); return true;
-      case 'ArrowRight': nudge(stageW * step, 0, 1); return true;
-      case 'ArrowUp': nudge(0, -stageH * step, 1); return true;
-      case 'ArrowDown': nudge(0, stageH * step, 1); return true;
-      case '=': case '+': nudge(0, 0, 1.25); return true;
-      case '-': case '_': nudge(0, 0, 0.8); return true;
+      case 'ArrowLeft': if (cam) nudge(-stageW * step, 0, 1); return true;
+      case 'ArrowRight': if (cam) nudge(stageW * step, 0, 1); return true;
+      case 'ArrowUp': if (cam) nudge(0, -stageH * step, 1); return true;
+      case 'ArrowDown': if (cam) nudge(0, stageH * step, 1); return true;
+      case '=': case '+': if (cam) nudge(0, 0, 1.25); return true;
+      case '-': case '_': if (cam) nudge(0, 0, 0.8); return true;
       case ',': case '<': setSpeed(SPEEDS[Math.min(SPEEDS.length - 1, SPEEDS.indexOf(state.speed) + 1)]); return true;
       case '.': case '>': setSpeed(SPEEDS[Math.max(0, SPEEDS.indexOf(state.speed) - 1)]); return true;
       case 'x': cycleAspect(); return true;
       case 'b': cycleBg(); return true;
       case 'g': toggleGlass(); return true;
-      case 'v': cycleRare(); return true;
+      case 'v': toggleRare(); return true;
+      case 'l': toggleLabels(); return true;
       case 't': toggleTouch(); return true;
+      case 'm': cycleSmooth(); return true;
+      case 'o': cycleHover(); return true;
+      case '[': resize(-1); return true;
+      case ']': resize(1); return true;
       case 'c': coldStart(); return true;
       case 'h': toggleClean(); return true;
       case '?': case '/': toggleHelp(); return true;
-      case ' ': tap(byLabel('Ghost')); return true;
-      case 'q': tap(byLabel('Home')); return true;
-      case 'w': tap(byLabel('Explore')); return true;
-      case 'e': tap(byLabel('Stats')); return true;
-      case 'r': tap(byLabel('Profile')); return true;
-      case 'a': feedTab('Discover'); return true;
-      case 's': feedTab('Following'); return true;
-      case 'd': feedTab('Rising'); return true;
-      case 'f': feedTab('Favourites'); return true;
-      case 'n': tap(visibleText(['Read more', 'Show less'])[0]); return true;
-      case 'p': tap(visibleText(['Deposit'])[0]); return true;
+      case ' ': tapLabel('Ghost'); return true;
+      case 'q': tapLabel('Home'); return true;
+      case 'w': tapLabel('Explore'); return true;
+      case 'e': tapLabel('Stats'); return true;
+      case 'r': tapLabel('Profile'); return true;
+      case 'a': tapText(['Discover'], true); return true;
+      case 's': tapText(['Following'], true); return true;
+      case 'd': tapText(['Rising'], true); return true;
+      case 'f': tapText(['Favourites'], true); return true;
+      case 'n': tapText(['Read more', 'Show less']); return true;
+      case 'p': tapText(['Deposit']); return true;
     }
     return false;
   }
@@ -481,11 +722,12 @@
   addEventListener('resize', relayout);
 
   window.__craftSpeed = state.speed;
-  window.__craftRare = RARES[state.rare][0];
-  document.body.classList.toggle('touch-mode', state.touch);
+  applyCursor();
+  document.body.classList.toggle('no-labels', !state.labels);
   frame.src = '/?craft-frame';
   layoutStage();
   goTo(state.shot, true);
+  if (state.view === 'rare') { state.view = 'main'; setView('rare'); }
   requestAnimationFrame(tick);
 })();
 </script>
