@@ -21,9 +21,12 @@ export const RESOLVE_CURVES = [
  * the time it spends soft is time the render takes anyway.
  */
 export const TAB_RESOLVE = {
-  /** Softening on tap: short, and front-loaded so it shows in the first frames. */
-  soften: 160,
-  duration: 190,
+  /**
+   * Softening on tap: short, and front-loaded so it shows in the first frames. A release build
+   * lands the new feed within a few frames, so this is how deep the cards get before they turn.
+   */
+  soften: 130,
+  duration: 260,
   stagger: 45,
   /** The cards on screen right after a switch (the header fills the top); the rest swap plainly. */
   count: 3,
@@ -32,9 +35,10 @@ export const TAB_RESOLVE = {
   /** expo-blur intensity when fully soft; 8 is a 1.6 px blur on web (intensity x 0.2 px). */
   blur: 8,
   /**
-   * The resolve's ease-out: `smooth` (cubic) in RESOLVE_CURVES. Half way at 60 ms of the 190, and
+   * The resolve's ease-out: `smooth` (cubic) in RESOLVE_CURVES. Half way at 80 ms of the 260, and
    * still moving at the end, so it reads as the card coming into focus; the snap (quint) that the
-   * entrance and the tab labels use sharpened in four frames and read as a cut.
+   * entrance and the tab labels use sharpened in four frames and read as a cut. 190 ms felt too
+   * fast once a release build removed the dev-mode hold.
    */
   curve: 2,
   easing: RESOLVE_CURVES[2].easing,
