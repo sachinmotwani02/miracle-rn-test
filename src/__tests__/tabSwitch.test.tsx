@@ -37,6 +37,8 @@ jest.mock('@shopify/flash-list/dist/recyclerview/utils/measureLayout', () => ({
 const settle = () => act(() => jest.advanceTimersByTimeAsync(5000));
 const press = async (label: string) =>
   userEvent.setup({ advanceTimers: jest.advanceTimersByTime }).press(screen.getByRole('tab', { name: label }));
+/** A feed card's size and price line, e.g. "$18.4K at $148.60" (the carousel says "Bought SOL at"). */
+const FEED_PRICE = /^\$[\d.]+K at \$/;
 const isLit = (label: string) => screen.queryByRole('tab', { name: label, selected: true }) !== null;
 /** moonpilot only trades in the Discover feed (Following is candlefox, ethereal and quietalpha). */
 const showsDiscoverCards = () => screen.queryAllByText('moonpilot').length > 0;
@@ -198,6 +200,26 @@ describe('switching feed tabs', () => {
 
     await settle();
     expect(holding()).toBe(0);
+  });
+
+  it('switches to a shorter feed without rendering cards past its end', async () => {
+    // Short cards, so Discover draws all 36 of its cards (as after scrolling down the feed).
+    const { measureItemLayout } = jest.requireMock('@shopify/flash-list/dist/recyclerview/utils/measureLayout');
+    measureItemLayout.mockImplementation(() => ({ x: 0, y: 0, width: 393, height: 20 }));
+    try {
+      await render(<DiscoverScreen />);
+      await settle();
+      expect(screen.getAllByText(FEED_PRICE).length).toBe(36);
+
+      // Favourites has 12 cards.
+      await press('Favourites');
+      await settle();
+
+      expect(isLit('Favourites')).toBe(true);
+      expect(screen.getAllByText(FEED_PRICE).length).toBe(12);
+    } finally {
+      measureItemLayout.mockImplementation(() => ({ x: 0, y: 0, width: 393, height: 192 }));
+    }
   });
 
   it('does nothing when the tab already shown is tapped', async () => {

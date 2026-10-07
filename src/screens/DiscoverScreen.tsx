@@ -289,30 +289,36 @@ function Discover({ latency }: { latency: Latency }) {
   }, [menuOpen, bar.docked]);
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
-    ({ item, index }) => (
-      // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
-      // them, so only their props change) and shows it on the next frame, while the list and its
-      // header stay mounted for the sky bar. Rebuilding every card and fading it in from nothing
-      // made each switch wait on a pile of work and then on the fade. A feed's first load empties
-      // the list, so its cards mount fresh and crossfade from the bones (the skeleton card stays
-      // underneath until the real one covers it); the staggered entrance belongs to the first load only.
-      <Reveal
-        active={revealing && index < SKELETON.feedFade.length}
-        delay={index * SKELETON.reveal.stagger}
-        bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
-      >
-        {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
-        <TabResolve resolveKey={resolveKey} index={index}>
-          <TradeCard
-            item={item}
-            index={index}
-            expanded={!!expanded[item.id]}
-            onToggleNote={onToggleNote}
-            animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
-          />
-        </TabResolve>
-      </Reveal>
-    ),
+    ({ item, index }) => {
+      // FlashList updates the cells it draws while it renders, and the feed renders in a deferred,
+      // interruptible pass: a tap that cuts in can leave it drawing a longer feed's cells for a
+      // shorter one, with no card past the end. Draw nothing; its next pass drops the cell.
+      if (!item) return null;
+      return (
+        // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
+        // them, so only their props change) and shows it on the next frame, while the list and its
+        // header stay mounted for the sky bar. Rebuilding every card and fading it in from nothing
+        // made each switch wait on a pile of work and then on the fade. A feed's first load empties
+        // the list, so its cards mount fresh and crossfade from the bones (the skeleton card stays
+        // underneath until the real one covers it); the staggered entrance belongs to the first load only.
+        <Reveal
+          active={revealing && index < SKELETON.feedFade.length}
+          delay={index * SKELETON.reveal.stagger}
+          bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
+        >
+          {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
+          <TabResolve resolveKey={resolveKey} index={index}>
+            <TradeCard
+              item={item}
+              index={index}
+              expanded={!!expanded[item.id]}
+              onToggleNote={onToggleNote}
+              animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
+            />
+          </TabResolve>
+        </Reveal>
+      );
+    },
     [revealed, shown.switched, expanded, onToggleNote, revealing, resolveKey],
   );
 
