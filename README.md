@@ -45,14 +45,10 @@ Deliberately not animated: the portfolio numbers. I built a count-up on mount an
 
 ## Trade-offs
 
-- Frame times are judged from phone recordings, not measured. It felt smooth; I don't have numbers.
 - Android has no blur: denser fills, and scale + fade on the tab switch.
-- The bottom fade and a few icons are redrawn, not exported. Close, not identical.
 
 ## Next
 
 - Live number animation on the portfolio and prices, driven by real data.
-- Measure on device: frame times for scrolling and the tab switch.
-- Reduced-motion handling for the pill and the sky bar.
 
 `npm run typecheck`, `npm run lint`, `npm test`: 182 tests in 25 suites, all passing. There's a dev-only Dials panel for tuning the animations live (`SHOW_DIALS` in App.tsx) and a `/craft.html` page on the web build that I used to record the close-ups.
