@@ -45,3 +45,7 @@ AGENTS.md
 CLAUDE.md
 .claude/
 docs/superpowers/
+
+# Recording showcase (local only)
+public/craft.html
+src/dev/craftFrame.ts
