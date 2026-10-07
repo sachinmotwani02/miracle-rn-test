@@ -29,7 +29,11 @@ const family: Record<Weight, { fontFamily: string; fontWeight: TextStyle['fontWe
     };
 
 export function font(weight: Weight): TextStyle {
-  return { ...family[weight] };
+  // Each loaded Nunito family is already a specific weight. Asking Android to apply another
+  // weight can select a fallback or synthesize bold instead of using that exact font face.
+  return Platform.OS === 'android'
+    ? { fontFamily: family[weight].fontFamily, fontWeight: 'normal', includeFontPadding: false }
+    : { ...family[weight] };
 }
 
 const WIDTH_COMPENSATION = IS_IOS ? 0 : -0.01;

@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   // Figma: photo at (12,12) with a 1pt ring outside it; name box starts at x 40.
   header: { flexDirection: 'row', alignItems: 'center', gap: 7, minHeight: 22 },
-  name: { color: colors.textPrimary },
+  name: { color: colors.textPrimary, flexShrink: 1 },
   body: { flexDirection: 'row', alignItems: 'center', marginTop: 11, gap: 10, marginLeft: 1 },
   texts: { flex: 1 },
   gain: { color: colors.green },

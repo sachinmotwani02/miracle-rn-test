@@ -33,6 +33,9 @@ export function TopTradesCarousel({ trades, reveal = false }: { trades?: TopTrad
           snapToAlignment="start"
           decelerationRate="fast"
           nestedScrollEnabled
+          // This short horizontal list lives inside a moving vertical header. Android's
+          // default clipping can detach its content during layout/reveal updates.
+          removeClippedSubviews={false}
         />
       ) : (
         <TopTradesSkeleton />

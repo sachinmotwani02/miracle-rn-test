@@ -26,7 +26,7 @@ export function PortfolioFigures({ portfolio }: { portfolio: Portfolio }) {
 }
 
 const styles = StyleSheet.create({
-  value: { height: 28 },
+  value: { minHeight: 28 },
   valueText: { color: colors.white88 },
   delta: { marginTop: 6 },
   deltaStrong: { color: colors.white },

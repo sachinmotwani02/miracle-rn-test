@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { Platform, StyleSheet, View } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { SKELETON } from '../../utils/skeleton';
 import { BoneFadeContext } from './Bone';
 
@@ -20,6 +20,14 @@ interface Props {
  * the skeleton unmounts. Recycled or later mounts (active false) render the content as usual.
  */
 export function Reveal({ active, bones, delay = 0, children }: Props) {
+  const reducedMotion = useReducedMotion();
+  // Android's nested list headers must not depend on an animated opacity commit to show data.
+  // Keep the loading skeleton, then hand straight over to ordinary native content.
+  if (Platform.OS === 'android' || reducedMotion) return <>{children}</>;
+  return <AnimatedReveal active={active} bones={bones} delay={delay}>{children}</AnimatedReveal>;
+}
+
+function AnimatedReveal({ active, bones, delay = 0, children }: Props) {
   const [revealing] = useState(active);
   const [bonesMounted, setBonesMounted] = useState(active);
   const shown = useSharedValue(revealing ? 0 : 1);
@@ -32,7 +40,8 @@ export function Reveal({ active, bones, delay = 0, children }: Props) {
     return () => clearTimeout(id);
   }, [revealing, delay, shown]);
 
-  const contentStyle = useAnimatedStyle(() => ({ opacity: shown.value }));
+  // Settle to an explicit visible state even if the final animation frame was missed.
+  const contentStyle = useAnimatedStyle(() => ({ opacity: bonesMounted ? shown.value : 1 }));
 
   if (!revealing) return <>{children}</>;
   return (
@@ -42,7 +51,7 @@ export function Reveal({ active, bones, delay = 0, children }: Props) {
           <BoneFadeContext.Provider value={shown}>{bones}</BoneFadeContext.Provider>
         </View>
       ) : null}
-      <Animated.View style={contentStyle}>{children}</Animated.View>
+      <Animated.View collapsable={false} style={contentStyle}>{children}</Animated.View>
     </View>
   );
 }
