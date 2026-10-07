@@ -13,7 +13,7 @@ npm start
 
 ## How I approached it
 
-**1. Figma first, pixel perfect at every level.** Before any motion I rebuilt the screen 1:1: spacing, type scale, radii, colours, the cloud header, the badges. The file was view-only, so I measured from lossless captures and later from the frame's SVG, then checked at 6x. SF Pro Rounded on iOS through the system rounded font; Nunito on Android and web.
+**1. Figma first, pixel perfect at every level.** Before any motion I rebuilt the screen 1:1: spacing, type scale, radii, colours, the cloud header, the badges. The file was view-only, so I measured everything from zoomed-in captures and the frame's SVG, and compared the build against them side by side. SF Pro Rounded on iOS through the system rounded font; Nunito on Android and web.
 
 **2. The nav bar.** The glass isn't Liquid Glass. It's a custom material built from the Figma's own values: fill, inner shadow and rim highlights, so it renders the same on Android and iOS (iOS adds a real blur behind it). I tried the native Liquid Glass API first and dropped it because the two platforms didn't match. The pill animation is quick and snappy on purpose: it stretches along its travel and lands critically damped, no bounce. You can drag it too; the ghost follows it with its eyes and you get a haptic tick at each tab.
 
