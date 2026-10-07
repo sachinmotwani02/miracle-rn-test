@@ -15,6 +15,12 @@
  */
 import { useEffect, useSyncExternalStore } from 'react';
 
+/**
+ * Whether the Dials exist in this build: every dev build, and a production bundle served with
+ * `EXPO_PUBLIC_DIALS=1` (to tune on a phone without the dev-mode render cost). Never a release.
+ */
+export const DIALS_ON = __DEV__ || process.env.EXPO_PUBLIC_DIALS === '1';
+
 export type SliderDial = readonly [def: number, min: number, max: number, step?: number];
 export interface ActionDial {
   readonly type: 'action';
@@ -50,6 +56,8 @@ export interface DialPanel {
   rows: DialRow[];
   values: Readonly<Record<string, number | boolean>>;
   version: number;
+  /** One line of live readout under the panel's header (timings, say); see setDialNote. */
+  note?: string;
 }
 
 interface Panel extends DialPanel {
@@ -139,7 +147,7 @@ export function registerDials(name: string, config: DialConfig): DialPanel {
     const kept = old && 'def' in old && old.def === row.def;
     values[row.path] = kept ? existing!.values[row.path] : row.def;
   }
-  const panel: Panel = { name, config, rows, values, version: (existing?.version ?? 0) + 1, onAction: existing?.onAction };
+  const panel: Panel = { name, config, rows, values, version: (existing?.version ?? 0) + 1, onAction: existing?.onAction, note: existing?.note };
   panels.set(name, panel);
   // Registration happens during render, where other components must not be updated.
   queueMicrotask(emit);
@@ -165,6 +173,26 @@ export function resetDials(name: string, path?: string) {
   for (const row of rows) if ((row.kind === 'slider' || row.kind === 'toggle') && (!path || row.path === path)) defaults[row.path] = row.def;
   update(name, defaults);
 }
+
+/** Shows `text` under the panel's header, replacing the last note; for what the dials cannot show. */
+export function setDialNote(name: string, text: string) {
+  const panel = panels.get(name);
+  if (!panel || panel.note === text) return;
+  panel.note = text;
+  panel.version++;
+  emit();
+}
+
+let hiddenUntil = 0;
+
+/** Clears the panel off the screen for `ms` (say while an animation it tunes plays), then brings it back. */
+export function hideDials(ms: number) {
+  hiddenUntil = Date.now() + ms;
+  emit();
+  setTimeout(emit, ms);
+}
+
+export const dialsHidden = () => Date.now() < hiddenUntil;
 
 export function fireAction(name: string, path: string) {
   panels.get(name)?.onAction?.(path);
@@ -195,3 +223,6 @@ export function useDials<C extends DialConfig>(
   }, [name, panel, onAction]);
   return valuesOf(panels.get(name) ?? panel) as DialValues<C>;
 }
+
+// Dev builds also reach the store from the console or a script: `__dials.set('Card animation', 'curve', 2)`.
+if (DIALS_ON) (globalThis as { __dials?: unknown }).__dials = { set: setDial, reset: resetDials, snapshot: dialsSnapshot };

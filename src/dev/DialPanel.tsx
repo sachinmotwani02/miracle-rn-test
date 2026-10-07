@@ -6,6 +6,7 @@ import {
   DialPanel as Panel,
   DialRow,
   decimals,
+  dialsHidden,
   dialsSnapshot,
   fireAction,
   getStoreVersion,
@@ -22,18 +23,19 @@ const THUMB = 16;
 type Clipboard = { writeText(text: string): Promise<void> };
 
 /**
- * Floating control panel for every `useDials` in the app. Mount it once at the root in dev
- * builds: a "Dials" chip sits top right and opens the panel. Drag a slider to tune, tap a
- * changed value to reset it, Copy to print the values and put them on the clipboard (web) or
- * open the share sheet (iOS, Android).
+ * Floating control panel for every `useDials` in the app (or just the panels named in `only`).
+ * Mount it once at the root in dev builds: a "Dials" chip sits top right and opens the panel.
+ * Drag or tap a slider to tune, tap a changed value to reset it, Copy to print the values and put
+ * them on the clipboard (web) or open the share sheet (iOS, Android).
  */
-export function DialPanel() {
+export function DialPanel({ only, startOpen = false }: { only?: readonly string[]; startOpen?: boolean } = {}) {
   useSyncExternalStore(subscribe, getStoreVersion);
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const panels = listPanels();
+  const panels = listPanels().filter(p => !only || only.includes(p.name));
+  const single = panels.length === 1 ? panels[0] : null;
   if (!panels.length) return null;
 
   const copy = async (name: string) => {
@@ -64,10 +66,13 @@ export function DialPanel() {
   }
 
   return (
-    <View style={[styles.card, { top: insets.top + 8 }]}>
+    // Hidden rather than unmounted, so a drag in progress keeps going; never mid-drag.
+    <View style={[styles.card, { top: insets.top + 8 }, dialsHidden() && !dragging && styles.hidden]}>
+      {/* A lone panel takes the header itself, which saves a row of screen over the app. */}
       <View style={styles.header}>
-        <Text style={styles.title}>Dials</Text>
+        <Text style={styles.title}>{single ? single.name : 'Dials'}</Text>
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+        {single ? <PanelButtons name={single.name} onCopy={copy} /> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Close dials" onPress={() => setOpen(false)} hitSlop={10}>
           <Text style={styles.close}>×</Text>
         </Pressable>
@@ -75,16 +80,27 @@ export function DialPanel() {
       <ScrollView style={styles.body} scrollEnabled={!dragging} showsVerticalScrollIndicator={false}>
         {panels.map(panel => (
           <View key={panel.name} style={styles.panel}>
-            <View style={styles.panelHead}>
-              <Text style={styles.panelName}>{panel.name}</Text>
-              <Button label="Copy" onPress={() => copy(panel.name)} />
-              <Button label="Reset" onPress={() => resetDials(panel.name)} />
-            </View>
+            {panel.note ? <Text style={styles.noteLine}>{panel.note}</Text> : null}
+            {single ? null : (
+              <View style={styles.panelHead}>
+                <Text style={styles.panelName}>{panel.name}</Text>
+                <PanelButtons name={panel.name} onCopy={copy} />
+              </View>
+            )}
             <Rows panel={panel} onDrag={setDragging} />
           </View>
         ))}
       </ScrollView>
     </View>
+  );
+}
+
+function PanelButtons({ name, onCopy }: { name: string; onCopy: (name: string) => void }) {
+  return (
+    <>
+      <Button label="Copy" onPress={() => onCopy(name)} />
+      <Button label="Reset" onPress={() => resetDials(name)} />
+    </>
   );
 }
 
@@ -97,7 +113,7 @@ function Rows({ panel, onDrag }: { panel: Panel; onDrag: (dragging: boolean) => 
     out.push(
       <View key={`actions:${actions[0].path}`} style={[styles.actions, { marginLeft: actions[0].depth * 10 }]}>
         {actions.map(a => (
-          <Button key={a.path} label={a.label} onPress={() => fireAction(panel.name, a.path)} filled />
+          <Button key={a.path} label={a.label} onPress={() => fireAction(panel.name, a.path)} filled wide />
         ))}
       </View>,
     );
@@ -149,24 +165,28 @@ function SliderRow({
   style: object;
 }) {
   const changed = value !== row.def;
+  // One line per dial (label, track, value), so a panel of them stays short.
   return (
     <View style={[styles.sliderRow, style]}>
-      <View style={styles.sliderHead}>
-        <Text style={styles.label}>{row.label}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={changed ? `Reset ${row.label}` : undefined}
-          disabled={!changed}
-          onPress={() => resetDials(panel, row.path)}
-          hitSlop={8}
-        >
-          <Text style={[styles.value, changed && styles.changed]}>
-            {value.toFixed(decimals(row.step))}
-            {changed ? '  ↺' : ''}
-          </Text>
-        </Pressable>
+      <Text style={[styles.label, styles.sliderLabel]} numberOfLines={1}>
+        {row.label}
+      </Text>
+      <View style={styles.sliderTrack}>
+        <Slider row={row} value={value} onChange={v => setDial(panel, row.path, v)} onDrag={onDrag} />
       </View>
-      <Slider row={row} value={value} onChange={v => setDial(panel, row.path, v)} onDrag={onDrag} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={changed ? `Reset ${row.label}` : undefined}
+        disabled={!changed}
+        onPress={() => resetDials(panel, row.path)}
+        hitSlop={8}
+        style={styles.valueBox}
+      >
+        <Text style={[styles.value, changed && styles.changed]} numberOfLines={1}>
+          {changed ? '↺ ' : ''}
+          {value.toFixed(decimals(row.step))}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -216,9 +236,13 @@ function Slider({
   );
 }
 
-function Button({ label, onPress, filled }: { label: string; onPress: () => void; filled?: boolean }) {
+function Button({ label, onPress, filled, wide }: { label: string; onPress: () => void; filled?: boolean; wide?: boolean }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.button, filled && styles.buttonFilled, pressed && styles.pressed]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, filled && styles.buttonFilled, wide && styles.buttonWide, pressed && styles.pressed]}
+    >
       <Text style={[styles.buttonText, filled && styles.buttonTextFilled]}>{label}</Text>
     </Pressable>
   );
@@ -257,12 +281,15 @@ const styles = StyleSheet.create({
   panel: { paddingHorizontal: 14, paddingBottom: 12 },
   panelHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
   panelName: { ...font('700'), fontSize: 12, color: 'rgba(255,255,255,0.55)', flex: 1, textTransform: 'uppercase', letterSpacing: 0.6 },
+  noteLine: { ...font('600'), fontSize: 12, color: ACCENT, marginTop: 6, fontVariant: ['tabular-nums'] },
   folder: { ...font('700'), fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.6 },
   label: { ...font('600'), fontSize: 13, color: 'rgba(255,255,255,0.88)' },
   value: { ...font('600'), fontSize: 12, color: 'rgba(255,255,255,0.55)', fontVariant: ['tabular-nums'] },
   changed: { color: ACCENT },
-  sliderRow: { marginTop: 6 },
-  sliderHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  sliderLabel: { width: 64 },
+  sliderTrack: { flex: 1 },
+  valueBox: { width: 50, alignItems: 'flex-end' },
   toggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   track: { height: 26, justifyContent: 'center' },
   rail: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden', pointerEvents: 'none' },
@@ -287,7 +314,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   buttonFilled: { backgroundColor: ACCENT, borderColor: ACCENT },
+  buttonWide: { flex: 1, alignItems: 'center', paddingVertical: 9 },
   buttonText: { ...font('600'), fontSize: 12, color: '#FFFFFF' },
   buttonTextFilled: { color: '#0B1A24' },
   pressed: { opacity: 0.6 },
+  hidden: { opacity: 0, pointerEvents: 'none' },
 });

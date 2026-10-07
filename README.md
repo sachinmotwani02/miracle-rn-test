@@ -31,7 +31,7 @@ This is a single-screen demo with mock data. Deposit provides press feedback; th
 
 ## Design and implementation
 
-**Motion.** The idea is that the mascot pays attention to the user. The nav pill stretches as it moves, the ghost reacts, and the bar recedes while scrolling down. Feed changes slide content inside stationary cards. Loading placeholders, chart draw-ins, and note expansion complete the experience.
+**Motion.** The idea is that the mascot pays attention to the user. The nav pill stretches as it moves, the ghost reacts, and the bar recedes while scrolling down. A feed change softens the cards on screen from the tap itself (a faint blur, a dip in scale and opacity, on the UI thread) and the new feed resolves into them, three cards a beat apart, so nothing is rebuilt and nothing waits on the animation. Loading placeholders, chart draw-ins, and note expansion complete the experience.
 
 **Performance.** FlashList recycles feed rows, cards are memoized, and Reanimated runs the main animations on the native UI thread. JavaScript handles selection, loading, haptics, and cleanup. Other feeds preload after the first feed arrives; existing cards stay visible while a selection loads.
 

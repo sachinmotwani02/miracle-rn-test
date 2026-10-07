@@ -1,5 +1,5 @@
 import React, { Profiler } from 'react';
-import { act, render, screen, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, userEvent } from '@testing-library/react-native';
 import * as MascotModule from '../components/Mascot';
 import { clearResources } from '../data/resources';
 import { DiscoverScreen } from '../screens/DiscoverScreen';
@@ -37,6 +37,8 @@ jest.mock('@shopify/flash-list/dist/recyclerview/utils/measureLayout', () => ({
 const settle = () => act(() => jest.advanceTimersByTimeAsync(5000));
 const press = async (label: string) =>
   userEvent.setup({ advanceTimers: jest.advanceTimersByTime }).press(screen.getByRole('tab', { name: label }));
+/** A feed card's size and price line, e.g. "$18.4K at $148.60" (the carousel says "Bought SOL at"). */
+const FEED_PRICE = /^\$[\d.]+K at \$/;
 const isLit = (label: string) => screen.queryByRole('tab', { name: label, selected: true }) !== null;
 /** moonpilot only trades in the Discover feed (Following is candlefox, ethereal and quietalpha). */
 const showsDiscoverCards = () => screen.queryAllByText('moonpilot').length > 0;
@@ -156,7 +158,8 @@ describe('switching feed tabs', () => {
     expect(showsDiscoverCards()).toBe(true);
     expect(resolving()).toBeGreaterThan(0);
 
-    await act(() => jest.advanceTimersByTimeAsync(1000));
+    // Following lands at 700 ms; the last of the three cards settles about 330 ms after that.
+    await act(() => jest.advanceTimersByTimeAsync(750));
     expect(showsDiscoverCards()).toBe(false);
     expect(resolving()).toBeGreaterThan(0);
   });
@@ -185,6 +188,94 @@ describe('switching feed tabs', () => {
     expect(first?.soft).toBeGreaterThan(0);
     expect(first?.soft).toBeLessThanOrEqual(5);
     expect(commits[commits.length - 1]).toEqual({ lit: true, discoverCards: false, soft: 0 });
+  });
+
+  it('holds the cards at their height from the tap, then lets them size to their content', async () => {
+    const holding = () => screen.queryAllByTestId('tab-resolve-hold').length;
+    await render(<DiscoverScreen />);
+    await settle();
+    expect(holding()).toBe(0);
+
+    await press('Following');
+    expect(holding()).toBeGreaterThan(0);
+
+    await settle();
+    expect(holding()).toBe(0);
+  });
+
+  it('switches to a shorter feed without rendering cards past its end', async () => {
+    // Short cards, so Discover draws all 36 of its cards (as after scrolling down the feed).
+    const { measureItemLayout } = jest.requireMock('@shopify/flash-list/dist/recyclerview/utils/measureLayout');
+    measureItemLayout.mockImplementation(() => ({ x: 0, y: 0, width: 393, height: 20 }));
+    try {
+      await render(<DiscoverScreen />);
+      await settle();
+      expect(screen.getAllByText(FEED_PRICE).length).toBe(36);
+
+      // Favourites has 12 cards.
+      await press('Favourites');
+      await settle();
+
+      expect(isLit('Favourites')).toBe(true);
+      expect(screen.getAllByText(FEED_PRICE).length).toBe(12);
+    } finally {
+      measureItemLayout.mockImplementation(() => ({ x: 0, y: 0, width: 393, height: 192 }));
+    }
+  });
+
+  /** Scrolls the feed list, as FlashList sees it (its own handler is on the vertical scroll view). */
+  const scrollFeed = (y: number) => {
+    const list = screen.container.queryAll(n => n.props.onScroll != null && !n.props.horizontal)[0];
+    return act(async () => {
+      fireEvent.scroll(list, {
+        nativeEvent: {
+          contentOffset: { x: 0, y },
+          contentSize: { width: 393, height: 290 + 36 * 196 },
+          layoutMeasurement: { width: 393, height: 852 },
+        },
+      });
+    });
+  };
+  /** The host view of the list cell drawing card `index` (FlashList hands each cell its index). */
+  const cellOf = (index: number) => screen.container.queryAll(n => n.props.index === index && n.props.onLayout != null)[0];
+
+  it('switches to a shorter feed from deep in a longer one', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+    const before = screen.getAllByText(FEED_PRICE).map(t => String(t.props.children));
+    // Past where Favourites' 12 cards end (header 290 + 12 x 196 pt), as a reader deep in Discover.
+    await scrollFeed(4000);
+    await settle();
+    expect(screen.getAllByText(FEED_PRICE).map(t => String(t.props.children))).not.toEqual(before);
+
+    await press('Favourites');
+    await settle();
+
+    expect(isLit('Favourites')).toBe(true);
+    expect(screen.getAllByText(FEED_PRICE).length).toBeLessThanOrEqual(12);
+  });
+
+  it('ignores a layout report that reaches a cell after a shorter feed dropped it', async () => {
+    await render(<DiscoverScreen />);
+    await settle();
+    await scrollFeed(4000);
+    await settle();
+    const cells = Array.from({ length: 36 }, (_, i) => cellOf(i)).filter(Boolean);
+    expect(cells.length).toBeGreaterThan(0);
+
+    await press('Favourites');
+    await settle();
+    // Favourites keeps fewer cells than Discover had here, so some are removed outright (the
+    // others FlashList reuses for new cards, and a report reaching one of those sees its new index).
+    const inTree = new Set(screen.container.queryAll(n => n.props.onLayout != null));
+    const removed = cells.filter(cell => !inTree.has(cell));
+    expect(removed.length).toBeGreaterThan(0);
+
+    // Card heights animate on the UI thread, so a cell's layout reports can still be in flight when
+    // the feed drops it; Fabric delivers them to the removed cell's last props all the same.
+    for (const cell of removed) {
+      expect(() => cell.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 393, height: 100 } } })).not.toThrow();
+    }
   });
 
   it('does nothing when the tab already shown is tapped', async () => {

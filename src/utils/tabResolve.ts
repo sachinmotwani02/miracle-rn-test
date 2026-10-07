@@ -1,4 +1,17 @@
-import { Easing } from 'react-native-reanimated';
+import { Easing, EasingFunctionFactory } from 'react-native-reanimated';
+
+/**
+ * Ease-out curves for the resolve, from the one that sharpens in its first frames to one that
+ * takes its whole duration to arrive. With `snap` (quint) a 300 ms resolve is 40% done at 30 ms
+ * and 70% at 60 ms, so the sharpening reads in about four frames; `smooth` (cubic) is half done
+ * at a third of its duration and still moving at two thirds. The Dials' Curve slider indexes it.
+ */
+export const RESOLVE_CURVES = [
+  { name: 'snap', easing: Easing.bezier(0.23, 1, 0.32, 1) },
+  { name: 'quick', easing: Easing.bezier(0.25, 1, 0.5, 1) },
+  { name: 'smooth', easing: Easing.bezier(0.33, 1, 0.68, 1) },
+  { name: 'gentle', easing: Easing.bezier(0.61, 1, 0.88, 1) },
+] as const;
 
 /**
  * The tab switch "resolve". On the tap itself the cards on screen start to soften (slightly small,
@@ -8,32 +21,68 @@ import { Easing } from 'react-native-reanimated';
  * the time it spends soft is time the render takes anyway.
  */
 export const TAB_RESOLVE = {
-  /** Softening on tap: short, and front-loaded so it shows in the first frames. */
-  soften: 160,
-  duration: 300,
+  /**
+   * Softening on tap: short, and front-loaded so it shows in the first frames. A release build
+   * lands the new feed within a few frames, so this is how deep the cards get before they turn.
+   */
+  soften: 130,
+  duration: 260,
   stagger: 45,
-  /** Only the cards that can be on screen right after a switch (the header fills the top). */
-  count: 5,
-  scale: 0.97,
-  opacity: 0.45,
-  /** expo-blur intensity when fully soft; 12 is a 2.4 px blur on web (intensity x 0.2 px). */
-  blur: 12,
-  /** Strong ease-out (quint), the same curve as the first-load entrance and the tab labels. */
-  easing: Easing.bezier(0.23, 1, 0.32, 1),
+  /** The cards on screen right after a switch (the header fills the top); the rest swap plainly. */
+  count: 3,
+  scale: 0.96,
+  opacity: 0.4,
+  /** expo-blur intensity when fully soft; 8 is a 1.6 px blur on web (intensity x 0.2 px). */
+  blur: 8,
+  /**
+   * The resolve's ease-out: `gentle` (sine) in RESOLVE_CURVES. Half way at 95 ms of the 260 and
+   * still moving at the end, so it reads as the card coming into focus; the snap (quint) that the
+   * entrance and the tab labels use sharpened in four frames and read as a cut, and the cubic was
+   * "a bit" short of smooth. 190 ms felt too fast once a release build removed the dev-mode hold.
+   */
+  curve: 3,
+  easing: RESOLVE_CURVES[3].easing,
+  /** The soften keeps the snap: front-loaded, so the cards are well soft by the time a fast land turns them. */
+  softenEasing: RESOLVE_CURVES[0].easing,
+  /**
+   * The new feed's cards are often taller or shorter than the old ones (a note's line count): the
+   * card eases to its new height over this many ms (TabResolve), and the cards below follow. 0 snaps.
+   */
+  height: 220,
 };
 
+/** The curve at `index` in RESOLVE_CURVES, clamped; fractional dial values round down. */
+export function resolveEasing(index: number): EasingFunctionFactory {
+  const i = Math.min(Math.max(Math.floor(index), 0), RESOLVE_CURVES.length - 1);
+  return RESOLVE_CURVES[i].easing;
+}
+
+/** Everything that shapes the resolve; the Dials' Tab switch panel hands the screen a live one. */
+export interface ResolveLook {
+  soften: number;
+  duration: number;
+  stagger: number;
+  count: number;
+  scale: number;
+  opacity: number;
+  blur: number;
+  easing: EasingFunctionFactory;
+  softenEasing: EasingFunctionFactory;
+  height: number;
+}
+
 /** Where a card stands at progress `k` (0 = fully soft, 1 = settled). */
-export function resolveFrame(k: number) {
+export function resolveFrame(k: number, look: Pick<ResolveLook, 'opacity' | 'scale' | 'blur'> = TAB_RESOLVE) {
   'worklet';
   const t = Math.min(Math.max(k, 0), 1);
   return {
-    opacity: TAB_RESOLVE.opacity + (1 - TAB_RESOLVE.opacity) * t,
-    scale: TAB_RESOLVE.scale + (1 - TAB_RESOLVE.scale) * t,
-    intensity: TAB_RESOLVE.blur * (1 - t),
+    opacity: look.opacity + (1 - look.opacity) * t,
+    scale: look.scale + (1 - look.scale) * t,
+    intensity: look.blur * (1 - t),
   };
 }
 
 /** When the card at `index` starts resolving, in ms after the new content lands; null if it sits it out. */
-export function resolveDelay(index: number): number | null {
-  return index < TAB_RESOLVE.count ? index * TAB_RESOLVE.stagger : null;
+export function resolveDelay(index: number, look: Pick<ResolveLook, 'count' | 'stagger'> = TAB_RESOLVE): number | null {
+  return index < look.count ? index * look.stagger : null;
 }

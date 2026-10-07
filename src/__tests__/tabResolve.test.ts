@@ -4,7 +4,7 @@ jest.mock('react-native-worklets', () => jest.requireActual('react-native-workle
 
 describe('tab switch resolve', () => {
   it('starts soft, slightly small and see-through', () => {
-    expect(resolveFrame(0)).toEqual({ opacity: 0.45, scale: 0.97, intensity: 12 });
+    expect(resolveFrame(0)).toEqual({ opacity: 0.4, scale: 0.96, intensity: 8 });
   });
 
   it('lands crisp, full size and opaque', () => {
@@ -16,11 +16,21 @@ describe('tab switch resolve', () => {
     expect(resolveFrame(-0.2)).toEqual(resolveFrame(0));
   });
 
-  it('staggers the cards that can be on screen 45 ms apart and leaves the rest alone', () => {
-    expect([0, 1, 2, 3, 4, 5, 9].map(resolveDelay)).toEqual([0, 45, 90, 135, 180, null, null]);
+  it('staggers the cards on screen 45 ms apart and leaves the rest alone', () => {
+    expect([0, 1, 2, 3, 4, 9].map(i => resolveDelay(i))).toEqual([0, 45, 90, null, null, null]);
   });
 
   it('settles the last card well under half a second after the switch', () => {
     expect((TAB_RESOLVE.count - 1) * TAB_RESOLVE.stagger + TAB_RESOLVE.duration).toBeLessThan(500);
+  });
+});
+
+describe('tab switch resolve with a tuned look', () => {
+  it('starts from the look it is given', () => {
+    expect(resolveFrame(0, { opacity: 0.2, scale: 0.9, blur: 20 })).toEqual({ opacity: 0.2, scale: 0.9, intensity: 20 });
+  });
+
+  it('staggers by the given gap and count', () => {
+    expect([0, 1, 2, 3].map(i => resolveDelay(i, { count: 2, stagger: 100 }))).toEqual([0, 100, null, null]);
   });
 });

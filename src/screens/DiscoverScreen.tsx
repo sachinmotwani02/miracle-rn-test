@@ -1,5 +1,5 @@
-import React, { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, StyleSheet, View, ViewProps, useWindowDimensions } from 'react-native';
 import { FlashList, FlashListProps, FlashListRef, ListRenderItem } from '@shopify/flash-list';
 import Animated, {
   useAnimatedScrollHandler,
@@ -13,12 +13,12 @@ import { StatusBar } from 'expo-status-bar';
 import { fetchFeed, fetchPortfolio, fetchTopTrades, setHold } from '../data/api';
 import { clearResources, load, readResource, useResource } from '../data/resources';
 import { FeedItem, TABS, TabKey } from '../data/types';
-import { useDials } from '../dev/dials';
+import { DIALS_ON, hideDials, setDial, setDialNote, useDials } from '../dev/dials';
 import { useSkyBar } from '../hooks/useSkyBar';
 import { colors, layout } from '../theme';
 import { moveAccessibilityFocus } from '../utils/accessibilityFocus';
 import { SKELETON } from '../utils/skeleton';
-import { TAB_RESOLVE } from '../utils/tabResolve';
+import { ResolveLook, TAB_RESOLVE, resolveEasing } from '../utils/tabResolve';
 import { SKY_BAR } from '../utils/skyBar';
 import { SkyBackground } from '../components/SkyBackground';
 import { PortfolioHeader } from '../components/PortfolioHeader';
@@ -47,6 +47,55 @@ const SKELETON_DIALS = {
   holdLoading: false,
   replay: { type: 'action', label: 'Replay cold start' },
 } as const;
+
+/**
+ * Live controls for the tab switch card animation in dev builds (the Dials chip); defaults come
+ * from TAB_RESOLVE. Play switches to the next tab like a tap; with auto play on, every change
+ * plays a switch too, so a slider shows its effect as soon as it moves. The panel hides while a
+ * switch plays, so it never covers the cards.
+ */
+const CARD_DIALS = {
+  play: { type: 'action', label: 'Play' },
+  autoPlay: true,
+  /** Whole looks to compare in one tap; Reset is the shipped one. */
+  deepFast: { type: 'action', label: 'Deep fast' },
+  whisper: { type: 'action', label: 'Whisper' },
+  deep: { type: 'action', label: 'Deep' },
+  // The feel: how long the cards take to come back, and on what curve.
+  duration: [TAB_RESOLVE.duration, 50, 1000, 10],
+  /** Ease-out of the resolve, an index into RESOLVE_CURVES: 0 snap, 1 quick, 2 smooth, 3 gentle. */
+  curve: [TAB_RESOLVE.curve, 0, 3, 1],
+  soften: [TAB_RESOLVE.soften, 0, 600, 10],
+  stagger: [TAB_RESOLVE.stagger, 0, 150, 5],
+  // The softness: how far the cards sink at the tap.
+  scale: [TAB_RESOLVE.scale, 0.8, 1, 0.005],
+  opacity: [TAB_RESOLVE.opacity, 0, 1, 0.01],
+  blur: [TAB_RESOLVE.blur, 0, 40, 1],
+  // The rest.
+  cards: [TAB_RESOLVE.count, 0, 8, 1],
+  /** How long the cards' height changes take, ms; 0 snaps. */
+  height: [TAB_RESOLVE.height, 0, 600, 10],
+  /**
+   * How far past the screen FlashList keeps cards drawn, in pt. Every drawn card re-renders on a
+   * switch, so this is the hold's length: one screen (the shipped 812-ish) keeps about 13 cards,
+   * 250 (FlashList's default) about 7, at the price of cards drawing later in a fast scroll.
+   */
+  drawDistance: [812, 0, 1600, 50],
+  /** Stretches every duration and the stagger, to watch a switch frame by frame. */
+  slowMo: [1, 1, 10, 0.5],
+} as const;
+
+/**
+ * Three looks for the resolve, each a whole set of dials. Deep sinks the cards further than the
+ * shipped look and surfaces them slowly, for a switch with presence; Deep fast keeps that
+ * softness but settles in 380 ms on the smooth curve ("I like the softness of Deep but it feels
+ * very slow"); Whisper is the lightest touch that still registers.
+ */
+const CARD_PRESETS: Record<string, Record<string, number>> = {
+  deepFast: { soften: 160, duration: 380, curve: 2, stagger: 40, cards: 5, scale: 0.96, opacity: 0.4, blur: 14, height: 220 },
+  whisper: { soften: 140, duration: 320, curve: 1, stagger: 35, cards: 5, scale: 0.985, opacity: 0.65, blur: 8, height: 200 },
+  deep: { soften: 200, duration: 520, curve: 3, stagger: 55, cards: 5, scale: 0.96, opacity: 0.4, blur: 14, height: 260 },
+};
 
 interface Latency {
   portfolio: number;
@@ -90,10 +139,31 @@ export function DiscoverScreen() {
 function Discover({ latency }: { latency: Latency }) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  // A tap lights its label in a commit of its own; the cards follow in a deferred render, so the
-  // label never waits for them. `switched` retires the first-load entrance for good.
+  // A tap lights its label in a commit of its own; the cards follow a frame later, so the label
+  // never waits for them. `switched` retires the first-load entrance for good.
+  // Not useDeferredValue: FlashList rewrites its layout table while it renders, and React throws a
+  // deferred render away when anything urgent lands (a second tap, a dial, a feed arriving),
+  // keeping the old cards on screen over a table cut to the new feed; their next layout report
+  // then asks for a card past its end and crashes. A state set from the next frame renders at the
+  // default priority, which React runs to the end.
   const [selection, setSelection] = useState<{ tab: TabKey; switched: boolean }>({ tab: 'discover', switched: false });
-  const shown = useDeferredValue(selection);
+  const [shown, setShown] = useState(selection);
+  useEffect(() => {
+    if (shown === selection) return;
+    let shownYet = false;
+    const show = () => {
+      if (shownYet) return;
+      shownYet = true;
+      setShown(selection);
+    };
+    const frame = requestAnimationFrame(show);
+    // A browser tab in the background gets no frames at all; don't wait on one past this.
+    const timer = setTimeout(show, 50);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [selection, shown]);
   const [firstTab] = useState(selection.tab);
   const [nav, setNav] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -116,6 +186,35 @@ function Discover({ latency }: { latency: Latency }) {
     quiet: !cold,
   });
   const [feedTab, setFeedTab] = useState<TabKey | null>(null);
+  // Play switches tabs like a tap; onTab is declared below, so it goes through a ref.
+  const playNext = useRef(() => {});
+  const onDialAction = useCallback((action: string) => {
+    if (action === 'play') playNext.current();
+    const preset = CARD_PRESETS[action];
+    if (preset) for (const [key, value] of Object.entries(preset)) setDial('Card animation', key, value);
+  }, []);
+  const card = useDials('Card animation', CARD_DIALS, { onAction: onDialAction });
+  const { soften: softenMs, duration, curve, stagger, cards, scale, opacity, blur, height: heightMs, slowMo, autoPlay, drawDistance } = card;
+  const look = useMemo<ResolveLook>(
+    () => ({
+      soften: softenMs * slowMo,
+      duration: duration * slowMo,
+      stagger: stagger * slowMo,
+      count: cards,
+      scale,
+      opacity,
+      blur,
+      easing: resolveEasing(curve),
+      softenEasing: TAB_RESOLVE.softenEasing,
+      height: heightMs * slowMo,
+    }),
+    [softenMs, duration, curve, stagger, cards, scale, opacity, blur, slowMo, heightMs],
+  );
+
+  const reduced = useReducedMotion();
+
+  // Dev readout in the Dials: how long after the tap the new feed reached the screen.
+  const tappedAt = useRef(0);
   // A switch, to a feed loaded ahead or one that just landed, resolves the cards on screen in place.
   const [resolveKey, setResolveKey] = useState(0);
   if (feed.phase === 'content' && feedTab !== shown.tab) {
@@ -143,17 +242,35 @@ function Discover({ latency }: { latency: Latency }) {
   // The cards start to soften on the tap itself, from this handler, before React renders anything;
   // the new feed then resolves out of the softness (TabResolve).
   const pending = useSharedValue(0);
-  const reduced = useReducedMotion();
+
   const onTab = useCallback(
     (tab: TabKey) => {
       if (tab === selection.tab) return;
-      if (!reduced) pending.set(withTiming(1, { duration: TAB_RESOLVE.soften, easing: TAB_RESOLVE.easing }));
+      tappedAt.current = Date.now();
+      if (!reduced) pending.set(withTiming(1, { duration: look.soften, easing: look.softenEasing }));
       setSelection({ tab, switched: true });
     },
-    [selection.tab, reduced, pending],
+    [selection.tab, reduced, pending, look],
   );
+  useEffect(() => {
+    playNext.current = () => {
+      const i = TABS.findIndex(t => t.key === selection.tab);
+      // The panel steps aside until the last card settles (plus the new feed's render).
+      hideDials(look.soften + Math.max(look.count - 1, 0) * look.stagger + look.duration + 400);
+      onTab(TABS[(i + 1) % TABS.length].key);
+    };
+  }, [onTab, selection.tab, look]);
+  // Auto play: a moment after the dials stop changing, play a switch with the new values.
+  const lookSeen = useRef(look);
+  useEffect(() => {
+    if (lookSeen.current === look) return;
+    lookSeen.current = look;
+    if (!autoPlay) return;
+    const id = setTimeout(() => playNext.current(), 250);
+    return () => clearTimeout(id);
+  }, [look, autoPlay]);
   const softening = feedTab !== null && selection.tab !== feedTab;
-  const soften = useMemo(() => ({ pending, softening }), [pending, softening]);
+  const soften = useMemo(() => ({ pending, softening, look }), [pending, softening, look]);
   // Once the tapped feed is on screen the cards own the motion: on a resolve they have already taken
   // over from `pending` (their layout effects run first), so it drops at once; with no resolve (tapped
   // away and back before the cards changed) they ease back to sharp.
@@ -163,10 +280,12 @@ function Discover({ latency }: { latency: Latency }) {
     if (handedOff.current !== resolveKey) {
       handedOff.current = resolveKey;
       pending.set(0);
+      // The commit that puts the new feed in the cards: the hold ends here and the resolve starts.
+      if (DIALS_ON && tappedAt.current) setDialNote('Card animation', `Last switch: new feed on screen ${Date.now() - tappedAt.current} ms after the tap`);
     } else {
-      pending.set(withTiming(0, { duration: TAB_RESOLVE.duration, easing: TAB_RESOLVE.easing }));
+      pending.set(withTiming(0, { duration: look.duration, easing: look.easing }));
     }
-  }, [softening, resolveKey, pending]);
+  }, [softening, resolveKey, pending, look]);
 
   const onToggleNote = useCallback((id: string) => {
     setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
@@ -227,30 +346,35 @@ function Discover({ latency }: { latency: Latency }) {
   }, [menuOpen, bar.docked]);
 
   const renderItem = useCallback<ListRenderItem<FeedItem>>(
-    ({ item, index }) => (
-      // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
-      // them, so only their props change) and shows it on the next frame, while the list and its
-      // header stay mounted for the sky bar. Rebuilding every card and fading it in from nothing
-      // made each switch wait on a pile of work and then on the fade. A feed's first load empties
-      // the list, so its cards mount fresh and crossfade from the bones (the skeleton card stays
-      // underneath until the real one covers it); the staggered entrance belongs to the first load only.
-      <Reveal
-        active={revealing && index < SKELETON.feedFade.length}
-        delay={index * SKELETON.reveal.stagger}
-        bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
-      >
-        {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
-        <TabResolve resolveKey={resolveKey} index={index}>
-          <TradeCard
-            item={item}
-            index={index}
-            expanded={!!expanded[item.id]}
-            onToggleNote={onToggleNote}
-            animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
-          />
-        </TabResolve>
-      </Reveal>
-    ),
+    ({ item, index }) => {
+      // FlashList can draw a cell for an index its render stack is about to drop (a longer feed's
+      // cell on a shorter feed), with no card for it. Draw nothing; its next pass drops the cell.
+      if (!item) return null;
+      return (
+        // A tab switch to a loaded feed hands it to the cards already mounted (FlashList recycles
+        // them, so only their props change) and shows it on the next frame, while the list and its
+        // header stay mounted for the sky bar. Rebuilding every card and fading it in from nothing
+        // made each switch wait on a pile of work and then on the fade. A feed's first load empties
+        // the list, so its cards mount fresh and crossfade from the bones (the skeleton card stays
+        // underneath until the real one covers it); the staggered entrance belongs to the first load only.
+        <Reveal
+          active={revealing && index < SKELETON.feedFade.length}
+          delay={index * SKELETON.reveal.stagger}
+          bones={<TradeCardSkeleton seed={index} fade={SKELETON.feedFade[index]} />}
+        >
+          {/* Outside the memoised card, so a switch re-renders only this wrapper for a card both feeds share. */}
+          <TabResolve resolveKey={resolveKey} index={index}>
+            <TradeCard
+              item={item}
+              index={index}
+              expanded={!!expanded[item.id]}
+              onToggleNote={onToggleNote}
+              animateIn={!revealed && !shown.switched && index < ENTRANCE_COUNT}
+            />
+          </TabResolve>
+        </Reveal>
+      );
+    },
     [revealed, shown.switched, expanded, onToggleNote, revealing, resolveKey],
   );
 
@@ -313,6 +437,7 @@ function Discover({ latency }: { latency: Latency }) {
                 ref={listRef}
                 data={items}
                 renderItem={renderItem}
+                CellRendererComponent={FeedCell}
                 keyExtractor={keyExtractor}
                 extraData={expanded}
                 ListHeaderComponent={header}
@@ -322,7 +447,7 @@ function Discover({ latency }: { latency: Latency }) {
                 showsVerticalScrollIndicator={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                drawDistance={height}
+                drawDistance={DIALS_ON ? drawDistance : height}
                 // On by default in FlashList 2: on a tab switch it scrolled to keep a card the two feeds
                 // share in place (0 -> 1064 pt on Rising). The feed never prepends, so leave the offset alone.
                 maintainVisibleContentPosition={MVCP_OFF}
@@ -346,7 +471,28 @@ function Discover({ latency }: { latency: Latency }) {
 }
 
 const NO_ITEMS: FeedItem[] = [];
-const keyExtractor = (item: FeedItem) => item.id;
+// Cells are keyed by position, not by trade: on a tab switch each cell keeps its place and takes
+// the new feed's card for it, so a card can hold its slot's height and ease to the new one
+// (TabResolve). Keyed by trade, FlashList handed cells across positions (the second card's cell
+// became the first), and the held heights belonged to the wrong slots. The feed never reorders.
+const keyExtractor = (_item: FeedItem, index: number) => String(index);
+
+/**
+ * The list's cell. FlashList sizes cells from their layout reports and looks each one up by the
+ * cell's index. Card heights animate on the UI thread (TabResolve), so a report can still be in
+ * flight when a shorter feed drops the cell, and Fabric delivers it to the removed cell all the
+ * same: an index past the end of the new feed, which FlashList throws on. Dropped here instead.
+ */
+const FeedCell = forwardRef<View, ViewProps>(function FeedCell({ onLayout, ...rest }, ref) {
+  const live = useRef(true);
+  useEffect(() => () => {
+    live.current = false;
+  }, []);
+  const onLiveLayout = useCallback((e: LayoutChangeEvent) => {
+    if (live.current) onLayout?.(e);
+  }, [onLayout]);
+  return <View ref={ref} {...rest} onLayout={onLiveLayout} />;
+});
 const MVCP_OFF = { disabled: true };
 
 function Separator() {
