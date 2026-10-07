@@ -8,7 +8,7 @@ import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { FONTS } from './src/theme/fonts';
 
 /** Flip to false to hide the Dials, which tune the tab switch card animation. */
-const SHOW_DIALS = true;
+const SHOW_DIALS = false;
 
 export default function App() {
   // iOS has no fonts to load, so it renders on the first frame. If loading fails, the text falls
